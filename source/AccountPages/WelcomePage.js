@@ -6,7 +6,7 @@ const WelcomePage = ({ navigation }) => {
     <View style={styles.container}>
       <Image source={require('../../assets/logo.png')} style={styles.logo} />
       
-      <Text style={styles.title}>Controle as suas finanças</Text>
+      <Text style={styles.title}>Controle as suas finanças!</Text>
       <Text style={styles.description}>
         Monitore as suas finanças, defina metas e alcance os seus objetivos com facilidade e eficiência.
       </Text>
