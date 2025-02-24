@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { Picker } from '@react-native-picker/picker';
 import { supabase } from '../../Supabase'; // Certifique-se de que o caminho está correto
-import { View, Text, TextInput, TouchableOpacity, Image } from 'react-native';
 import styles from '../Styles/RegisterPageStyle'; // Importar os estilos
 import { isEmailValid, isPhoneValid, isPasswordValid, isFieldNotEmpty, isNameValid } from '../Utility/Validations'; // Importar funções de validação
 
@@ -10,7 +11,28 @@ const RegisterPage = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [region, setRegion] = useState('');
+  const [countries, setCountries] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    // Fetch countries from REST Countries API
+    const fetchCountries = async () => {
+      try {
+        const response = await fetch('https://restcountries.com/v3.1/all');
+        const data = await response.json();
+        const countryList = data.map(country => ({
+          name: country.name.common,
+          code: country.cca2,
+        })).sort((a, b) => a.name.localeCompare(b.name));
+        setCountries(countryList);
+      } catch (error) {
+        console.error('Error fetching countries:', error);
+      }
+    };
+
+    fetchCountries();
+  }, []);
 
   const handleRegister = async () => {
     console.log('handleRegister called');
@@ -20,14 +42,15 @@ const RegisterPage = ({ navigation }) => {
       !isFieldNotEmpty(name) ||
       !isFieldNotEmpty(email) ||
       !isFieldNotEmpty(password) ||
-      !isFieldNotEmpty(confirmPassword)
+      !isFieldNotEmpty(confirmPassword) ||
+      !isFieldNotEmpty(region)
     ) {
       alert('Por favor, preencha todos os campos.');
       return;
     }
 
     if (!isPhoneValid(phone)) {
-      alert('Por favor, insira um número de telefone válido.');
+      alert('Por favor, insira um número de telefone válido (9 dígitos).');
       return;
     }
 
@@ -115,7 +138,7 @@ const RegisterPage = ({ navigation }) => {
       // Inserir os dados na tabela `users`
       const { data: insertData, error: insertError } = await supabase
         .from('users')
-        .insert([{ id: user.id, phone, name, email, password }]);
+        .insert([{ id: user.id, phone, name, email, password, region }]);
       
       console.log('insert result:', insertData, insertError);
   
@@ -180,15 +203,25 @@ const RegisterPage = ({ navigation }) => {
         secureTextEntry
       />
       
+      {countries.length === 0 ? (
+        <ActivityIndicator size="large" color="#0000ff" />
+      ) : (
+        <View style={styles.pickerContainer}>
+          <Picker
+            selectedValue={region}
+            style={styles.picker}
+            onValueChange={(itemValue) => setRegion(itemValue)}
+          >
+            <Picker.Item label="Select your region" value="" />
+            {countries.map(country => (
+              <Picker.Item key={country.code} label={country.name} value={country.code} />
+            ))}
+          </Picker>
+        </View>
+      )}
+      
       <TouchableOpacity style={styles.button} onPress={handleRegister} disabled={isLoading}>
         <Text style={styles.buttonText}>Register</Text>
-      </TouchableOpacity>
-      
-      <Text style={styles.orText}>OR</Text>
-      
-      <TouchableOpacity style={styles.googleButton}>
-        <Image source={require('../../assets/google-logo.png')} style={styles.googleIcon} />
-        <Text style={styles.googleText}>Sign up With Google</Text>
       </TouchableOpacity>
       
       <Text style={styles.loginText}>Already Have an Account? <Text style={styles.loginLink} onPress={() => navigation.navigate('Login')}>Login Here</Text></Text>

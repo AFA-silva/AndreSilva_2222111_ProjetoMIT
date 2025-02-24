@@ -28,20 +28,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     marginBottom: 15,
   },
-  pickerContainer: {
-    width: '80%',
-    height: 60,  // Aumentamos a altura para garantir que o texto não fique cortado
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    marginBottom: 15,
-    overflow: 'hidden',
-    justifyContent: 'center', // Centraliza o conteúdo verticalmente
-  },
-  picker: {
-    width: '100%',
-    height: '100%',
-  },
   button: {
     backgroundColor: '#f4c542',
     padding: 15,
@@ -60,11 +46,33 @@ const styles = StyleSheet.create({
     color: '#777',
     marginVertical: 10,
   },
-  loginText: {
+  googleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ccc',
+    width: '80%',
+    justifyContent: 'center',
+    marginBottom: 20,
+  },
+  googleIcon: {
+    width: 20,
+    height: 20,
+    marginRight: 10,
+  },
+  googleText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#777',
+  },
+  registerText: {
     fontSize: 14,
     color: '#777',
   },
-  loginLink: {
+  registerLink: {
     color: '#f4c542',
     fontWeight: 'bold',
   },
