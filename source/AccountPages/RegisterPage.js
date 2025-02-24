@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { supabase } from '../../supabase';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image } from 'react-native';
 
 const RegisterPage = ({ navigation }) => {
@@ -8,12 +9,40 @@ const RegisterPage = ({ navigation }) => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
-  const handleRegister = () => {
-    console.log('Phone:', phone);
-    console.log('Name:', name);
-    console.log('Email:', email);
-    console.log('Password:', password);
-    alert('Register button pressed!');
+  const handleRegister = async () => {
+    if (!phone || !name || !email || !password || !confirmPassword) {
+      alert('Por favor, preenche todos os campos.');
+      return;
+    }
+  
+    if (password !== confirmPassword) {
+      alert('As palavras-passe não coincidem.');
+      return;
+    }
+  
+    // Registar utilizador no Supabase Auth
+    const { user, error } = await supabase.auth.signUp({
+      email,
+      password,
+    });
+  
+    if (error) {
+      alert(`Erro ao registar: ${error.message}`);
+      return;
+    }
+  
+    // Inserir os dados na tabela `users`
+    const { data, error: insertError } = await supabase
+      .from('users')
+      .insert([{ id: user.id, phone, name, email }]);
+  
+    if (insertError) {
+      alert(`Erro ao guardar dados: ${insertError.message}`);
+      return;
+    }
+  
+    alert('Conta criada com sucesso!');
+    navigation.navigate('Login'); // Redirecionar para login
   };
 
   return (
