@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
-import { supabase } from '../../supabase';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image } from 'react-native';
+import { supabase } from '../../Supabase'; // Certifique-se de que o caminho está correto
+import { View, Text, TextInput, TouchableOpacity, Image } from 'react-native';
+import styles from '../Styles/RegisterPageStyle'; // Importar os estilos
+import { isEmailValid, isPhoneValid, isPasswordValid, isFieldNotEmpty, isNameValid } from '../Utility/Validations'; // Importar funções de validação
 
 const RegisterPage = ({ navigation }) => {
   const [phone, setPhone] = useState('');
@@ -8,41 +10,129 @@ const RegisterPage = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleRegister = async () => {
-    if (!phone || !name || !email || !password || !confirmPassword) {
-      alert('Por favor, preenche todos os campos.');
+    console.log('handleRegister called');
+
+    if (
+      !isFieldNotEmpty(phone) ||
+      !isFieldNotEmpty(name) ||
+      !isFieldNotEmpty(email) ||
+      !isFieldNotEmpty(password) ||
+      !isFieldNotEmpty(confirmPassword)
+    ) {
+      alert('Por favor, preencha todos os campos.');
+      return;
+    }
+
+    if (!isPhoneValid(phone)) {
+      alert('Por favor, insira um número de telefone válido.');
+      return;
+    }
+
+    if (!isNameValid(name)) {
+      alert('O nome deve ter no máximo 20 caracteres.');
+      return;
+    }
+
+    if (!isEmailValid(email)) {
+      alert('Por favor, insira um email válido.');
       return;
     }
   
-    if (password !== confirmPassword) {
-      alert('As palavras-passe não coincidem.');
+    if (!isPasswordValid(password, confirmPassword)) {
+      alert('A senha deve ter entre 6 e 16 caracteres e coincidir com a confirmação de senha.');
       return;
     }
-  
-    // Registar utilizador no Supabase Auth
-    const { user, error } = await supabase.auth.signUp({
-      email,
-      password,
-    });
-  
-    if (error) {
-      alert(`Erro ao registar: ${error.message}`);
+    
+    if (isLoading) {
+      alert('Aguarde um momento antes de tentar novamente.');
       return;
     }
+
+    setIsLoading(true);
+
+    try {
+      // Verificar se o email já está registrado
+      const { data: existingUserByEmail, error: existingUserErrorByEmail } = await supabase
+        .from('users')
+        .select('id')
+        .eq('email', email);
+      
+      if (existingUserErrorByEmail) {
+        alert(`Erro ao verificar usuário existente: ${existingUserErrorByEmail.message}`);
+        setIsLoading(false);
+        return;
+      }
+
+      if (existingUserByEmail && existingUserByEmail.length > 0) {
+        alert('Usuário com este email já existe.');
+        setIsLoading(false);
+        return;
+      }
+
+      // Verificar se o telefone já está registrado
+      const { data: existingUserByPhone, error: existingUserErrorByPhone } = await supabase
+        .from('users')
+        .select('id')
+        .eq('phone', phone);
+      
+      if (existingUserErrorByPhone) {
+        alert(`Erro ao verificar telefone existente: ${existingUserErrorByPhone.message}`);
+        setIsLoading(false);
+        return;
+      }
+
+      if (existingUserByPhone && existingUserByPhone.length > 0) {
+        alert('Usuário com este telefone já existe.');
+        setIsLoading(false);
+        return;
+      }
+
+      // Registar utilizador no Supabase Auth
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+      });
+
+      console.log('signUp result:', data, error);
   
-    // Inserir os dados na tabela `users`
-    const { data, error: insertError } = await supabase
-      .from('users')
-      .insert([{ id: user.id, phone, name, email }]);
+      if (error) {
+        alert(`Erro ao registar: ${error.message}`);
+        setIsLoading(false);
+        return;
+      }
+
+      const user = data.user;
   
-    if (insertError) {
-      alert(`Erro ao guardar dados: ${insertError.message}`);
-      return;
+      if (!user) {
+        alert('Erro ao obter os dados do usuário.');
+        setIsLoading(false);
+        return;
+      }
+  
+      // Inserir os dados na tabela `users`
+      const { data: insertData, error: insertError } = await supabase
+        .from('users')
+        .insert([{ id: user.id, phone, name, email, password }]);
+      
+      console.log('insert result:', insertData, insertError);
+  
+      if (insertError) {
+        alert(`Erro ao guardar dados: ${insertError.message}`);
+        setIsLoading(false);
+        return;
+      }
+  
+      alert('Conta criada com sucesso!');
+      navigation.navigate('Login'); // Redirecionar para login
+    } catch (e) {
+      console.error('Unexpected error:', e);
+      alert('Erro inesperado. Por favor, tente novamente.');
+    } finally {
+      setIsLoading(false);
     }
-  
-    alert('Conta criada com sucesso!');
-    navigation.navigate('Login'); // Redirecionar para login
   };
 
   return (
@@ -90,7 +180,7 @@ const RegisterPage = ({ navigation }) => {
         secureTextEntry
       />
       
-      <TouchableOpacity style={styles.button} onPress={handleRegister}>
+      <TouchableOpacity style={styles.button} onPress={handleRegister} disabled={isLoading}>
         <Text style={styles.buttonText}>Register</Text>
       </TouchableOpacity>
       
@@ -105,83 +195,5 @@ const RegisterPage = ({ navigation }) => {
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    padding: 20,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 5,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#777',
-    marginBottom: 20,
-  },
-  input: {
-    width: '80%',
-    height: 50,
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    backgroundColor: '#fff',
-    marginBottom: 15,
-  },
-  button: {
-    backgroundColor: '#f4c542',
-    padding: 15,
-    borderRadius: 8,
-    width: '80%',
-    alignItems: 'center',
-    marginBottom: 15,
-  },
-  buttonText: {
-    color: '#000',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  orText: {
-    fontSize: 14,
-    color: '#777',
-    marginVertical: 10,
-  },
-  googleButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#ccc',
-    width: '80%',
-    justifyContent: 'center',
-    marginBottom: 20,
-  },
-  googleIcon: {
-    width: 20,
-    height: 20,
-    marginRight: 10,
-  },
-  googleText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#777',
-  },
-  loginText: {
-    fontSize: 14,
-    color: '#777',
-  },
-  loginLink: {
-    color: '#f4c542',
-    fontWeight: 'bold',
-  },
-});
 
 export default RegisterPage;
