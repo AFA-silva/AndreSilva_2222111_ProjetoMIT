@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { supabase } from '../../Supabase'; // Certifique-se de que o caminho está correto
-import styles from '../Styles/RegisterPageStyle'; // Importar os estilos
+import styles from '../Styles/AccountPageStyles/RegisterPageStyle'; // Importar os estilos
 import { isEmailValid, isPhoneValid, isPasswordValid, isFieldNotEmpty, isNameValid } from '../Utility/Validations'; // Importar funções de validação
 
 const RegisterPage = ({ navigation }) => {

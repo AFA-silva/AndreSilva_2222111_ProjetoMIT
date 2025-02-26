@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Alert } from 'react-native';
-import styles from '../Styles/LoginPageStyle'; // Importar os estilos
+import styles from '../Styles/AccountPageStyles/LoginPageStyle'; // Importar os estilos
 import { supabase } from '../../Supabase'; // Importar a configuração do Supabase
 
 const LoginPage = ({ navigation }) => {
