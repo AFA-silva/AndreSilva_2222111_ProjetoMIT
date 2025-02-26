@@ -30,7 +30,7 @@ const LoginPage = ({ navigation }) => {
 
     if (data) {
       // Redirecionar para a MainMenuPage se o login for bem-sucedido
-      navigation.navigate('MainMenuPage');
+      navigation.navigate('MainPages');
     } else {
       Alert.alert('Erro', 'Email ou senha inválidos.');
     }

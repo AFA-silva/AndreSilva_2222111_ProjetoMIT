@@ -4,9 +4,7 @@ import { createStackNavigator } from '@react-navigation/stack';
 import WelcomePage from './source/AccountPages/WelcomePage';
 import LoginPage from './source/AccountPages/LoginPage';
 import RegisterPage from './source/AccountPages/RegisterPage';
-import MainMenuPage from './source/MainPages/MainMenuPage';
-import SettingsPage from './source/MainPages/SettingsPage';
-import ManagerPage from './source/MainPages/ManagerPage';
+import MainPagesNavigator from './source/MainPagesNavigator';
 
 const Stack = createStackNavigator();
 
@@ -17,15 +15,13 @@ export default function App() {
         screenOptions={{
           headerShown: false,
           animationTypeForReplace: 'push',
-          animationEnabled: true, // Ativa animações de transição
+          animationEnabled: true,
         }}
       >
         <Stack.Screen name="Welcome" component={WelcomePage} />
         <Stack.Screen name="Login" component={LoginPage} />
         <Stack.Screen name="Register" component={RegisterPage} />
-        <Stack.Screen name="SettingsPage" component={SettingsPage}/>
-        <Stack.Screen name="ManagerPage" component={ManagerPage}/>
-        <Stack.Screen name="MainMenuPage" component={MainMenuPage} />
+        <Stack.Screen name="MainPages" component={MainPagesNavigator} />
       </Stack.Navigator>
     </NavigationContainer>
   );
