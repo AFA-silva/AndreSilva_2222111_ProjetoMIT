@@ -9,7 +9,7 @@ const NavigationBar = () => {
     <View style={styles.navbar}>
       <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('MainPages', { screen: 'MainMenuPage' })}>
         <Image source={require('../assets/home.png')} style={styles.navIcon} />
-        <Text style={styles.navText}>Main Menu</Text>
+        <Text style={styles.navText}>Home</Text>
       </TouchableOpacity>
 
       <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('MainPages', { screen: 'SettingsPage' })}>

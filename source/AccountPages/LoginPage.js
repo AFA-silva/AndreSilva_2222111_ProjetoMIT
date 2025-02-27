@@ -1,43 +1,62 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Alert } from 'react-native';
-import styles from '../Styles/AccountPageStyles/LoginPageStyle'; // Importar os estilos
-import { supabase } from '../../Supabase'; // Importar a configuração do Supabase
+import { View, Text, TextInput, TouchableOpacity } from 'react-native';
+import styles from '../Styles/AccountPageStyles/LoginPageStyle';
+import { supabase } from '../../Supabase';
+import Alert from '../Utility/Alerts'; // Importa o Alert customizado
 
 const LoginPage = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
+  // Estados para o alerta
+  const [alertMessage, setAlertMessage] = useState('');
+  const [alertType, setAlertType] = useState('');
+  const [showAlert, setShowAlert] = useState(false);
+
+  const showAlertMessage = (message, type) => {
+    setAlertMessage(message);
+    setAlertType(type);
+    setShowAlert(true);
+    setTimeout(() => setShowAlert(false), 3000); // Fecha o alerta após 3 segundos
+  };
+
   const handleLogin = async () => {
     console.log('Email:', email);
     console.log('Password:', password);
 
-    // Verificar se os campos de email e senha não estão vazios
+    // Verifica se os campos não estão vazios
     if (!email || !password) {
-      Alert.alert('Erro', 'Por favor, preencha todos os campos.');
+      showAlertMessage('Por favor, preencha todos os campos.', 'error');
       return;
     }
 
     // Tentar fazer login com o Supabase Auth
     const { error, data } = await supabase.auth.signInWithPassword({
-      email: email,
-      password: password,
+      email,
+      password,
     });
 
     if (error) {
-      Alert.alert('Erro', error.message);
+      showAlertMessage(error.message, 'error');
       return;
     }
 
     if (data) {
-      // Redirecionar para a MainMenuPage se o login for bem-sucedido
       navigation.navigate('MainPages');
     } else {
-      Alert.alert('Erro', 'Email ou senha inválidos.');
+      showAlertMessage('Email ou senha inválidos.', 'error');
     }
   };
 
   return (
     <View style={styles.container}>
+      {showAlert && (
+        <Alert 
+          message={alertMessage} 
+          type={alertType} 
+          onClose={() => setShowAlert(false)} 
+        />
+      )}
       <Text style={styles.title}>Login Account</Text>
       <Text style={styles.subtitle}>Hello, welcome back to our account</Text>
       
@@ -62,7 +81,12 @@ const LoginPage = ({ navigation }) => {
         <Text style={styles.buttonText}>Login</Text>
       </TouchableOpacity>
       
-      <Text style={styles.registerText}>Not Registered yet? <Text style={styles.registerLink} onPress={() => navigation.navigate('Register')}>Create an Account</Text></Text>
+      <Text style={styles.registerText}>
+        Not Registered yet?{' '}
+        <Text style={styles.registerLink} onPress={() => navigation.navigate('Register')}>
+          Create an Account
+        </Text>
+      </Text>
     </View>
   );
 };
