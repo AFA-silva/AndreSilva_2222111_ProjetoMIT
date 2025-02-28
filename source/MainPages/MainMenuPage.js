@@ -1,12 +1,29 @@
 import React from 'react';
-import { View, Text } from 'react-native';
-import styles from '../Styles/MainPageStyles/MainMenuPageStyle'; // Importar os estilos
+import { View, Text, TouchableOpacity } from 'react-native';
+import styles from '../Styles/MainPageStyles/MainMenuPageStyle';
 
-const MainMenuPage = () => {
+const MainMenuPage = ({ navigation }) => {
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Welcome to the Main Menu Page</Text>
-      <Text style={styles.subtitle}>This is the main screen of your project.</Text>
+      <Text style={styles.title}>Menu Principal</Text>
+
+      <View style={styles.menuGrid}>
+        <TouchableOpacity style={styles.menuItem}>
+          <Text style={styles.menuText}>Dashboard</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.menuItem}>
+          <Text style={styles.menuText}>Transações</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.menuItem}>
+          <Text style={styles.menuText}>Metas</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.menuItem}>
+          <Text style={styles.menuText}>Configurações</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 };
