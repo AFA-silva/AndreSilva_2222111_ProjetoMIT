@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
-import { supabase } from '../../Supabase';
-import styles from '../Styles/AccountPageStyles/RegisterPageStyle';
-import { validateRegisterForm } from '../Utility/Validations';
+import { supabase } from '../../Supabase'; // Certifique-se de que o caminho está correto
+import styles from '../Styles/AccountPageStyles/RegisterPageStyle'; // Importar os estilos
+import { isEmailValid, isPhoneValid, isPasswordValid, isFieldNotEmpty, isNameValid } from '../Utility/Validations'; // Importar funções de validação
 import Alert from '../Utility/Alerts'; // Importa o componente de alerta
 
 const RegisterPage = ({ navigation }) => {
@@ -22,6 +22,7 @@ const RegisterPage = ({ navigation }) => {
   const [showAlert, setShowAlert] = useState(false);
 
   useEffect(() => {
+    // Fetch countries from REST Countries API
     const fetchCountries = async () => {
       try {
         const response = await fetch('https://restcountries.com/v3.1/all');
@@ -49,13 +50,38 @@ const RegisterPage = ({ navigation }) => {
   const handleRegister = async () => {
     console.log('handleRegister called');
 
-    const validationError = validateRegisterForm({ phone, name, email, password, confirmPassword, region });
-
-    if (validationError) {
-      showAlertMessage(validationError, 'error');
+    if (
+      !isFieldNotEmpty(phone) ||
+      !isFieldNotEmpty(name) ||
+      !isFieldNotEmpty(email) ||
+      !isFieldNotEmpty(password) ||
+      !isFieldNotEmpty(confirmPassword) ||
+      !isFieldNotEmpty(region)
+    ) {
+      showAlertMessage('Por favor, preencha todos os campos.', 'error');
       return;
     }
 
+    if (!isPhoneValid(phone)) {
+      showAlertMessage('Por favor, insira um número de telefone válido (9 dígitos).', 'error');
+      return;
+    }
+
+    if (!isNameValid(name)) {
+      showAlertMessage('O nome deve ter no máximo 20 caracteres.', 'error');
+      return;
+    }
+
+    if (!isEmailValid(email)) {
+      showAlertMessage('Por favor, insira um email válido.', 'error');
+      return;
+    }
+  
+    if (!isPasswordValid(password, confirmPassword)) {
+      showAlertMessage('A senha deve ter entre 6 e 16 caracteres e coincidir com a confirmação de senha.', 'error');
+      return;
+    }
+    
     if (isLoading) {
       showAlertMessage('Aguarde um momento antes de tentar novamente.', 'warning');
       return;
@@ -64,13 +90,14 @@ const RegisterPage = ({ navigation }) => {
     setIsLoading(true);
 
     try {
+      // Verificar se o email já está registrado
       const { data: existingUserByEmail, error: existingUserErrorByEmail } = await supabase
         .from('users')
         .select('id')
         .eq('email', email);
-
+      
       if (existingUserErrorByEmail) {
-        showAlertMessage(`Erro ao verificar usuário: ${existingUserErrorByEmail.message}`, 'error');
+        showAlertMessage(`Erro ao verificar usuário existente: ${existingUserErrorByEmail.message}`, 'error');
         setIsLoading(false);
         return;
       }
@@ -81,13 +108,55 @@ const RegisterPage = ({ navigation }) => {
         return;
       }
 
+      // Verificar se o telefone já está registrado
+      const { data: existingUserByPhone, error: existingUserErrorByPhone } = await supabase
+        .from('users')
+        .select('id')
+        .eq('phone', phone);
+      
+      if (existingUserErrorByPhone) {
+        showAlertMessage(`Erro ao verificar telefone existente: ${existingUserErrorByPhone.message}`, 'error');
+        setIsLoading(false);
+        return;
+      }
+
+      if (existingUserByPhone && existingUserByPhone.length > 0) {
+        showAlertMessage('Usuário com este telefone já existe.', 'error');
+        setIsLoading(false);
+        return;
+      }
+
+      // Registar utilizador no Supabase Auth
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
       });
 
+      console.log('signUp result:', data, error);
+  
       if (error) {
         showAlertMessage(`Erro ao registrar: ${error.message}`, 'error');
+        setIsLoading(false);
+        return;
+      }
+
+      const user = data.user;
+  
+      if (!user) {
+        showAlertMessage('Erro ao obter os dados do usuário.', 'error');
+        setIsLoading(false);
+        return;
+      }
+  
+      // Inserir os dados na tabela `users`
+      const { data: insertData, error: insertError } = await supabase
+        .from('users')
+        .insert([{ id: user.id, phone, name, email, password, region }]);
+      
+      console.log('insert result:', insertData, insertError);
+  
+      if (insertError) {
+        showAlertMessage(`Erro ao guardar dados: ${insertError.message}`, 'error');
         setIsLoading(false);
         return;
       }
@@ -113,7 +182,7 @@ const RegisterPage = ({ navigation }) => {
 
       <Text style={styles.title}>Register Account</Text>
       <Text style={styles.subtitle}>Create your account to start using MIT</Text>
-
+      
       <TextInput
         style={styles.input}
         placeholder="📞 Phone Number"
@@ -121,14 +190,14 @@ const RegisterPage = ({ navigation }) => {
         onChangeText={setPhone}
         keyboardType="phone-pad"
       />
-
+      
       <TextInput
         style={styles.input}
         placeholder="👤 Name"
         value={name}
         onChangeText={setName}
       />
-
+      
       <TextInput
         style={styles.input}
         placeholder="✉️ Email"
@@ -137,7 +206,7 @@ const RegisterPage = ({ navigation }) => {
         keyboardType="email-address"
         autoCapitalize="none"
       />
-
+      
       <TextInput
         style={styles.input}
         placeholder="🔒 Password"
@@ -145,7 +214,7 @@ const RegisterPage = ({ navigation }) => {
         onChangeText={setPassword}
         secureTextEntry
       />
-
+      
       <TextInput
         style={styles.input}
         placeholder="🔒 Confirm Password"
@@ -153,7 +222,7 @@ const RegisterPage = ({ navigation }) => {
         onChangeText={setConfirmPassword}
         secureTextEntry
       />
-
+      
       {countries.length === 0 ? (
         <ActivityIndicator size="large" color="#0000ff" />
       ) : (
@@ -170,11 +239,11 @@ const RegisterPage = ({ navigation }) => {
           </Picker>
         </View>
       )}
-
+      
       <TouchableOpacity style={styles.button} onPress={handleRegister} disabled={isLoading}>
         <Text style={styles.buttonText}>Register</Text>
       </TouchableOpacity>
-
+      
       <Text style={styles.loginText}>
         Already Have an Account?{' '}
         <Text style={styles.loginLink} onPress={() => navigation.navigate('Login')}>
