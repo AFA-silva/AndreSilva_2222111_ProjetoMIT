@@ -1,19 +1,22 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
-import { Ionicons } from '@expo/vector-icons'; // Para adicionar ícones
+import { Ionicons } from '@expo/vector-icons'; // For icons
 import styles from '../Styles/MainPageStyles/SettingsPageStyle';
 
 const SettingsPage = ({ navigation }) => {
   const handleLogout = () => {
-    navigation.navigate('Login'); // Navegar para a página de login
+    navigation.navigate('Login'); // Navigate to the login page
   };
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.header}>Configurações</Text>
 
-      {/* Seção de Perfil */}
-      <TouchableOpacity style={styles.menuItem}>
+      {/* Profile Section */}
+      <TouchableOpacity
+        style={styles.menuItem}
+        onPress={() => navigation.navigate('ProfilePage')} // Navigate to ProfilePage
+      >
         <View style={styles.menuRow}>
           <Ionicons name="person-circle-outline" size={24} color="#FF9800" />
           <View style={styles.menuTextContainer}>
@@ -23,7 +26,7 @@ const SettingsPage = ({ navigation }) => {
         </View>
       </TouchableOpacity>
 
-      {/* Seção de Preferências */}
+      {/* Preferences Section */}
       <TouchableOpacity style={styles.menuItem}>
         <View style={styles.menuRow}>
           <Ionicons name="settings-outline" size={24} color="#FF9800" />
@@ -34,7 +37,7 @@ const SettingsPage = ({ navigation }) => {
         </View>
       </TouchableOpacity>
 
-      {/* Seção de Segurança */}
+      {/* Security Section */}
       <TouchableOpacity style={styles.menuItem}>
         <View style={styles.menuRow}>
           <Ionicons name="lock-closed-outline" size={24} color="#FF9800" />
@@ -45,7 +48,7 @@ const SettingsPage = ({ navigation }) => {
         </View>
       </TouchableOpacity>
 
-      {/* Seção de Notificações */}
+      {/* Notifications Section */}
       <TouchableOpacity style={styles.menuItem}>
         <View style={styles.menuRow}>
           <Ionicons name="notifications-outline" size={24} color="#FF9800" />
@@ -56,7 +59,7 @@ const SettingsPage = ({ navigation }) => {
         </View>
       </TouchableOpacity>
 
-      {/* Seção de Ajuda e Suporte */}
+      {/* Help and Support Section */}
       <TouchableOpacity style={styles.menuItem}>
         <View style={styles.menuRow}>
           <Ionicons name="help-circle-outline" size={24} color="#FF9800" />
@@ -67,7 +70,7 @@ const SettingsPage = ({ navigation }) => {
         </View>
       </TouchableOpacity>
 
-      {/* Botão de Logout */}
+      {/* Logout Button */}
       <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
         <Text style={styles.logoutText}>Logout</Text>
       </TouchableOpacity>
