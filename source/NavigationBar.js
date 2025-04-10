@@ -45,7 +45,7 @@ const styles = StyleSheet.create({
   navIcon: {
     width: 25,
     height: 25,
-    tintColor: '#000', // Ícones pretos para melhor contraste
+    tintColor: '#000',
   },
   navText: {
     fontSize: 14,
