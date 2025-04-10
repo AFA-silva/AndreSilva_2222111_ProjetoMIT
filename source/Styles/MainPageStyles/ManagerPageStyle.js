@@ -2,41 +2,40 @@ import { StyleSheet } from 'react-native';
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    alignItems: 'center',
-    backgroundColor: '#fff',
+    flexGrow: 1,
+    backgroundColor: '#F9F9F9',
     padding: 20,
   },
-  title: {
-    fontSize: 28,
+  header: {
+    fontSize: 26,
     fontWeight: 'bold',
     color: '#FF9800',
-    marginBottom: 35,
-    marginTop: 15,
+    marginBottom: 20,
+    textAlign: 'center',
   },
   menuContainer: {
-    width: '100%',
-    alignItems: 'center',
+    marginTop: 20,
   },
   managerButton: {
-    width: '85%',
-    padding: 18,
-    borderRadius: 12,
-    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    padding: 15,
     marginBottom: 15,
-    backgroundColor: '#FFB300',
-    borderWidth: 2,
-    borderColor: '#FF9800',
     shadowColor: '#000',
-    shadowOpacity: 0.15,
-    shadowOffset: { width: 2, height: 2 },
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
     shadowRadius: 4,
-    elevation: 3, // Para Android
+    elevation: 3,
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   buttonText: {
-    fontSize: 17,
-    color: '#000',
+    fontSize: 16,
     fontWeight: 'bold',
+    color: '#333',
+    marginLeft: 10,
   },
 });
 

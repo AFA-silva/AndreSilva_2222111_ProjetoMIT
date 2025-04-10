@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
+import { Ionicons } from '@expo/vector-icons'; // For icons
 import { useNavigation } from '@react-navigation/native';
 
 const NavigationBar = () => {
@@ -8,17 +9,17 @@ const NavigationBar = () => {
   return (
     <View style={styles.navbar}>
       <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('MainPages', { screen: 'MainMenuPage' })}>
-        <Image source={require('../assets/home.png')} style={styles.navIcon} />
+        <Ionicons name="home-outline" size={24} color="#000" />
         <Text style={styles.navText}>Home</Text>
       </TouchableOpacity>
 
       <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('MainPages', { screen: 'SettingsPage' })}>
-        <Image source={require('../assets/settings.png')} style={styles.navIcon} />
+        <Ionicons name="settings-outline" size={24} color="#000" />
         <Text style={styles.navText}>Settings</Text>
       </TouchableOpacity>
 
       <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('MainPages', { screen: 'ManagerPage' })}>
-        <Image source={require('../assets/manager.png')} style={styles.navIcon} />
+        <Ionicons name="briefcase-outline" size={24} color="#000" />
         <Text style={styles.navText}>Manager</Text>
       </TouchableOpacity>
     </View>
@@ -29,12 +30,12 @@ const styles = StyleSheet.create({
   navbar: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    backgroundColor: '#f4c542', // Mantendo a cor amarela temática
-    paddingVertical: 12,
-    paddingHorizontal: 20,
+    backgroundColor: '#FF9800',
+    paddingVertical: 10,
+    paddingHorizontal: 15,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 5,
   },
@@ -42,13 +43,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  navIcon: {
-    width: 25,
-    height: 25,
-    tintColor: '#000',
-  },
   navText: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: 'bold',
     color: '#000',
     marginTop: 5,
