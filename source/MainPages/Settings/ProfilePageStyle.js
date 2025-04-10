@@ -57,16 +57,27 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   saveButton: {
-    backgroundColor: '#4CAF50',
-    borderRadius: 10,
-    padding: 15,
+    backgroundColor: '#FF9800',
+    borderRadius: 20,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
     alignItems: 'center',
     marginTop: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
   saveButtonText: {
     color: '#FFF',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  errorText: {
+    fontSize: 16,
+    color: 'red',
+    textAlign: 'center',
   },
 });
 
