@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Image, ActivityIndicator, Platform } from 'react-native';
-import { Menu, Divider, Button } from 'react-native-paper';
+import { Menu } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import styles from './ProfilePageStyle';
@@ -20,6 +20,16 @@ const ProfilePage = () => {
   const [menuVisible, setMenuVisible] = useState(false);
 
   useEffect(() => {
+    const loadCountries = async () => {
+      try {
+        const countryList = await fetchCountries();
+        setCountries(countryList);
+      } catch (error) {
+        console.error('Failed to fetch countries:', error);
+        showAlert('Unable to load countries. Please try again later.', 'error');
+      }
+    };
+
     const fetchUserData = async () => {
       setLoading(true);
       try {
@@ -49,11 +59,6 @@ const ProfilePage = () => {
       } finally {
         setLoading(false);
       }
-    };
-
-    const loadCountries = async () => {
-      const countryList = await fetchCountries();
-      setCountries(countryList);
     };
 
     fetchUserData();
