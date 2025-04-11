@@ -1,68 +1,85 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Image, ActivityIndicator, Alert, Platform } from 'react-native';
-import * as ImagePicker from 'expo-image-picker';
+import { View, Text, TextInput, TouchableOpacity, Image, ActivityIndicator, Platform } from 'react-native';
+import { Menu, Divider, Button } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
-import styles from './ProfilePageStyle'; // Import the updated styles
-import { supabase } from '../../../Supabase'; // Ensure this path points to your Supabase setup file
+import * as ImagePicker from 'expo-image-picker';
+import styles from './ProfilePageStyle';
+import { supabase } from '../../../Supabase';
+import { isPhoneValid, isFieldNotEmpty, isNameValid } from '../../Utility/Validations';
+import Alert from '../../Utility/Alerts';
+import { fetchCountries } from '../../Utility/FetchCountries';
 
 const ProfilePage = () => {
   const [profileImage, setProfileImage] = useState(null);
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [region, setRegion] = useState('');
+  const [countries, setCountries] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(false); // State to track loading errors
+  const [alert, setAlert] = useState({ visible: false, message: '', type: 'info' });
+  const [menuVisible, setMenuVisible] = useState(false);
 
   useEffect(() => {
     const fetchUserData = async () => {
       setLoading(true);
-      setError(false);
       try {
         const { data: { user }, error } = await supabase.auth.getUser();
 
-        if (error) {
-          setError(true);
-          console.error('Error fetching user data:', error.message);
-        } else if (!user) {
-          setError(true);
-          console.warn('No user data found!');
-        } else {
-          console.log('User data:', user); // Log the fetched data for debugging
-          const { data, error: fetchError } = await supabase
-            .from('users')
-            .select('*')
-            .eq('id', user.id)
-            .single();
+        if (error || !user) {
+          showAlert('Unable to fetch user data.', 'error');
+          return;
+        }
 
-          if (fetchError) {
-            setError(true);
-            console.error('Error fetching user profile data:', fetchError.message);
-          } else {
-            setProfileImage(data.image);
-            setName(data.name);
-            setPhone(data.phone);
-            setRegion(data.region);
-          }
+        const { data, error: fetchError } = await supabase
+          .from('users')
+          .select('image, name, phone, region')
+          .eq('id', user.id)
+          .single();
+
+        if (fetchError) {
+          showAlert('Unable to fetch profile data.', 'error');
+        } else {
+          setProfileImage(data.image);
+          setName(data.name);
+          setPhone(data.phone);
+          setRegion(data.region);
         }
       } catch (err) {
-        setError(true);
-        console.error('Unexpected error:', err);
+        showAlert('An unexpected error occurred.', 'error');
       } finally {
         setLoading(false);
       }
     };
 
+    const loadCountries = async () => {
+      const countryList = await fetchCountries();
+      setCountries(countryList);
+    };
+
     fetchUserData();
+    loadCountries();
   }, []);
 
+  const showAlert = (message, type = 'info') => {
+    setAlert({ visible: true, message, type });
+    setTimeout(() => {
+      setAlert({ visible: false, message: '', type: 'info' });
+    }, 3000); // Auto-hide alert after 3 seconds
+  };
+
   const handleSave = async () => {
-    if (!name.trim()) {
-      Alert.alert('Error', 'The name cannot be empty.');
+    if (!isFieldNotEmpty(name)) {
+      showAlert('The name cannot be empty.', 'error');
       return;
     }
 
-    if (!/^\+?[0-9]*$/.test(phone)) {
-      Alert.alert('Error', 'The phone number must contain only numbers.');
+    if (!isNameValid(name)) {
+      showAlert('The name exceeds the maximum length of 20 characters.', 'error');
+      return;
+    }
+
+    if (!isPhoneValid(phone)) {
+      showAlert('The phone number must contain exactly 9 digits.', 'error');
       return;
     }
 
@@ -83,12 +100,12 @@ const ProfilePage = () => {
         .eq('id', user.id);
 
       if (error) {
-        console.error('Error updating user data:', error.message);
+        showAlert('Unable to update profile.', 'error');
       } else {
-        Alert.alert('Success', 'Your profile has been updated!');
+        showAlert('Your profile has been updated!', 'success');
       }
     } catch (err) {
-      console.error('Unexpected error:', err);
+      showAlert('An unexpected error occurred.', 'error');
     } finally {
       setLoading(false);
     }
@@ -108,13 +125,14 @@ const ProfilePage = () => {
             .upload(`user_${Date.now()}_${file.name}`, file);
 
           if (error) {
-            console.error('Error uploading image:', error.message);
+            showAlert('Unable to upload image.', 'error');
           } else {
             const { publicUrl } = supabase
               .storage
               .from('profile-images')
               .getPublicUrl(data.path);
             setProfileImage(publicUrl);
+            showAlert('Profile image updated successfully!', 'success');
           }
         }
       };
@@ -139,37 +157,38 @@ const ProfilePage = () => {
           });
 
         if (error) {
-          console.error('Error uploading image:', error.message);
+          showAlert('Unable to upload image.', 'error');
         } else {
           const { publicUrl } = supabase
             .storage
             .from('profile-images')
             .getPublicUrl(data.path);
           setProfileImage(publicUrl);
+          showAlert('Profile image updated successfully!', 'success');
         }
       }
     }
   };
 
-  if (loading) {
-    return (
-      <View style={styles.container}>
-        <ActivityIndicator size="large" color="#FF9800" />
-      </View>
-    );
-  }
+  const openMenu = () => setMenuVisible(true);
+  const closeMenu = () => setMenuVisible(false);
 
-  if (error) {
-    return (
-      <View style={styles.container}>
-        <Text style={styles.errorText}>Failed to load user data. Please try again later.</Text>
-      </View>
-    );
-  }
+  const handleRegionSelect = (regionCode) => {
+    setRegion(regionCode);
+    closeMenu();
+  };
 
   return (
     <View style={styles.container}>
       <Text style={styles.header}>Profile</Text>
+
+      {alert.visible && (
+        <Alert
+          message={alert.message}
+          type={alert.type}
+          onClose={() => setAlert({ visible: false, message: '', type: 'info' })}
+        />
+      )}
 
       {/* Profile Image */}
       <TouchableOpacity onPress={handleImagePick} style={styles.profileImageContainer}>
@@ -183,9 +202,8 @@ const ProfilePage = () => {
       </TouchableOpacity>
       <Text style={styles.imageInstruction}>Tap the image to change</Text>
 
-      {/* Name */}
+      {/* Other Fields */}
       <View style={styles.inputGroup}>
-        <Ionicons name="person-outline" size={24} color="#FF9800" />
         <TextInput
           style={styles.inputText}
           placeholder="Name"
@@ -194,9 +212,7 @@ const ProfilePage = () => {
         />
       </View>
 
-      {/* Phone */}
       <View style={styles.inputGroup}>
-        <Ionicons name="call-outline" size={24} color="#FF9800" />
         <TextInput
           style={styles.inputText}
           placeholder="Phone"
@@ -206,15 +222,27 @@ const ProfilePage = () => {
         />
       </View>
 
-      {/* Region */}
+      {/* Custom Dropdown for Region */}
       <View style={styles.inputGroup}>
-        <Ionicons name="location-outline" size={24} color="#FF9800" />
-        <TextInput
-          style={styles.inputText}
-          placeholder="Region"
-          value={region}
-          onChangeText={setRegion}
-        />
+        <Menu
+          visible={menuVisible}
+          onDismiss={closeMenu}
+          anchor={
+            <TouchableOpacity onPress={openMenu}>
+              <Text style={styles.inputText}>
+                {region ? countries.find((c) => c.code === region)?.name || 'Select your region' : 'Select your region'}
+              </Text>
+            </TouchableOpacity>
+          }
+        >
+          {countries.map((country) => (
+            <Menu.Item
+              key={country.code}
+              title={country.name}
+              onPress={() => handleRegionSelect(country.code)}
+            />
+          ))}
+        </Menu>
       </View>
 
       {/* Save Button */}

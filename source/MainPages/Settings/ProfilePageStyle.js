@@ -74,10 +74,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
-  errorText: {
-    fontSize: 16,
-    color: 'red',
-    textAlign: 'center',
+  picker: {
+    flex: 1,
+    color: '#333',
   },
 });
 

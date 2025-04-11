@@ -27,20 +27,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     backgroundColor: '#fff',
     marginBottom: 15,
+    justifyContent: 'center',
   },
-  pickerContainer: {
-    width: '80%',
-    height: 60,  // Aumentamos a altura para garantir que o texto não fique cortado
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    marginBottom: 15,
-    overflow: 'hidden',
-    justifyContent: 'center', // Centraliza o conteúdo verticalmente
+  inputText: {
+    fontSize: 16,
   },
-  picker: {
-    width: '100%',
-    height: '100%',
+  countryPickerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  flagIcon: {
+    width: 20,
+    height: 20,
+    marginRight: 10,
   },
   button: {
     backgroundColor: '#f4c542',
@@ -54,11 +53,6 @@ const styles = StyleSheet.create({
     color: '#000',
     fontSize: 18,
     fontWeight: 'bold',
-  },
-  orText: {
-    fontSize: 14,
-    color: '#777',
-    marginVertical: 10,
   },
   loginText: {
     fontSize: 14,
