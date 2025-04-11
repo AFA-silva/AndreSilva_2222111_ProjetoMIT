@@ -29,8 +29,26 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     justifyContent: 'center',
   },
-  inputText: {
+  inputWithIcon: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '80%',
+    height: 50,
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    backgroundColor: '#fff',
+    marginBottom: 15,
+  },
+  inputField: {
+    flex: 1,
     fontSize: 16,
+  },
+  icon: {
+    width: 20,
+    height: 20,
+    marginLeft: 10,
   },
   countryPickerRow: {
     flexDirection: 'row',
@@ -40,6 +58,21 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
     marginRight: 10,
+  },
+  pickerContainer: {
+    width: '80%',
+    height: 50,
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    backgroundColor: '#fff',
+    marginBottom: 15,
+    justifyContent: 'center',
+  },
+  picker: {
+    width: '100%',
+    height: '100%',
   },
   button: {
     backgroundColor: '#f4c542',
