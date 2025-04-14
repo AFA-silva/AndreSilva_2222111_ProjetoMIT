@@ -4,6 +4,8 @@ import MainMenuPage from './MainPages/MainMenuPage';
 import SettingsPage from './MainPages/SettingsPage';
 import ManagerPage from './MainPages/ManagerPage';
 import ProfilePage from './MainPages/Settings/ProfilePage'; // Import ProfilePage
+import SecurityPage from './MainPages/Settings/SecurityPage';
+import SupportPage from './MainPages/Settings/SupportPage';
 import NavigationBar from './NavigationBar';
 
 const Stack = createStackNavigator();
@@ -23,6 +25,8 @@ const MainPagesNavigator = () => {
         <Stack.Screen name="SettingsPage" component={SettingsPage} />
         <Stack.Screen name="ManagerPage" component={ManagerPage} />
         <Stack.Screen name="ProfilePage" component={ProfilePage} /> 
+        <Stack.Screen name="SupportPage" component={SupportPage} /> 
+        <Stack.Screen name="SecurityPage" component={SecurityPage} /> 
       </Stack.Navigator>
 
       {/* Render NavigationBar outside of Stack.Navigator */}

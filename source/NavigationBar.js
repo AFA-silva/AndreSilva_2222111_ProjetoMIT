@@ -30,7 +30,7 @@ const styles = StyleSheet.create({
   navbar: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    backgroundColor: '#FF9800',
+    backgroundColor: '#facb20',
     paddingVertical: 10,
     paddingHorizontal: 15,
     shadowColor: '#000',

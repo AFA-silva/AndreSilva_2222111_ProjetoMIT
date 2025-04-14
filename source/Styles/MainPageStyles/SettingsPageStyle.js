@@ -10,7 +10,7 @@ const styles = StyleSheet.create({
   header: {
     fontSize: 26,
     fontWeight: 'bold',
-    color: '#FF9800',
+    color: '#000000',
     marginBottom: 30,
     textAlign: 'center',
   },
