@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Modal, FlatList, StyleSheet, Image } from 'react-native';
-import { supabase } from '../../Supabase'; // Ensure the path is correct
-import styles from '../Styles/AccountPageStyles/RegisterPageStyle'; // Import styles
-import { isEmailValid, isPhoneValid, isPasswordValid, isFieldNotEmpty, isNameValid } from '../Utility/Validations'; // Import validations
-import Alert from '../Utility/Alerts'; // Import alert component
-import { fetchCountries } from '../Utility/FetchCountries'; // Reuse shared country-fetching utility
+import { View, Text, TextInput, TouchableOpacity, Modal, FlatList, ActivityIndicator, Image } from 'react-native';
+import { supabase } from '../../Supabase'; // Certifique-se de que o caminho está correto
+import styles from '../Styles/AccountPageStyles/RegisterPageStyle'; // Estilos
+import { isEmailValid, isPhoneValid, isPasswordValid, isFieldNotEmpty, isNameValid } from '../Utility/Validations'; // Validações
+import Alert from '../Utility/Alerts'; // Componente de alerta
+import { fetchCountries } from '../Utility/FetchCountries'; // Utilitário para buscar os países
 
 const RegisterPage = ({ navigation }) => {
   const [phone, setPhone] = useState('');
@@ -14,34 +14,42 @@ const RegisterPage = ({ navigation }) => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [region, setRegion] = useState('');
   const [countries, setCountries] = useState([]);
+  const [filteredCountries, setFilteredCountries] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Alert states
+  // Alertas
   const [alertMessage, setAlertMessage] = useState('');
   const [alertType, setAlertType] = useState('');
   const [showAlert, setShowAlert] = useState(false);
 
-  // Modal state
+  // Modal e barra de pesquisa
   const [modalVisible, setModalVisible] = useState(false);
-
-  // Password visibility states
-  const [passwordVisible, setPasswordVisible] = useState(false);
-  const [confirmPasswordVisible, setConfirmPasswordVisible] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     const loadCountries = async () => {
       const countryList = await fetchCountries();
       setCountries(countryList);
+      setFilteredCountries(countryList); // Inicializa a lista filtrada com todos os países
     };
 
     loadCountries();
   }, []);
 
+  const handleSearch = (query) => {
+    setSearchQuery(query);
+    setFilteredCountries(
+      countries.filter((country) =>
+        country.name.toLowerCase().includes(query.toLowerCase())
+      )
+    );
+  };
+
   const showAlertMessage = (message, type) => {
     setAlertMessage(message);
     setAlertType(type);
     setShowAlert(true);
-    setTimeout(() => setShowAlert(false), 3000); // Close the alert after 3 seconds
+    setTimeout(() => setShowAlert(false), 3000); // Fecha o alerta após 3 segundos
   };
 
   const handleRegister = async () => {
@@ -85,7 +93,7 @@ const RegisterPage = ({ navigation }) => {
     setIsLoading(true);
 
     try {
-      // Check if email or phone is already registered
+      // Verifica se o email ou telefone já está registrado
       const { data: existingUserByEmail } = await supabase.from('users').select('id').eq('email', email);
       const { data: existingUserByPhone } = await supabase.from('users').select('id').eq('phone', phone);
 
@@ -101,7 +109,7 @@ const RegisterPage = ({ navigation }) => {
         return;
       }
 
-      // Register user in Supabase Auth
+      // Registra o usuário no Supabase Auth
       const { data, error } = await supabase.auth.signUp({ email, password });
 
       if (error) {
@@ -118,7 +126,7 @@ const RegisterPage = ({ navigation }) => {
         return;
       }
 
-      // Insert user details into the `users` table
+      // Insere os detalhes do usuário na tabela `users`
       const { error: insertError } = await supabase
         .from('users')
         .insert([{ id: user.id, phone, name, email, password, region }]);
@@ -153,46 +161,20 @@ const RegisterPage = ({ navigation }) => {
       <TextInput style={styles.input} placeholder="✉️ Email" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
 
       {/* Password Input */}
-      <View style={styles.inputWithIcon}>
-        <TextInput
-          style={styles.inputField}
-          placeholder="🔒 Password"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry={!passwordVisible}
-        />
-        <TouchableOpacity onPress={() => setPasswordVisible(!passwordVisible)}>
-          <Image
-            source={
-              passwordVisible
-                ? require('../../assets/eye-open.png') // Updated path
-                : require('../../assets/eye-closed.png') // Updated path
-            }
-            style={styles.icon}
-          />
-        </TouchableOpacity>
-      </View>
-
-      {/* Confirm Password Input */}
-      <View style={styles.inputWithIcon}>
-        <TextInput
-          style={styles.inputField}
-          placeholder="🔒 Confirm Password"
-          value={confirmPassword}
-          onChangeText={setConfirmPassword}
-          secureTextEntry={!confirmPasswordVisible}
-        />
-        <TouchableOpacity onPress={() => setConfirmPasswordVisible(!confirmPasswordVisible)}>
-          <Image
-            source={
-              confirmPasswordVisible
-                ? require('../../assets/eye-open.png') // Updated path
-                : require('../../assets/eye-closed.png') // Updated path
-            }
-            style={styles.icon}
-          />
-        </TouchableOpacity>
-      </View>
+      <TextInput
+        style={styles.input}
+        placeholder="🔒 Password"
+        value={password}
+        onChangeText={setPassword}
+        secureTextEntry
+      />
+      <TextInput
+        style={styles.input}
+        placeholder="🔒 Confirm Password"
+        value={confirmPassword}
+        onChangeText={setConfirmPassword}
+        secureTextEntry
+      />
 
       {/* Country Picker */}
       <TouchableOpacity style={styles.input} onPress={() => setModalVisible(true)}>
@@ -208,57 +190,42 @@ const RegisterPage = ({ navigation }) => {
         </View>
       </TouchableOpacity>
 
-      <Modal visible={modalVisible} transparent={true} animationType="slide" onRequestClose={() => setModalVisible(false)}>
-        <View style={modalStyles.modalContainer}>
-          <FlatList
-            data={countries}
-            keyExtractor={(item) => item.code}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                style={modalStyles.modalItem}
-                onPress={() => {
-                  setRegion(item.code);
-                  setModalVisible(false);
-                }}
-              >
-                <Text style={modalStyles.modalText}>{item.name}</Text>
-              </TouchableOpacity>
-            )}
-          />
+      {/* Redesigned Modal */}
+      <Modal visible={modalVisible} transparent={true} animationType="fade" onRequestClose={() => setModalVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search for a country..."
+              value={searchQuery}
+              onChangeText={handleSearch}
+            />
+            <FlatList
+              data={filteredCountries}
+              keyExtractor={(item) => item.code}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.modalItem}
+                  onPress={() => {
+                    setRegion(item.code);
+                    setModalVisible(false);
+                  }}
+                >
+                  <Text style={styles.modalText}>{item.name}</Text>
+                </TouchableOpacity>
+              )}
+            />
+          </View>
         </View>
       </Modal>
 
       <TouchableOpacity style={styles.button} onPress={handleRegister} disabled={isLoading}>
-        <Text style={styles.buttonText}>Register</Text>
-      </TouchableOpacity>
-
-      <Text style={styles.loginText}>
-        Already Have an Account?{' '}
-        <Text style={styles.loginLink} onPress={() => navigation.navigate('Login')}>
-          Login Here
+        <Text style={styles.buttonText}>
+          {isLoading ? <ActivityIndicator size="small" color="#FFF" /> : 'Register'}
         </Text>
-      </Text>
+      </TouchableOpacity>
     </View>
   );
 };
 
 export default RegisterPage;
-
-const modalStyles = StyleSheet.create({
-  modalContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    padding: 20,
-  },
-  modalItem: {
-    backgroundColor: '#fff',
-    padding: 15,
-    marginVertical: 5,
-    borderRadius: 10,
-  },
-  modalText: {
-    fontSize: 16,
-    color: '#333',
-  },
-});
