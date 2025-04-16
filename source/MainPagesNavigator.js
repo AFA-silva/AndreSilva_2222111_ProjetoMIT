@@ -10,7 +10,7 @@ import NavigationBar from './NavigationBar';
 
 const Stack = createStackNavigator();
 
-const MainPagesNavigator = () => {
+const MainPagesNavigator = () => { 
   return (
     <>
       {/* Stack Navigator */}

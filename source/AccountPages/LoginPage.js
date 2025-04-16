@@ -1,65 +1,52 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Alert } from 'react-native';
 import styles from '../Styles/AccountPageStyles/LoginPageStyle';
-import { supabase } from '../../Supabase';
-import Alert from '../Utility/Alerts'; // Importa o Alert customizado
+import { supabase } from '../../Supabase'; // Certifique-se de que o Supabase está configurado corretamente
 
 const LoginPage = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
-  // Estados para o alerta
-  const [alertMessage, setAlertMessage] = useState('');
-  const [alertType, setAlertType] = useState('');
-  const [showAlert, setShowAlert] = useState(false);
-
-  const showAlertMessage = (message, type) => {
-    setAlertMessage(message);
-    setAlertType(type);
-    setShowAlert(true);
-    setTimeout(() => setShowAlert(false), 3000); // Fecha o alerta após 3 segundos
-  };
-
+  // Função para verificar login na base de dados
   const handleLogin = async () => {
-    console.log('Email:', email);
-    console.log('Password:', password);
+    try {
+      console.log('Tentando login com:', email, password);
 
-    // Verifica se os campos não estão vazios
-    if (!email || !password) {
-      showAlertMessage('Por favor, preencha todos os campos.', 'error');
-      return;
-    }
+      // Consulta para verificar se o email e senha correspondem a um usuário na base de dados
+      const { data, error } = await supabase
+        .from('users') // Substitua 'users' pelo nome da sua tabela de usuários
+        .select('*')
+        .eq('email', email)
+        .eq('password', password) // Certifique-se de que a senha está armazenada como texto simples ou use hash
+        .single();
 
-    // Tentar fazer login com o Supabase Auth
-    const { error, data } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+      if (error) {
+        // Caso ocorra algum erro na consulta
+        console.error('Erro ao consultar a base de dados:', error.message);
+        Alert.alert('Erro no Login', 'Email ou senha estão incorretos.');
+        return;
+      }
 
-    if (error) {
-      showAlertMessage(error.message, 'error');
-      return;
-    }
-
-    if (data) {
-      navigation.navigate('MainPages');
-    } else {
-      showAlertMessage('Email ou senha inválidos.', 'error');
+      if (data) {
+        // Login bem-sucedido
+        console.log('Login bem-sucedido:', data);
+        Alert.alert('Login realizado com sucesso!', `Bem-vindo, ${data.name || 'usuário'}!`);
+        navigation.navigate('MainPages'); // Navega para MainPages
+      } else {
+        // Nenhum usuário encontrado
+        Alert.alert('Erro no Login', 'Email ou senha estão incorretos.');
+      }
+    } catch (exception) {
+      console.error('Exceção ao fazer login:', exception);
+      Alert.alert('Erro inesperado', 'Ocorreu um erro. Tente novamente mais tarde.');
     }
   };
 
   return (
     <View style={styles.container}>
-      {showAlert && (
-        <Alert 
-          message={alertMessage} 
-          type={alertType} 
-          onClose={() => setShowAlert(false)} 
-        />
-      )}
       <Text style={styles.title}>Login Account</Text>
-      <Text style={styles.subtitle}>Hello, welcome back to our account</Text>
-      
+      <Text style={styles.subtitle}>Faça login com suas credenciais</Text>
+
       <TextInput
         style={styles.input}
         placeholder="Email"
@@ -68,7 +55,7 @@ const LoginPage = ({ navigation }) => {
         keyboardType="email-address"
         autoCapitalize="none"
       />
-      
+
       <TextInput
         style={styles.input}
         placeholder="Password"
@@ -76,15 +63,15 @@ const LoginPage = ({ navigation }) => {
         onChangeText={setPassword}
         secureTextEntry
       />
-      
+
       <TouchableOpacity style={styles.button} onPress={handleLogin}>
         <Text style={styles.buttonText}>Login</Text>
       </TouchableOpacity>
-      
+
       <Text style={styles.registerText}>
-        Not Registered yet?{' '}
+        Não tem uma conta?{' '}
         <Text style={styles.registerLink} onPress={() => navigation.navigate('Register')}>
-          Create an Account
+          Crie uma Conta
         </Text>
       </Text>
     </View>
