@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Alert } from 'react-native';
 import styles from '../Styles/AccountPageStyles/LoginPageStyle';
-import { supabase } from '../../Supabase'; // Certifique-se de que o Supabase está configurado corretamente
+import { supabase } from '../../Supabase'; 
 
 const LoginPage = ({ navigation }) => {
   const [email, setEmail] = useState('');
