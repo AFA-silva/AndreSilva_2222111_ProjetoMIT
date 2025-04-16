@@ -1,46 +1,55 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Image } from 'react-native';
-import * as ImagePicker from 'expo-image-picker'; // For picking profile image
-import styles from '../../Styles/Settings/ProfilePageStyle'; // Import styles
+import React, { useState, useEffect } from 'react';
+import { View, Text, TextInput, TouchableOpacity, Alert } from 'react-native';
+import styles from '../../Styles/Settings/ProfilePageStyle';
+import { getUserByEmail, updateUserByEmail, clearUserFromStorage } from '../../Utility/MainQueries';
+import { saveUserToStorage, getUserFromStorage } from '../../Utility/AsyncStorage';
 
-const ProfilePage = ({ navigation }) => {
+const ProfilePage = () => {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [region, setRegion] = useState('');
-  const [image, setImage] = useState(null); // Holds the profile image URI
+  const [email] = useState('user@example.com'); // Substitua com o e-mail dinâmico do utilizador
 
-  const pickImage = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 1,
-    });
+  useEffect(() => {
+    const loadUser = async () => {
+      const cachedUser = await getUserFromStorage();
+      if (cachedUser) {
+        setName(cachedUser.name || '');
+        setPhone(cachedUser.phone || '');
+        setRegion(cachedUser.region || '');
+      } else {
+        const user = await getUserByEmail(email);
+        if (user) {
+          setName(user.name || '');
+          setPhone(user.phone || '');
+          setRegion(user.region || '');
+          await saveUserToStorage(user); // Salva no AsyncStorage
+        }
+      }
+    };
 
-    if (!result.canceled) {
-      setImage(result.assets[0].uri);
+    loadUser();
+  }, [email]);
+
+  const handleSave = async () => {
+    const success = await updateUserByEmail(email, { name, phone, region });
+    if (success) {
+      Alert.alert('Success', 'Profile updated successfully!');
+      await saveUserToStorage({ name, phone, region, email }); // Atualiza no AsyncStorage
+    } else {
+      Alert.alert('Error', 'Failed to update profile.');
     }
   };
 
-  const handleSave = () => {
-    console.log('Profile saved:', { name, phone, region, image });
-    alert('Profile updated successfully!');
+  const handleClear = async () => {
+    await clearUserFromStorage(email);
+    Alert.alert('Success', 'User data cleared from AsyncStorage.');
   };
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Edit Profile</Text>
 
-      {/* Profile Image Section */}
-      <TouchableOpacity style={styles.imageContainer} onPress={pickImage}>
-        {image ? (
-          <Image source={{ uri: image }} style={styles.profileImage} />
-        ) : (
-          <Text style={styles.imagePlaceholder}>Tap to select image</Text>
-        )}
-      </TouchableOpacity>
-
-      {/* Name Input */}
       <TextInput
         style={styles.input}
         placeholder="Name"
@@ -48,7 +57,6 @@ const ProfilePage = ({ navigation }) => {
         onChangeText={setName}
       />
 
-      {/* Phone Input */}
       <TextInput
         style={styles.input}
         placeholder="Phone"
@@ -57,7 +65,6 @@ const ProfilePage = ({ navigation }) => {
         keyboardType="phone-pad"
       />
 
-      {/* Region Input */}
       <TextInput
         style={styles.input}
         placeholder="Region"
@@ -65,9 +72,12 @@ const ProfilePage = ({ navigation }) => {
         onChangeText={setRegion}
       />
 
-      {/* Save Button */}
       <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
         <Text style={styles.saveButtonText}>Save Changes</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.clearButton} onPress={handleClear}>
+        <Text style={styles.clearButtonText}>Clear Data</Text>
       </TouchableOpacity>
     </View>
   );

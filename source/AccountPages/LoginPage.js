@@ -1,40 +1,38 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Alert } from 'react-native';
 import styles from '../Styles/AccountPageStyles/LoginPageStyle';
-import { supabase } from '../../Supabase'; 
+import { supabase } from '../../Supabase';
 
 const LoginPage = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
-  // Função para verificar login na base de dados
   const handleLogin = async () => {
     try {
       console.log('Tentando login com:', email, password);
 
-      // Consulta para verificar se o email e senha correspondem a um usuário na base de dados
-      const { data, error } = await supabase
-        .from('users') // Substitua 'users' pelo nome da sua tabela de usuários
-        .select('*')
-        .eq('email', email)
-        .eq('password', password) // Certifique-se de que a senha está armazenada como texto simples ou use hash
-        .single();
+      // Método seguro de login com email e senha
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
       if (error) {
-        // Caso ocorra algum erro na consulta
-        console.error('Erro ao consultar a base de dados:', error.message);
+        console.error('Erro ao autenticar:', error.message);
         Alert.alert('Erro no Login', 'Email ou senha estão incorretos.');
         return;
       }
 
-      if (data) {
-        // Login bem-sucedido
-        console.log('Login bem-sucedido:', data);
-        Alert.alert('Login realizado com sucesso!', `Bem-vindo, ${data.name || 'usuário'}!`);
-        navigation.navigate('MainPages'); // Navega para MainPages
+      if (data?.user) {
+        console.log('Usuário autenticado:', data);
+
+        // Exibe uma mensagem de boas-vindas
+        Alert.alert('Login realizado com sucesso!', `Bem-vindo, ${data.user.email}!`);
+
+        // Navega para a próxima página
+        navigation.navigate('MainPages');
       } else {
-        // Nenhum usuário encontrado
-        Alert.alert('Erro no Login', 'Email ou senha estão incorretos.');
+        Alert.alert('Erro no Login', 'Ocorreu um problema ao autenticar o usuário.');
       }
     } catch (exception) {
       console.error('Exceção ao fazer login:', exception);
