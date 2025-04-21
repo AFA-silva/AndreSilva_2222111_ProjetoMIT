@@ -1,47 +1,73 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Alert } from 'react-native';
-import styles from '../Styles/AccountPageStyles/LoginPageStyle';
-import { supabase } from '../../Supabase';
+import React, { useState } from 'react'; // Import de componentes do React
+import { View, Text, TextInput, TouchableOpacity } from 'react-native'; // Import de componentes do react native
+import styles from '../Styles/AccountPageStyles/LoginPageStyle'; // import do estilo para a pagina de login
+import { supabase } from '../../Supabase'; // Import da Database
+import Alert from '../Utility/Alerts'; // Import dos Alertas customs
 
 const LoginPage = ({ navigation }) => {
+  // Crias as variaveis para os alertas.
+  const [alertMessage, setAlertMessage] = useState('');
+  const [alertType, setAlertType] = useState('');
+  const [showAlert, setShowAlert] = useState(false);
+
+  // Cria as variavéis para o login (email e password)
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
+  // Função para mostrar o alerta
+  const showAlertMessage = (message, type) => {
+    setAlertMessage(message);
+    setAlertType(type);
+    setShowAlert(true);
+    setTimeout(() => setShowAlert(false), 3000);
+  };
+
+  // Função para tentar fazer o login
   const handleLogin = async () => {
     try {
-      console.log('Tentando login com:', email, password);
+      // Mostra na consola as credenciais
+      console.log('A Tentar login com:', email, password);
 
-      // Método seguro de login com email e senha
+      // Usa a database (supabase) para verificar a email e password
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
+      // Verificação para caso de erro no login
       if (error) {
         console.error('Erro ao autenticar:', error.message);
-        Alert.alert('Erro no Login', 'Email ou senha estão incorretos.');
+        showAlertMessage('Email ou senha estão incorretos.', 'error');
         return;
       }
 
+      // Verifica se data existe para fazer o login.
       if (data?.user) {
-        console.log('Usuário autenticado:', data);
+        console.log('User autenticado:', data);
 
-        // Exibe uma mensagem de boas-vindas
-        Alert.alert('Login realizado com sucesso!', `Bem-vindo, ${data.user.email}!`);
+        showAlertMessage(`Bem-vindo, ${data.user.email}!`, 'success');
 
-        // Navega para a próxima página
-        navigation.navigate('MainPages');
-      } else {
-        Alert.alert('Erro no Login', 'Ocorreu um problema ao autenticar o usuário.');
+        // Espera de 2 segundos antes de ir para a Mainpage
+        setTimeout(() => {
+          navigation.navigate('MainPages');
+        }, 1300);
+
+      } else { // Se não existir data do user da erro
+        showAlertMessage('Ocorreu um problema ao autenticar o usuário.', 'error');
       }
-    } catch (exception) {
+    } catch (exception) { // Se o try falhar envia o erro
       console.error('Exceção ao fazer login:', exception);
-      Alert.alert('Erro inesperado', 'Ocorreu um erro. Tente novamente mais tarde.');
+      showAlertMessage('Ocorreu um erro. Tente novamente mais tarde.', 'error');
     }
   };
 
+  // Front-end da Login Page
   return (
     <View style={styles.container}>
+      {showAlert && (
+        <Alert message={alertMessage} type={alertType} onClose={() => setShowAlert(false)} />
+      )}
+
       <Text style={styles.title}>Login Account</Text>
       <Text style={styles.subtitle}>Faça login com suas credenciais</Text>
 

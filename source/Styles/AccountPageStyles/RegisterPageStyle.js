@@ -82,6 +82,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 15,
   },
+  loginlink: {
+    color: '#f4c542',
+    fontWeight: 'bold',
+  },
+  logintext: {
+    fontSize: 14,
+    color: '#777',
+  },
   buttonText: {
     color: '#000',
     fontSize: 18,
