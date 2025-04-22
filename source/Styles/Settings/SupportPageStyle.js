@@ -3,13 +3,17 @@ import { StyleSheet } from 'react-native';
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F2F2F2', // White background
+    backgroundColor: '#F2F2F2', // Light gray
     padding: 20,
+  },
+  icon: {
+    alignSelf: 'center',
+    marginBottom: 20,
   },
   header: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#000000', // Black title
+    color: '#000000', // Black
     marginBottom: 20,
     textAlign: 'center',
   },
@@ -70,6 +74,7 @@ const styles = StyleSheet.create({
   },
   modalContainer: {
     width: '90%',
+    maxHeight: '80%', // Limit height of the modal
     backgroundColor: '#FFF',
     borderRadius: 10,
     padding: 20,
@@ -86,8 +91,19 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     textAlign: 'center',
   },
+  faqScrollView: {
+    maxHeight: 250, // Scrollable content height
+  },
   faqItem: {
     marginBottom: 10,
+  },
+  faqTitleContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#DDD',
+    paddingBottom: 5,
   },
   faqQuestion: {
     fontSize: 16,
@@ -97,6 +113,7 @@ const styles = StyleSheet.create({
   faqAnswer: {
     fontSize: 14,
     color: '#666',
+    marginTop: 5,
   },
   closeButton: {
     backgroundColor: '#F9A825', // Yellow
