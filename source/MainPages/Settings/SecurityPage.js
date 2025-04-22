@@ -1,57 +1,125 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity } from 'react-native';
-import styles from '../../Styles/Settings/SecurityPageStyle'; // Import styles
-import { supabase } from '../../../Supabase'; // Replace with Supabase client
+import { View, Text, TextInput, TouchableOpacity, Modal } from 'react-native';
+import styles from '../../Styles/Settings/SecurityPageStyle';
+import { supabase } from '../../../Supabase';
 
 const SecurityPage = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [isPasswordModalVisible, setPasswordModalVisible] = useState(false);
+  const [isEmailModalVisible, setEmailModalVisible] = useState(false);
 
-  const handleUpdate = async () => {
-    try {
-      // Replace 'user@example.com' with the logged-in user's email
-      const { error } = await supabase
-        .from('users')
-        .update({ email, password })
-        .eq('email', 'user@example.com');
+  const [oldPassword, setOldPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
 
-      if (error) throw error;
+  const [oldEmail, setOldEmail] = useState('');
+  const [newEmail, setNewEmail] = useState('');
 
-      alert('Security settings updated successfully!');
-    } catch (error) {
-      console.error('Error updating security settings:', error.message);
-      alert('Failed to update security settings.');
-    }
+  const handlePasswordChange = async () => {
+    // Add functionality here
+    alert('Password change functionality will be implemented.');
+    setPasswordModalVisible(false);
+  };
+
+  const handleEmailChange = async () => {
+    // Add functionality here
+    alert('Email change functionality will be implemented.');
+    setEmailModalVisible(false);
   };
 
   return (
     <View style={styles.container}>
       <Text style={styles.header}>Security Settings</Text>
 
-      {/* Update Email */}
-      <TextInput
-        style={styles.input}
-        placeholder="New Email"
-        value={email}
-        onChangeText={setEmail}
-        keyboardType="email-address"
-      />
-
-      {/* Update Password */}
-      <TextInput
-        style={styles.input}
-        placeholder="New Password"
-        value={password}
-        secureTextEntry
-        onChangeText={setPassword}
-      />
-
-      {/* Update Button */}
-      <TouchableOpacity style={styles.updateButton} onPress={handleUpdate}>
-        <Text style={styles.updateButtonText}>Update Settings</Text>
+      <TouchableOpacity
+        style={styles.actionButton}
+        onPress={() => setPasswordModalVisible(true)}>
+        <Text style={styles.actionButtonText}>Change Password</Text>
       </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.actionButton}
+        onPress={() => setEmailModalVisible(true)}>
+        <Text style={styles.actionButtonText}>Change Email</Text>
+      </TouchableOpacity>
+
+      {/* Password Modal */}
+      <Modal
+        visible={isPasswordModalVisible}
+        transparent={true}
+        animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <Text style={styles.modalHeader}>Change Password</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Old Password"
+              secureTextEntry
+              value={oldPassword}
+              onChangeText={setOldPassword}
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="New Password"
+              secureTextEntry
+              value={newPassword}
+              onChangeText={setNewPassword}
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="Confirm New Password"
+              secureTextEntry
+              value={confirmNewPassword}
+              onChangeText={setConfirmNewPassword}
+            />
+            <TouchableOpacity
+              style={styles.submitButton}
+              onPress={handlePasswordChange}>
+              <Text style={styles.submitButtonText}>Submit</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.goBackButton}
+              onPress={() => setPasswordModalVisible(false)}>
+              <Text style={styles.goBackButtonText}>Go Back</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Email Modal */}
+      <Modal
+        visible={isEmailModalVisible}
+        transparent={true}
+        animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <Text style={styles.modalHeader}>Change Email</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Old Email"
+              value={oldEmail}
+              onChangeText={setOldEmail}
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="New Email"
+              value={newEmail}
+              onChangeText={setNewEmail}
+            />
+            <TouchableOpacity
+              style={styles.submitButton}
+              onPress={handleEmailChange}>
+              <Text style={styles.submitButtonText}>Submit</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.goBackButton}
+              onPress={() => setEmailModalVisible(false)}>
+              <Text style={styles.goBackButtonText}>Go Back</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
 
-export default SecurityPage;
+export default SecurityPage; 

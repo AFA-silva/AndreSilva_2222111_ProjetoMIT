@@ -47,10 +47,10 @@ const LoginPage = ({ navigation }) => {
 
         showAlertMessage(`Bem-vindo, ${data.user.email}!`, 'success');
 
-        // Espera de 2 segundos antes de ir para a Mainpage
+        // Espera de 1.5 segundos antes de ir para a Mainpage
         setTimeout(() => {
           navigation.navigate('MainPages');
-        }, 1300);
+        }, 1500);
 
       } else { // Se não existir data do user da erro
         showAlertMessage('Ocorreu um problema ao autenticar o usuário.', 'error');

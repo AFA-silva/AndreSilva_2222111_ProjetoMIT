@@ -107,7 +107,7 @@ const RegisterPage = ({ navigation }) => {
 
     try {
       // Verifica se o email ou telefone já está registrado
-      const { data: existingUserByEmail } = await supabase.from('users').select('id').eq('email', email);
+      const { data: existingUserByEmail  } = await supabase.from('users').select('id').eq('email', email);
       const { data: existingUserByPhone } = await supabase.from('users').select('id').eq('phone', phone);
 
       // Se ja existir email mostra um aviso
@@ -156,10 +156,10 @@ const RegisterPage = ({ navigation }) => {
 
       showAlertMessage('Account created successfully!', 'success');
 
-      // Após 2 segundos redireciona o user para a página de Login
+      // Após 1.5 segundos redireciona o user para a página de Login
       setTimeout(() => {
         navigation.navigate('Login');
-      }, 2000);
+      }, 1500);
 
     } catch (e) {
       console.error('Unexpected error:', e);
