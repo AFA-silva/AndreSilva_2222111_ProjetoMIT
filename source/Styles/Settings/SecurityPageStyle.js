@@ -3,12 +3,8 @@ import { StyleSheet } from 'react-native';
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F2F2F2', // Light gray
+    backgroundColor: '#F2F2F2', // White
     padding: 20,
-  },
-  icon: {
-    alignSelf: 'center',
-    marginBottom: 20,
   },
   header: {
     fontSize: 24,
@@ -17,14 +13,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     textAlign: 'center',
   },
-  passwordButton: {
-    backgroundColor: '#F57C00', // Orange
-    padding: 15,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginVertical: 10,
-  },
-  emailButton: {
+  actionButton: {
     backgroundColor: '#F9A825', // Yellow
     padding: 15,
     borderRadius: 8,
@@ -35,24 +24,6 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 16,
     fontWeight: 'bold',
-  },
-  featuresSection: {
-    marginTop: 30,
-    padding: 15,
-    backgroundColor: '#FFFDE7', // Light yellow
-    borderRadius: 8,
-    maxHeight: '60%', // Scrollable height for features
-  },
-  featuresHeader: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#F57C00', // Orange
-    marginBottom: 10,
-  },
-  feature: {
-    fontSize: 16,
-    color: '#333',
-    marginBottom: 5,
   },
   modalOverlay: {
     flex: 1,
@@ -88,7 +59,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   submitButton: {
-    backgroundColor: '#F57C00', // Orange
+    backgroundColor: '#F57C00',
     padding: 15,
     borderRadius: 8,
     alignItems: 'center',
@@ -99,15 +70,15 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
-  modalGoBackButton: {
-    backgroundColor: '#F57C00', // Orange
+  goBackButton: {
+    backgroundColor: '#F9A825', // Grey
     padding: 10,
     borderRadius: 8,
     alignItems: 'center',
     marginTop: 10,
   },
   goBackButtonText: {
-    color: '#FFF',
+    color: '#000',
     fontSize: 14,
     fontWeight: 'bold',
   },

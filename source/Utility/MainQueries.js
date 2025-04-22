@@ -1,8 +1,46 @@
 import { supabase } from '../../Supabase';
-import { saveUserToStorage } from './AsyncStorage';
 
-// Fetch user data by email and save it to AsyncStorage
-export const getUserByEmail = async (email) => {
+// Fetch the current user's session
+export const getSession = async () => {
+  try {
+    const { data: session, error } = await supabase.auth.getSession();
+
+    if (error) throw error;
+
+    if (session) {
+      console.log('Session fetched successfully:', session);
+      return session;
+    } else {
+      console.log('No active session found.');
+      return null;
+    }
+  } catch (err) {
+    console.error('Error fetching session:', err);
+    return null;
+  }
+};
+
+// Fetch user data by their unique ID
+export const fetchUserById = async (userId) => {
+  try {
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', userId)
+      .single();
+
+    if (error) throw error;
+
+    console.log('User fetched successfully:', data);
+    return data;
+  } catch (err) {
+    console.error('Error fetching user by ID:', err);
+    return null;
+  }
+};
+
+// Fetch user data by email
+export const fetchUserByEmail = async (email) => {
   try {
     const { data, error } = await supabase
       .from('users')
@@ -12,40 +50,63 @@ export const getUserByEmail = async (email) => {
 
     if (error) throw error;
 
-    // Save the data to AsyncStorage
-    await saveUserToStorage(data);
-    console.log('User fetched and saved to AsyncStorage');
+    console.log('User fetched successfully:', data);
     return data;
   } catch (err) {
-    console.error('Error fetching user data:', err);
+    console.error('Error fetching user by email:', err);
     return null;
   }
 };
 
-// Update user data in database and update AsyncStorage
-export const updateUserByEmail = async (email, updates) => {
+// Create a new user in the database
+export const createUser = async (userDetails) => {
   try {
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('users')
-      .update(updates)
-      .eq('email', email);
+      .insert([userDetails]);
 
     if (error) throw error;
 
-    console.log('User updated in database');
-    return true;
+    console.log('User created successfully:', data);
+    return data;
   } catch (err) {
-    console.error('Error updating user data:', err);
-    return false;
+    console.error('Error creating user:', err);
+    return null;
   }
 };
 
-// Clear user data from AsyncStorage
-export const clearUserData = async (email) => {
+// Update an existing user's data
+export const updateUser = async (userId, updates) => {
   try {
-    await AsyncStorage.removeItem(`user:${email}`);
-    console.log('User data cleared from AsyncStorage');
+    const { data, error } = await supabase
+      .from('users')
+      .update(updates)
+      .eq('id', userId);
+
+    if (error) throw error;
+
+    console.log('User updated successfully:', data);
+    return data;
   } catch (err) {
-    console.error('Error clearing user data from AsyncStorage:', err);
+    console.error('Error updating user:', err);
+    return null;
+  }
+};
+
+// Delete a user by ID
+export const deleteUserById = async (userId) => {
+  try {
+    const { data, error } = await supabase
+      .from('users')
+      .delete()
+      .eq('id', userId);
+
+    if (error) throw error;
+
+    console.log('User deleted successfully:', data);
+    return data;
+  } catch (err) {
+    console.error('Error deleting user:', err);
+    return null;
   }
 };

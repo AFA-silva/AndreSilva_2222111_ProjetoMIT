@@ -1,26 +1,96 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Modal, ScrollView } from 'react-native';
 import styles from '../../Styles/Settings/SecurityPageStyle';
 import { Ionicons } from '@expo/vector-icons';
 import Alert from '../../Utility/Alerts';
+import { supabase } from '../../../Supabase';
 
 const SecurityPage = () => {
   const [isPasswordModalVisible, setPasswordModalVisible] = useState(false);
   const [isEmailModalVisible, setEmailModalVisible] = useState(false);
-
   const [alerts, setAlerts] = useState([]);
+  const [oldPassword, setOldPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [userSession, setUserSession] = useState(null);
 
+  // Fetch session data when the component loads
+  useEffect(() => {
+    const fetchSession = async () => {
+      const { data, error } = await supabase.auth.getSession();
+
+      if (error) {
+        console.error('Error fetching session:', error.message);
+        showAlert('Failed to fetch session. Please log in again.', 'error');
+        return;
+      }
+
+      if (data?.session) {
+        setUserSession(data.session);
+      } else {
+        showAlert('No active session found. Please log in again.', 'error');
+      }
+    };
+
+    fetchSession();
+  }, []);
+
+  // Function to show alerts
   const showAlert = (message, type) => {
-    setAlerts([...alerts, { id: Date.now(), message, type }]);
+    const alertId = Date.now();
+    setAlerts([...alerts, { id: alertId, message, type }]);
+    setTimeout(() => removeAlert(alertId), 3000);
   };
 
+  // Function to remove alerts
   const removeAlert = (id) => {
     setAlerts(alerts.filter((alert) => alert.id !== id));
   };
 
-  const handlePasswordChange = () => {
-    showAlert('Password change functionality will be implemented.', 'info');
-    setPasswordModalVisible(false);
+  // Function to handle password change
+  const handlePasswordChange = async () => {
+    if (!userSession) {
+      showAlert('No active session. Please log in again.', 'error');
+      return;
+    }
+
+    if (newPassword !== confirmNewPassword) {
+      showAlert('New password and confirmation do not match.', 'error');
+      return;
+    }
+
+    try {
+      // Verify the old password
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+        email: userSession.user.email,
+        password: oldPassword,
+      });
+
+      if (signInError) {
+        console.error('Error verifying old password:', signInError.message);
+        showAlert('Old password is incorrect.', 'error');
+        return;
+      }
+
+      console.log('Old password verified successfully:', signInData);
+
+      // Update to the new password
+      const { data: updateData, error: updateError } = await supabase.auth.updateUser({ password: newPassword });
+
+      if (updateError) {
+        console.error('Error updating password:', updateError.message);
+        showAlert('Failed to update the password. Please try again.', 'error');
+        return;
+      }
+
+      console.log('Password updated successfully in the database:', updateData);
+
+      showAlert('Password updated successfully.', 'success');
+      setPasswordModalVisible(false);
+    } catch (error) {
+      console.error('Unexpected error:', error);
+      showAlert('An unexpected error occurred. Please try again.', 'error');
+    }
   };
 
   const handleEmailChange = () => {
@@ -47,14 +117,14 @@ const SecurityPage = () => {
 
       {/* Buttons */}
       <TouchableOpacity
-        style={styles.passwordButton} // Orange button
+        style={styles.passwordButton}
         onPress={() => setPasswordModalVisible(true)}
       >
         <Text style={styles.actionButtonText}>Change Password</Text>
       </TouchableOpacity>
 
       <TouchableOpacity
-        style={styles.emailButton} // Yellow button
+        style={styles.emailButton}
         onPress={() => setEmailModalVisible(true)}
       >
         <Text style={styles.actionButtonText}>Change Email</Text>
@@ -83,16 +153,22 @@ const SecurityPage = () => {
               style={styles.input}
               placeholder="Old Password"
               secureTextEntry
+              value={oldPassword}
+              onChangeText={setOldPassword}
             />
             <TextInput
               style={styles.input}
               placeholder="New Password"
               secureTextEntry
+              value={newPassword}
+              onChangeText={setNewPassword}
             />
             <TextInput
               style={styles.input}
               placeholder="Confirm New Password"
               secureTextEntry
+              value={confirmNewPassword}
+              onChangeText={setConfirmNewPassword}
             />
             <TouchableOpacity
               style={styles.submitButton}
@@ -101,7 +177,7 @@ const SecurityPage = () => {
               <Text style={styles.submitButtonText}>Submit</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={styles.modalGoBackButton} // Updated "Go Back" button color
+              style={styles.modalGoBackButton}
               onPress={() => setPasswordModalVisible(false)}
             >
               <Text style={styles.goBackButtonText}>Go Back</Text>
@@ -128,7 +204,7 @@ const SecurityPage = () => {
               <Text style={styles.submitButtonText}>Submit</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={styles.modalGoBackButton} // Updated "Go Back" button color
+              style={styles.modalGoBackButton}
               onPress={() => setEmailModalVisible(false)}
             >
               <Text style={styles.goBackButtonText}>Go Back</Text>

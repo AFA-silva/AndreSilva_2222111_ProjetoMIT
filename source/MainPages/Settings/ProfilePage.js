@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Alert } from 'react-native';
 import styles from '../../Styles/Settings/ProfilePageStyle';
 import { getUserByEmail, updateUserByEmail, clearUserFromStorage } from '../../Utility/MainQueries';
-import { saveUserToStorage, getUserFromStorage } from '../../Utility/AsyncStorage';
 
 const ProfilePage = () => {
   const [name, setName] = useState('');

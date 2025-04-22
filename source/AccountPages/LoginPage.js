@@ -3,6 +3,7 @@ import { View, Text, TextInput, TouchableOpacity } from 'react-native'; // Impor
 import styles from '../Styles/AccountPageStyles/LoginPageStyle'; // import do estilo para a pagina de login
 import { supabase } from '../../Supabase'; // Import da Database
 import Alert from '../Utility/Alerts'; // Import dos Alertas customs
+import { getSession } from '../Utility/MainQueries'; // Import the new getSession query
 
 const LoginPage = ({ navigation }) => {
   // Crias as variaveis para os alertas.
@@ -47,11 +48,20 @@ const LoginPage = ({ navigation }) => {
 
         showAlertMessage(`Bem-vindo, ${data.user.email}!`, 'success');
 
+        // Check if the session is working
+        const session = await getSession();
+        if (session) {
+          console.log('Session is working:', session);
+          showAlertMessage('Sessão verificada e ativa!', 'success');
+        } else {
+          console.log('Session is NOT working.');
+          showAlertMessage('Problema ao verificar a sessão.', 'error');
+        }
+
         // Espera de 1.5 segundos antes de ir para a Mainpage
         setTimeout(() => {
           navigation.navigate('MainPages');
         }, 1500);
-
       } else { // Se não existir data do user da erro
         showAlertMessage('Ocorreu um problema ao autenticar o usuário.', 'error');
       }
