@@ -77,19 +77,29 @@ export const createUser = async (userDetails) => {
 
 // Update an existing user's data
 export const updateUser = async (userId, updates) => {
+  console.log('updateUser called with:', { userId, updates });
+
   try {
     const { data, error } = await supabase
       .from('users')
       .update(updates)
       .eq('id', userId);
 
-    if (error) throw error;
+    if (error) {
+      console.error('Error updating user:', error.message);
+      return { data: null, error };
+    }
+
+    if (!data || data.length === 0) {
+      console.error('No rows updated. Check query conditions.');
+      return { data: null, error: new Error('No rows updated.') };
+    }
 
     console.log('User updated successfully:', data);
-    return data;
+    return { data, error: null };
   } catch (err) {
-    console.error('Error updating user:', err);
-    return null;
+    console.error('Unexpected error in updateUser:', err);
+    return { data: null, error: err };
   }
 };
 

@@ -4,10 +4,10 @@ import styles from '../../Styles/Settings/SecurityPageStyle';
 import { Ionicons } from '@expo/vector-icons';
 import Alert from '../../Utility/Alerts';
 import { supabase } from '../../../Supabase';
+import { updateUser } from '../../Utility/MainQueries';
 
 const SecurityPage = () => {
   const [isPasswordModalVisible, setPasswordModalVisible] = useState(false);
-  const [isEmailModalVisible, setEmailModalVisible] = useState(false);
   const [alerts, setAlerts] = useState([]);
   const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -74,16 +74,29 @@ const SecurityPage = () => {
 
       console.log('Old password verified successfully:', signInData);
 
-      // Update to the new password
+      // Update password in Supabase Auth
       const { data: updateData, error: updateError } = await supabase.auth.updateUser({ password: newPassword });
 
       if (updateError) {
-        console.error('Error updating password:', updateError.message);
+        console.error('Error updating password in Supabase Auth:', updateError.message);
         showAlert('Failed to update the password. Please try again.', 'error');
         return;
       }
 
-      console.log('Password updated successfully in the database:', updateData);
+      console.log('Password updated successfully in Supabase Auth:', updateData);
+
+      // Update password in the `users` table
+      const { data: userUpdateData, error: userUpdateError } = await updateUser(userSession.user.id, {
+        password: newPassword, // The password will be hashed in MainQueries.js
+      });
+
+      if (userUpdateError) {
+        console.error('Error updating user table:', userUpdateError.message);
+        showAlert('Failed to update user info in the database. Please try again.', 'error');
+        return;
+      }
+
+      console.log('User table updated successfully:', userUpdateData);
 
       showAlert('Password updated successfully.', 'success');
       setPasswordModalVisible(false);
@@ -91,11 +104,6 @@ const SecurityPage = () => {
       console.error('Unexpected error:', error);
       showAlert('An unexpected error occurred. Please try again.', 'error');
     }
-  };
-
-  const handleEmailChange = () => {
-    showAlert('Email change functionality will be implemented.', 'info');
-    setEmailModalVisible(false);
   };
 
   return (
@@ -122,23 +130,6 @@ const SecurityPage = () => {
       >
         <Text style={styles.actionButtonText}>Change Password</Text>
       </TouchableOpacity>
-
-      <TouchableOpacity
-        style={styles.emailButton}
-        onPress={() => setEmailModalVisible(true)}
-      >
-        <Text style={styles.actionButtonText}>Change Email</Text>
-      </TouchableOpacity>
-
-      {/* Security Features Section */}
-      <ScrollView style={styles.featuresSection}>
-        <Text style={styles.featuresHeader}>Security Features</Text>
-        <Text style={styles.feature}>• Password Strength Indicator</Text>
-        <Text style={styles.feature}>• Two-Factor Authentication (Coming Soon)</Text>
-        <Text style={styles.feature}>• Login Activity Log</Text>
-        <Text style={styles.feature}>• IP Whitelisting</Text>
-        <Text style={styles.feature}>• Session Timeout Alerts</Text>
-      </ScrollView>
 
       {/* Password Modal */}
       <Modal
@@ -179,33 +170,6 @@ const SecurityPage = () => {
             <TouchableOpacity
               style={styles.modalGoBackButton}
               onPress={() => setPasswordModalVisible(false)}
-            >
-              <Text style={styles.goBackButtonText}>Go Back</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Email Modal */}
-      <Modal
-        visible={isEmailModalVisible}
-        transparent={true}
-        animationType="slide"
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
-            <Text style={styles.modalHeader}>Change Email</Text>
-            <TextInput style={styles.input} placeholder="Old Email" />
-            <TextInput style={styles.input} placeholder="New Email" />
-            <TouchableOpacity
-              style={styles.submitButton}
-              onPress={handleEmailChange}
-            >
-              <Text style={styles.submitButtonText}>Submit</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.modalGoBackButton}
-              onPress={() => setEmailModalVisible(false)}
             >
               <Text style={styles.goBackButtonText}>Go Back</Text>
             </TouchableOpacity>
