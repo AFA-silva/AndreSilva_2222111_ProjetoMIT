@@ -91,8 +91,8 @@ export const updateUser = async (userId, updates) => {
     }
 
     if (!data || data.length === 0) {
-      console.error('No rows updated. Check query conditions.');
-      return { data: null, error: new Error('No rows updated.') };
+      console.log(`No rows updated. The user ID ${userId} may not exist or the update conditions did not match.`);
+      return { data: null, error: null }; // Removed warning and considered it a no-op.
     }
 
     console.log('User updated successfully:', data);

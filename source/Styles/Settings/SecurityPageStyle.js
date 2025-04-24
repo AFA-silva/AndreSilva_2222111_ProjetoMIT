@@ -3,27 +3,57 @@ import { StyleSheet } from 'react-native';
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F2F2F2', // White
-    padding: 20,
+    backgroundColor: '#F4F4F4',
+    paddingHorizontal: 20,
+    paddingVertical: 30,
+    alignItems: 'center',
   },
   header: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: 'bold',
-    color: '#000000', // Black
+    color: '#333',
     marginBottom: 20,
     textAlign: 'center',
   },
+  icon: {
+    marginBottom: 15,
+  },
   actionButton: {
-    backgroundColor: '#F9A825', // Yellow
-    padding: 15,
+    backgroundColor: '#F57C00',
+    paddingVertical: 15,
     borderRadius: 8,
     alignItems: 'center',
     marginVertical: 10,
+    width: '100%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
   },
   actionButtonText: {
     color: '#FFF',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  tipsSection: {
+    marginTop: 20,
+    padding: 15,
+    backgroundColor: '#FFF',
+    borderRadius: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
+    elevation: 3,
+    width: '100%',
+  },
+  tipText: {
+    fontSize: 14,
+    color: '#555',
+    marginBottom: 10,
+    lineHeight: 20,
+    textAlign: 'left', // Aligned text to the left
   },
   modalOverlay: {
     flex: 1,
@@ -37,7 +67,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     padding: 20,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 5,
     elevation: 5,
@@ -59,11 +89,16 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   submitButton: {
-    backgroundColor: '#F57C00',
-    padding: 15,
+    backgroundColor: '#4CAF50',
+    paddingVertical: 12,
     borderRadius: 8,
     alignItems: 'center',
     marginTop: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
   },
   submitButtonText: {
     color: '#FFF',
@@ -71,16 +106,23 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   goBackButton: {
-    backgroundColor: '#F9A825', // Grey
-    padding: 10,
+    backgroundColor: '#FF9800',
+    paddingVertical: 12,
     borderRadius: 8,
     alignItems: 'center',
-    marginTop: 10,
+    marginTop: 15,
+    width: '100%',
   },
   goBackButtonText: {
-    color: '#000',
-    fontSize: 14,
+    color: '#FFF',
+    fontSize: 16,
     fontWeight: 'bold',
+  },
+  currentEmailText: {
+    fontSize: 14,
+    color: '#333',
+    marginBottom: 10,
+    textAlign: 'center',
   },
 });
 

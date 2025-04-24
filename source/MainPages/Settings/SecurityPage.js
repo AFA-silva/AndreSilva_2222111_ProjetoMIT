@@ -4,111 +4,129 @@ import styles from '../../Styles/Settings/SecurityPageStyle';
 import { Ionicons } from '@expo/vector-icons';
 import Alert from '../../Utility/Alerts';
 import { supabase } from '../../../Supabase';
-import { updateUser } from '../../Utility/MainQueries';
+import { isEmailValid } from '../../Utility/Validations';
 
 const SecurityPage = () => {
   const [isPasswordModalVisible, setPasswordModalVisible] = useState(false);
+  const [isEmailModalVisible, setEmailModalVisible] = useState(false);
   const [alerts, setAlerts] = useState([]);
   const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [oldEmail, setOldEmail] = useState('');
+  const [newEmail, setNewEmail] = useState('');
+  const [confirmNewEmail, setConfirmNewEmail] = useState('');
   const [userSession, setUserSession] = useState(null);
 
-  // Fetch session data when the component loads
   useEffect(() => {
     const fetchSession = async () => {
       const { data, error } = await supabase.auth.getSession();
-
       if (error) {
-        console.error('Error fetching session:', error.message);
         showAlert('Failed to fetch session. Please log in again.', 'error');
         return;
       }
-
       if (data?.session) {
         setUserSession(data.session);
+        setOldEmail(data.session.user.email);
       } else {
         showAlert('No active session found. Please log in again.', 'error');
       }
     };
-
     fetchSession();
   }, []);
 
-  // Function to show alerts
   const showAlert = (message, type) => {
     const alertId = Date.now();
     setAlerts([...alerts, { id: alertId, message, type }]);
     setTimeout(() => removeAlert(alertId), 3000);
   };
 
-  // Function to remove alerts
   const removeAlert = (id) => {
     setAlerts(alerts.filter((alert) => alert.id !== id));
   };
 
-  // Function to handle password change
+  const handleModalOpen = (modalType) => {
+    if (!userSession) {
+      showAlert('No active session. Please log in again.', 'error');
+      return;
+    }
+    if (modalType === 'email') {
+      setEmailModalVisible(true);
+    } else if (modalType === 'password') {
+      setPasswordModalVisible(true);
+    }
+  };
+
+  const handleEmailChange = async () => {
+    if (!userSession) {
+      showAlert('No active session. Please log in again.', 'error');
+      return;
+    }
+    if (!isEmailValid(newEmail)) {
+      showAlert('Invalid email format. Please enter a valid email.', 'error');
+      return;
+    }
+    if (newEmail !== confirmNewEmail) {
+      showAlert('New email and confirmation do not match.', 'error');
+      return;
+    }
+    try {
+      const { error: authError } = await supabase.auth.updateUser({
+        email: newEmail,
+      });
+      if (authError) {
+        showAlert(`Failed to update the email: ${authError.message}`, 'error');
+        return;
+      }
+      showAlert('Confirmation email sent. Please verify your new email address.', 'info');
+      setEmailModalVisible(false);
+    } catch (error) {
+      showAlert('An unexpected error occurred. Please try again.', 'error');
+    }
+  };
+
   const handlePasswordChange = async () => {
     if (!userSession) {
       showAlert('No active session. Please log in again.', 'error');
       return;
     }
-
+    if (oldPassword.length < 6) {
+      showAlert('Old password must be at least 6 characters long.', 'error');
+      return;
+    }
+    if (newPassword.length < 6) {
+      showAlert('New password must be at least 6 characters long.', 'error');
+      return;
+    }
     if (newPassword !== confirmNewPassword) {
       showAlert('New password and confirmation do not match.', 'error');
       return;
     }
-
     try {
-      // Verify the old password
-      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+      const { error: signInError } = await supabase.auth.signInWithPassword({
         email: userSession.user.email,
         password: oldPassword,
       });
-
       if (signInError) {
-        console.error('Error verifying old password:', signInError.message);
         showAlert('Old password is incorrect.', 'error');
         return;
       }
-
-      console.log('Old password verified successfully:', signInData);
-
-      // Update password in Supabase Auth
-      const { data: updateData, error: updateError } = await supabase.auth.updateUser({ password: newPassword });
-
-      if (updateError) {
-        console.error('Error updating password in Supabase Auth:', updateError.message);
-        showAlert('Failed to update the password. Please try again.', 'error');
-        return;
-      }
-
-      console.log('Password updated successfully in Supabase Auth:', updateData);
-
-      // Update password in the `users` table
-      const { data: userUpdateData, error: userUpdateError } = await updateUser(userSession.user.id, {
-        password: newPassword, // The password will be hashed in MainQueries.js
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: newPassword,
       });
-
-      if (userUpdateError) {
-        console.error('Error updating user table:', userUpdateError.message);
-        showAlert('Failed to update user info in the database. Please try again.', 'error');
+      if (updateError) {
+        showAlert(`Failed to update password: ${updateError.message}`, 'error');
         return;
       }
-
-      console.log('User table updated successfully:', userUpdateData);
-
       showAlert('Password updated successfully.', 'success');
       setPasswordModalVisible(false);
     } catch (error) {
-      console.error('Unexpected error:', error);
       showAlert('An unexpected error occurred. Please try again.', 'error');
     }
   };
 
   return (
-    <View style={styles.container}>
-      {/* Alerts */}
+    <ScrollView contentContainerStyle={styles.container}>
       {alerts.map((alert) => (
         <Alert
           key={alert.id}
@@ -117,26 +135,27 @@ const SecurityPage = () => {
           onClose={() => removeAlert(alert.id)}
         />
       ))}
-
-      {/* Icon */}
       <Ionicons name="shield-outline" size={80} color="#F9A825" style={styles.icon} />
-
       <Text style={styles.header}>Security Settings</Text>
-
-      {/* Buttons */}
       <TouchableOpacity
-        style={styles.passwordButton}
-        onPress={() => setPasswordModalVisible(true)}
+        style={styles.actionButton}
+        onPress={() => handleModalOpen('password')}
       >
         <Text style={styles.actionButtonText}>Change Password</Text>
       </TouchableOpacity>
-
-      {/* Password Modal */}
-      <Modal
-        visible={isPasswordModalVisible}
-        transparent={true}
-        animationType="slide"
+      <TouchableOpacity
+        style={styles.actionButton}
+        onPress={() => handleModalOpen('email')}
       >
+        <Text style={styles.actionButtonText}>Change Email</Text>
+      </TouchableOpacity>
+      <View style={styles.tipsSection}>
+        <Text style={styles.tipText}>🔒 Change your password weekly for better security.</Text>
+        <Text style={styles.tipText}>📧 After changing your email, restart the app or re-enter the page.</Text>
+        <Text style={styles.tipText}>✅ Use a strong password with a mix of letters, numbers, and symbols.</Text>
+        <Text style={styles.tipText}>🚀 Ensure you verify your email to complete the update process.</Text>
+      </View>
+      <Modal visible={isPasswordModalVisible} transparent>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
             <Text style={styles.modalHeader}>Change Password</Text>
@@ -161,14 +180,11 @@ const SecurityPage = () => {
               value={confirmNewPassword}
               onChangeText={setConfirmNewPassword}
             />
-            <TouchableOpacity
-              style={styles.submitButton}
-              onPress={handlePasswordChange}
-            >
+            <TouchableOpacity style={styles.submitButton} onPress={handlePasswordChange}>
               <Text style={styles.submitButtonText}>Submit</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={styles.modalGoBackButton}
+              style={styles.goBackButton}
               onPress={() => setPasswordModalVisible(false)}
             >
               <Text style={styles.goBackButtonText}>Go Back</Text>
@@ -176,7 +192,36 @@ const SecurityPage = () => {
           </View>
         </View>
       </Modal>
-    </View>
+      <Modal visible={isEmailModalVisible} transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <Text style={styles.modalHeader}>Change Email</Text>
+            <Text style={styles.currentEmailText}>Current Email: {oldEmail}</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="New Email"
+              value={newEmail}
+              onChangeText={setNewEmail}
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="Confirm New Email"
+              value={confirmNewEmail}
+              onChangeText={setConfirmNewEmail}
+            />
+            <TouchableOpacity style={styles.submitButton} onPress={handleEmailChange}>
+              <Text style={styles.submitButtonText}>Submit</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.goBackButton}
+              onPress={() => setEmailModalVisible(false)}
+            >
+              <Text style={styles.goBackButtonText}>Go Back</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    </ScrollView>
   );
 };
 
