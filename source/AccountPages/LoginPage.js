@@ -3,7 +3,7 @@ import { View, Text, TextInput, TouchableOpacity } from 'react-native'; // Impor
 import styles from '../Styles/AccountPageStyles/LoginPageStyle'; // import do estilo para a pagina de login
 import { supabase } from '../../Supabase'; // Import da Database
 import Alert from '../Utility/Alerts'; // Import dos Alertas customs
-import { getSession } from '../Utility/MainQueries'; // Import the new getSession query
+import { updateUser } from '../Utility/MainQueries'; // Import da query para atualizar usuário
 
 const LoginPage = ({ navigation }) => {
   // Crias as variaveis para os alertas.
@@ -44,18 +44,29 @@ const LoginPage = ({ navigation }) => {
 
       // Verifica se data existe para fazer o login.
       if (data?.user) {
-        console.log('User autenticado:', data);
+        console.log('Usuário autenticado:', data);
 
         showAlertMessage(`Bem-vindo, ${data.user.email}!`, 'success');
 
-        // Check if the session is working
-        const session = await getSession();
-        if (session) {
-          console.log('Session is working:', session);
-          showAlertMessage('Sessão verificada e ativa!', 'success');
-        } else {
-          console.log('Session is NOT working.');
-          showAlertMessage('Problema ao verificar a sessão.', 'error');
+        // Atualizar o email no banco de dados baseado no email do Supabase Auth
+        const userEmail = data.user.email;
+        const userId = data.user.id;
+
+        try {
+          console.log('Atualizando email diretamente no banco de dados...');
+          const { error: updateError } = await updateUser(userId, { email: userEmail });
+
+          if (updateError) {
+            console.error('Erro ao atualizar email no banco de dados:', updateError.message);
+            showAlertMessage('Erro ao sincronizar email no banco de dados.', 'error');
+            return;
+          }
+
+          showAlertMessage('Email atualizado com sucesso no banco de dados.', 'success');
+        } catch (dbError) {
+          console.error('Erro ao atualizar o email:', dbError.message);
+          showAlertMessage('Erro ao sincronizar dados do usuário.', 'error');
+          return;
         }
 
         // Espera de 1.5 segundos antes de ir para a Mainpage
