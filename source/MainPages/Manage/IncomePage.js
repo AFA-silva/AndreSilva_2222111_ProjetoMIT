@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../Supabase';
 import styles from '../../Styles/Manage/IncomePageStyle';
 import IncomeChart from '../../Utility/Chart';
+import Alert from '../../Utility/Alerts'; // Alerta importado
 
 const IncomePage = ({ navigation }) => {
   const [incomes, setIncomes] = useState([]);
@@ -18,6 +19,11 @@ const IncomePage = ({ navigation }) => {
     frequency_id: '',
     category_id: '',
   });
+
+  // Gerenciamento de alertas
+  const [alertMessage, setAlertMessage] = useState('');
+  const [alertType, setAlertType] = useState('');
+  const [showAlert, setShowAlert] = useState(false);
 
   const fetchIncomes = async () => {
     const { data, error } = await supabase
@@ -77,34 +83,64 @@ const IncomePage = ({ navigation }) => {
   };
 
   const handleSaveIncome = async () => {
-    if (selectedIncome) {
-      const { error } = await supabase
-        .from('income')
-        .update({
-          name: formData.name,
-          amount: parseFloat(formData.amount),
-          frequency_id: formData.frequency_id,
-          category_id: formData.category_id,
-        })
-        .eq('id', selectedIncome.id);
-      if (error) {
-        console.error('Error updating income:', error);
+    try {
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+      if (authError) {
+        console.error('Erro ao autenticar o usuário:', authError);
+        alert('Erro ao obter o usuário autenticado. Por favor, tente novamente.');
+        return;
       }
-    } else {
-      const { error } = await supabase.from('income').insert([
-        {
-          name: formData.name,
-          amount: parseFloat(formData.amount),
-          frequency_id: formData.frequency_id,
-          category_id: formData.category_id,
-        },
-      ]);
-      if (error) {
-        console.error('Error adding income:', error);
+
+      const userId = user?.id;
+
+      if (!userId) {
+        alert('Erro: Usuário não autenticado. Não é possível adicionar a receita.');
+        return;
       }
+
+      if (!formData.name || !formData.amount || !formData.frequency_id || !formData.category_id) {
+        alert('Por favor, preencha todos os campos antes de salvar.');
+        return;
+      }
+
+      const payload = {
+        name: formData.name,
+        amount: parseFloat(formData.amount),
+        frequency_id: formData.frequency_id,
+        category_id: formData.category_id,
+        user_id: userId, // Incluindo o user_id
+      };
+
+      let error;
+      if (selectedIncome) {
+        ({ error } = await supabase
+          .from('income')
+          .update(payload)
+          .eq('id', selectedIncome.id));
+      } else {
+        ({ error } = await supabase
+          .from('income')
+          .insert([payload]));
+      }
+
+      if (error) {
+        console.error('Erro ao salvar receita:', error);
+        alert('Erro ao salvar a receita. Por favor, tente novamente.');
+        return;
+      }
+
+      // Alerta verde de sucesso
+      setAlertMessage(selectedIncome ? 'Receita atualizada com sucesso!' : 'Receita adicionada com sucesso!');
+      setAlertType('success');
+      setShowAlert(true);
+    } catch (error) {
+      console.error('Erro inesperado ao salvar receita:', error);
+      alert('Erro inesperado. Por favor, tente novamente.');
+    } finally {
+      setModalVisible(false);
+      fetchIncomes(); // Atualiza a lista de receitas
     }
-    setModalVisible(false);
-    fetchIncomes();
   };
 
   const handleDeleteIncome = async (incomeId) => {
@@ -122,6 +158,9 @@ const IncomePage = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
+      {/* Alerta */}
+      {showAlert && <Alert type={alertType} message={alertMessage} onClose={() => setShowAlert(false)} />}
+
       <Text style={styles.header}>Income</Text>
 
       {/* Income Chart */}
