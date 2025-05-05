@@ -1,48 +1,49 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Alert } from 'react-native';
 import styles from '../../Styles/Settings/ProfilePageStyle';
-import { getUserByEmail, updateUserByEmail, clearUserFromStorage } from '../../Utility/MainQueries';
+import { getUserByEmail, updateUserByEmail } from '../../Utility/MainQueries';
 
 const ProfilePage = () => {
+  // Estados para os campos de perfil
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [region, setRegion] = useState('');
-  const [email] = useState('user@example.com'); // Substitua com o e-mail dinâmico do utilizador
+  const [email] = useState('user@example.com'); // Substitua pelo email dinâmico
 
+  // Função para carregar dados do usuário
   useEffect(() => {
-    const loadUser = async () => {
-      const cachedUser = await getUserFromStorage();
-      if (cachedUser) {
-        setName(cachedUser.name || '');
-        setPhone(cachedUser.phone || '');
-        setRegion(cachedUser.region || '');
-      } else {
+    const loadUserData = async () => {
+      try {
         const user = await getUserByEmail(email);
         if (user) {
           setName(user.name || '');
           setPhone(user.phone || '');
           setRegion(user.region || '');
-          await saveUserToStorage(user); // Salva no AsyncStorage
+        } else {
+          Alert.alert('Error', 'Failed to load user data.');
         }
+      } catch (error) {
+        console.error('Error loading user data:', error);
+        Alert.alert('Error', 'An unexpected error occurred.');
       }
     };
 
-    loadUser();
+    loadUserData();
   }, [email]);
 
+  // Função para salvar alterações no perfil
   const handleSave = async () => {
-    const success = await updateUserByEmail(email, { name, phone, region });
-    if (success) {
-      Alert.alert('Success', 'Profile updated successfully!');
-      await saveUserToStorage({ name, phone, region, email }); // Atualiza no AsyncStorage
-    } else {
-      Alert.alert('Error', 'Failed to update profile.');
+    try {
+      const success = await updateUserByEmail(email, { name, phone, region });
+      if (success) {
+        Alert.alert('Success', 'Profile updated successfully!');
+      } else {
+        Alert.alert('Error', 'Failed to update profile.');
+      }
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      Alert.alert('Error', 'An unexpected error occurred.');
     }
-  };
-
-  const handleClear = async () => {
-    await clearUserFromStorage(email);
-    Alert.alert('Success', 'User data cleared from AsyncStorage.');
   };
 
   return (
@@ -73,10 +74,6 @@ const ProfilePage = () => {
 
       <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
         <Text style={styles.saveButtonText}>Save Changes</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity style={styles.clearButton} onPress={handleClear}>
-        <Text style={styles.clearButtonText}>Clear Data</Text>
       </TouchableOpacity>
     </View>
   );

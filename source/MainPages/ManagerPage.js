@@ -9,10 +9,13 @@ const ManagerPage = ({ navigation }) => {
       <Text style={styles.header}>Gerenciamento</Text>
 
       <View style={styles.menuContainer}>
-        <TouchableOpacity style={styles.managerButton}>
+        <TouchableOpacity
+          style={styles.managerButton}
+          onPress={() => navigation.navigate('IncomePage')} // Navigate to IncomePage
+        >
           <View style={styles.buttonRow}>
             <Ionicons name="cash-outline" size={24} color="#FF9800" />
-            <Text style={styles.buttonText}>Gerenciar Receitas</Text>
+            <Text style={styles.buttonText}>Manage Income</Text>
           </View>
         </TouchableOpacity>
 
