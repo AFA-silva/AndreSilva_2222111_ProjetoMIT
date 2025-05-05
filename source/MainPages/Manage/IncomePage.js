@@ -1,17 +1,28 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Modal, FlatList } from 'react-native';
+import { View, Text, TouchableOpacity, Modal, FlatList, TextInput } from 'react-native';
+import { Picker } from '@react-native-picker/picker';
 import { Ionicons } from '@expo/vector-icons';
-import { supabase } from '../../../Supabase'; // Ensure Supabase is properly configured
+import { supabase } from '../../../Supabase';
 import styles from '../../Styles/Manage/IncomePageStyle';
-import IncomeChart from '../../Utility/Chart'; // Corrected the import
+import IncomeChart from '../../Utility/Chart';
 
 const IncomePage = ({ navigation }) => {
   const [incomes, setIncomes] = useState([]);
+  const [frequencies, setFrequencies] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [isModalVisible, setModalVisible] = useState(false);
   const [selectedIncome, setSelectedIncome] = useState(null);
+  const [formData, setFormData] = useState({
+    name: '',
+    amount: '',
+    frequency_id: '',
+    category_id: '',
+  });
 
   const fetchIncomes = async () => {
-    const { data, error } = await supabase.from('income').select('*');
+    const { data, error } = await supabase
+      .from('income')
+      .select('*, frequencies(name), categories(name)');
     if (error) {
       console.error('Error fetching incomes:', error);
     } else {
@@ -19,18 +30,81 @@ const IncomePage = ({ navigation }) => {
     }
   };
 
+  const fetchFrequencies = async () => {
+    const { data, error } = await supabase.from('frequencies').select('*');
+    if (error) {
+      console.error('Error fetching frequencies:', error);
+    } else {
+      setFrequencies(data || []);
+    }
+  };
+
+  const fetchCategories = async () => {
+    const { data, error } = await supabase.from('categories').select('*');
+    if (error) {
+      console.error('Error fetching categories:', error);
+    } else {
+      setCategories(data || []);
+    }
+  };
+
   useEffect(() => {
     fetchIncomes();
+    fetchFrequencies();
+    fetchCategories();
   }, []);
 
   const handleAddIncome = () => {
     setSelectedIncome(null);
+    setFormData({
+      name: '',
+      amount: '',
+      frequency_id: '',
+      category_id: '',
+    });
     setModalVisible(true);
   };
 
   const handleEditIncome = (income) => {
     setSelectedIncome(income);
+    setFormData({
+      name: income.name,
+      amount: income.amount.toString(),
+      frequency_id: income.frequency_id,
+      category_id: income.category_id,
+    });
     setModalVisible(true);
+  };
+
+  const handleSaveIncome = async () => {
+    if (selectedIncome) {
+      const { error } = await supabase
+        .from('income')
+        .update({
+          name: formData.name,
+          amount: parseFloat(formData.amount),
+          frequency_id: formData.frequency_id,
+          category_id: formData.category_id,
+        })
+        .eq('id', selectedIncome.id);
+      if (error) {
+        console.error('Error updating income:', error);
+      }
+    } else {
+      const { error } = await supabase.from('income').insert([
+        {
+          name: formData.name,
+          amount: parseFloat(formData.amount),
+          frequency_id: formData.frequency_id,
+          category_id: formData.category_id,
+        },
+      ]);
+      if (error) {
+        console.error('Error adding income:', error);
+      }
+    }
+    setModalVisible(false);
+    fetchIncomes();
   };
 
   const handleDeleteIncome = async (incomeId) => {
@@ -74,11 +148,13 @@ const IncomePage = ({ navigation }) => {
       {/* Income List */}
       <FlatList
         data={incomes}
-        keyExtractor={(item) => item.id.toString()} // Ensure keys are strings
+        keyExtractor={(item) => item.id.toString()}
         renderItem={({ item }) => (
           <View style={styles.incomeItem}>
             <Text style={styles.incomeTitle}>{item.name}</Text>
-            <Text style={styles.incomeAmount}>${item.amount}</Text>
+            <Text style={styles.incomeDetails}>
+              ${item.amount} - {item.frequencies?.name} - {item.categories?.name}
+            </Text>
             <View style={styles.incomeActions}>
               <TouchableOpacity onPress={() => handleEditIncome(item)}>
                 <Ionicons name="create-outline" size={24} color="#4CAF50" />
@@ -98,13 +174,62 @@ const IncomePage = ({ navigation }) => {
             <Text style={styles.modalHeader}>
               {selectedIncome ? 'Edit Income' : 'Add Income'}
             </Text>
-            {/* Add/Edit Form Here */}
-            <TouchableOpacity
-              style={styles.closeButton}
-              onPress={() => setModalVisible(false)}
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Name"
+              value={formData.name}
+              onChangeText={(text) => setFormData({ ...formData, name: text })}
+            />
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Amount"
+              keyboardType="numeric"
+              value={formData.amount}
+              onChangeText={(text) => setFormData({ ...formData, amount: text })}
+            />
+            <Picker
+              selectedValue={formData.frequency_id}
+              style={styles.picker}
+              onValueChange={(itemValue) =>
+                setFormData({ ...formData, frequency_id: itemValue })
+              }
             >
-              <Text style={styles.closeButtonText}>Close</Text>
-            </TouchableOpacity>
+              <Picker.Item label="Select Frequency" value="" />
+              {frequencies.map((frequency) => (
+                <Picker.Item
+                  key={frequency.id}
+                  label={frequency.name}
+                  value={frequency.id}
+                />
+              ))}
+            </Picker>
+            <Picker
+              selectedValue={formData.category_id}
+              style={styles.picker}
+              onValueChange={(itemValue) =>
+                setFormData({ ...formData, category_id: itemValue })
+              }
+            >
+              <Picker.Item label="Select Category" value="" />
+              {categories.map((category) => (
+                <Picker.Item
+                  key={category.id}
+                  label={category.name}
+                  value={category.id}
+                />
+              ))}
+            </Picker>
+            <View style={styles.modalButtonsContainer}>
+              <TouchableOpacity style={styles.saveButton} onPress={handleSaveIncome}>
+                <Text style={styles.saveButtonText}>Save</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={() => setModalVisible(false)}
+              >
+                <Text style={styles.closeButtonText}>Close</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>

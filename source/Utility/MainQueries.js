@@ -120,3 +120,57 @@ export const deleteUserById = async (userId) => {
     return null;
   }
 };
+
+// Fetch incomes by user_id
+export const fetchIncomesByUser = async (userId) => {
+  try {
+    const { data, error } = await supabase
+      .from('income')
+      .select('*, frequencies(name), categories(name)')
+      .eq('user_id', userId);
+
+    if (error) throw error;
+
+    console.log('Incomes fetched successfully:', data);
+    return data;
+  } catch (err) {
+    console.error('Error fetching incomes:', err);
+    return null;
+  }
+};
+
+// Fetch frequencies by user_id
+export const fetchFrequenciesByUser = async (userId) => {
+  try {
+    const { data, error } = await supabase
+      .from('frequencies')
+      .select('*')
+      .eq('user_id', userId);
+
+    if (error) throw error;
+
+    console.log('Frequencies fetched successfully:', data);
+    return data;
+  } catch (err) {
+    console.error('Error fetching frequencies:', err);
+    return null;
+  }
+};
+
+// Fetch categories by user_id
+export const fetchCategoriesByUser = async (userId) => {
+  try {
+    const { data, error } = await supabase
+      .from('categories')
+      .select('*')
+      .eq('user_id', userId);
+
+    if (error) throw error;
+
+    console.log('Categories fetched successfully:', data);
+    return data;
+  } catch (err) {
+    console.error('Error fetching categories:', err);
+    return null;
+  }
+};

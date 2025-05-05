@@ -1,17 +1,17 @@
 import React, { useState } from 'react'; // Import de componentes do React
 import { View, Text, TextInput, TouchableOpacity } from 'react-native'; // Import de componentes do react native
-import styles from '../Styles/AccountPageStyles/LoginPageStyle'; // import do estilo para a pagina de login
+import styles from '../Styles/AccountPageStyles/LoginPageStyle'; // Import do estilo para a página de login
 import { supabase } from '../../Supabase'; // Import da Database
 import Alert from '../Utility/Alerts'; // Import dos Alertas customs
-import { updateUser } from '../Utility/MainQueries'; // Import da query para atualizar usuário
+import { updateUser, getSession } from '../Utility/MainQueries'; // Import das queries para atualizar usuário e obter a sessão
 
 const LoginPage = ({ navigation }) => {
-  // Crias as variaveis para os alertas.
+  // Cria as variáveis para os alertas.
   const [alertMessage, setAlertMessage] = useState('');
   const [alertType, setAlertType] = useState('');
   const [showAlert, setShowAlert] = useState(false);
 
-  // Cria as variavéis para o login (email e password)
+  // Cria as variáveis para o login (email e password)
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
@@ -29,7 +29,7 @@ const LoginPage = ({ navigation }) => {
       // Mostra na consola as credenciais
       console.log('A Tentar login com:', email, password);
 
-      // Usa a database (supabase) para verificar a email e password
+      // Usa a database (supabase) para verificar o email e password
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -42,41 +42,45 @@ const LoginPage = ({ navigation }) => {
         return;
       }
 
-      // Verifica se data existe para fazer o login.
+      // Verifica se `data` existe para validar o login.
       if (data?.user) {
         console.log('Usuário autenticado:', data);
 
         showAlertMessage(`Bem-vindo, ${data.user.email}!`, 'success');
 
-        // Atualizar o email no banco de dados baseado no email do Supabase Auth
-        const userEmail = data.user.email;
-        const userId = data.user.id;
+        // Obtém a sessão para acessar o ID do usuário
+        const session = await getSession();
+        const userId = session?.user?.id;
 
-        try {
-          console.log('Atualizando email diretamente no banco de dados...');
-          const { error: updateError } = await updateUser(userId, { email: userEmail });
+        if (userId) {
+          try {
+            console.log('Atualizando email diretamente no banco de dados...');
+            const { error: updateError } = await updateUser(userId, { email: data.user.email });
 
-          if (updateError) {
-            console.error('Erro ao atualizar email no banco de dados:', updateError.message);
-            showAlertMessage('Erro ao sincronizar email no banco de dados.', 'error');
+            if (updateError) {
+              console.error('Erro ao atualizar email no banco de dados:', updateError.message);
+              showAlertMessage('Erro ao sincronizar email no banco de dados.', 'error');
+              return;
+            }
+
+            showAlertMessage('Email atualizado com sucesso no banco de dados.', 'success');
+          } catch (dbError) {
+            console.error('Erro ao atualizar o email:', dbError.message);
+            showAlertMessage('Erro ao sincronizar dados do usuário.', 'error');
             return;
           }
-
-          showAlertMessage('Email atualizado com sucesso no banco de dados.', 'success');
-        } catch (dbError) {
-          console.error('Erro ao atualizar o email:', dbError.message);
-          showAlertMessage('Erro ao sincronizar dados do usuário.', 'error');
-          return;
         }
 
-        // Espera de 1.5 segundos antes de ir para a Mainpage
+        // Espera de 1.5 segundos antes de ir para a MainPage
         setTimeout(() => {
           navigation.navigate('MainPages');
         }, 1500);
-      } else { // Se não existir data do user da erro
+      } else {
+        // Se não existir `data.user`, exibe erro
         showAlertMessage('Ocorreu um problema ao autenticar o usuário.', 'error');
       }
-    } catch (exception) { // Se o try falhar envia o erro
+    } catch (exception) {
+      // Se o bloco try falhar, captura o erro e exibe uma mensagem
       console.error('Exceção ao fazer login:', exception);
       showAlertMessage('Ocorreu um erro. Tente novamente mais tarde.', 'error');
     }

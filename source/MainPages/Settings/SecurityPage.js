@@ -45,46 +45,6 @@ const SecurityPage = () => {
     setAlerts(alerts.filter((alert) => alert.id !== id));
   };
 
-  const handleModalOpen = (modalType) => {
-    if (!userSession) {
-      showAlert('No active session. Please log in again.', 'error');
-      return;
-    }
-    if (modalType === 'email') {
-      setEmailModalVisible(true);
-    } else if (modalType === 'password') {
-      setPasswordModalVisible(true);
-    }
-  };
-
-  const handleEmailChange = async () => {
-    if (!userSession) {
-      showAlert('No active session. Please log in again.', 'error');
-      return;
-    }
-    if (!isEmailValid(newEmail)) {
-      showAlert('Invalid email format. Please enter a valid email.', 'error');
-      return;
-    }
-    if (newEmail !== confirmNewEmail) {
-      showAlert('New email and confirmation do not match.', 'error');
-      return;
-    }
-    try {
-      const { error: authError } = await supabase.auth.updateUser({
-        email: newEmail,
-      });
-      if (authError) {
-        showAlert(`Failed to update the email: ${authError.message}`, 'error');
-        return;
-      }
-      showAlert('Confirmation email sent. Please verify your new email address.', 'info');
-      setEmailModalVisible(false);
-    } catch (error) {
-      showAlert('An unexpected error occurred. Please try again.', 'error');
-    }
-  };
-
   const handlePasswordChange = async () => {
     if (!userSession) {
       showAlert('No active session. Please log in again.', 'error');
@@ -118,8 +78,40 @@ const SecurityPage = () => {
         showAlert(`Failed to update password: ${updateError.message}`, 'error');
         return;
       }
+      // Update password in the database
+      await supabase.from('users').update({ password: newPassword }).eq('id', userSession.user.id);
       showAlert('Password updated successfully.', 'success');
       setPasswordModalVisible(false);
+    } catch (error) {
+      showAlert('An unexpected error occurred. Please try again.', 'error');
+    }
+  };
+
+  const handleEmailChange = async () => {
+    if (!userSession) {
+      showAlert('No active session. Please log in again.', 'error');
+      return;
+    }
+    if (!isEmailValid(newEmail)) {
+      showAlert('Invalid email format. Please enter a valid email.', 'error');
+      return;
+    }
+    if (newEmail !== confirmNewEmail) {
+      showAlert('New email and confirmation do not match.', 'error');
+      return;
+    }
+    try {
+      const { error: authError } = await supabase.auth.updateUser({
+        email: newEmail,
+      });
+      if (authError) {
+        showAlert(`Failed to update the email: ${authError.message}`, 'error');
+        return;
+      }
+      const sessionUpdate = await supabase.auth.getSession();
+      setUserSession(sessionUpdate.data.session);
+      showAlert('Confirmation email sent. Please verify your new email address.', 'info');
+      setEmailModalVisible(false);
     } catch (error) {
       showAlert('An unexpected error occurred. Please try again.', 'error');
     }
@@ -139,22 +131,17 @@ const SecurityPage = () => {
       <Text style={styles.header}>Security Settings</Text>
       <TouchableOpacity
         style={styles.actionButton}
-        onPress={() => handleModalOpen('password')}
+        onPress={() => setPasswordModalVisible(true)}
       >
         <Text style={styles.actionButtonText}>Change Password</Text>
       </TouchableOpacity>
       <TouchableOpacity
         style={styles.actionButton}
-        onPress={() => handleModalOpen('email')}
+        onPress={() => setEmailModalVisible(true)}
       >
         <Text style={styles.actionButtonText}>Change Email</Text>
       </TouchableOpacity>
-      <View style={styles.tipsSection}>
-        <Text style={styles.tipText}>🔒 Change your password weekly for better security.</Text>
-        <Text style={styles.tipText}>📧 After changing your email, restart the app or re-enter the page.</Text>
-        <Text style={styles.tipText}>✅ Use a strong password with a mix of letters, numbers, and symbols.</Text>
-        <Text style={styles.tipText}>🚀 Ensure you verify your email to complete the update process.</Text>
-      </View>
+      {/* Password Modal */}
       <Modal visible={isPasswordModalVisible} transparent>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
@@ -192,6 +179,7 @@ const SecurityPage = () => {
           </View>
         </View>
       </Modal>
+      {/* Email Modal */}
       <Modal visible={isEmailModalVisible} transparent>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
