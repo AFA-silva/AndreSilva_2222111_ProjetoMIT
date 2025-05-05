@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Modal, FlatList, ScrollView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Modal, ScrollView } from 'react-native';
 import styles from '../../Styles/Settings/SupportPageStyle';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -28,7 +28,7 @@ const SupportPage = () => {
   };
 
   return (
-    <View style={styles.container}>
+    <ScrollView contentContainerStyle={styles.container}>
       {/* Icon */}
       <Ionicons name="help-circle-outline" size={80} color="#F9A825" style={styles.icon} />
 
@@ -93,7 +93,7 @@ const SupportPage = () => {
           </View>
         </View>
       </Modal>
-    </View>
+    </ScrollView>
   );
 };
 

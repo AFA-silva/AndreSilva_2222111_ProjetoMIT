@@ -101,6 +101,7 @@ const SecurityPage = () => {
       return;
     }
     try {
+      // Update email in Supabase Auth
       const { error: authError } = await supabase.auth.updateUser({
         email: newEmail,
       });
@@ -108,9 +109,22 @@ const SecurityPage = () => {
         showAlert(`Failed to update the email: ${authError.message}`, 'error');
         return;
       }
+
+      // Update email in the database
+      const { error: dbError } = await supabase
+        .from('users')
+        .update({ email: newEmail })
+        .eq('id', userSession.user.id);
+      if (dbError) {
+        showAlert(`Email updated in Auth but failed in Database: ${dbError.message}`, 'error');
+        return;
+      }
+
+      // Refresh session and show success alert
       const sessionUpdate = await supabase.auth.getSession();
       setUserSession(sessionUpdate.data.session);
-      showAlert('Confirmation email sent. Please verify your new email address.', 'info');
+      showAlert('Verify your new email to confirm its respective change!', 'info');
+      setOldEmail(newEmail);
       setEmailModalVisible(false);
     } catch (error) {
       showAlert('An unexpected error occurred. Please try again.', 'error');
@@ -129,6 +143,17 @@ const SecurityPage = () => {
       ))}
       <Ionicons name="shield-outline" size={80} color="#F9A825" style={styles.icon} />
       <Text style={styles.header}>Security Settings</Text>
+
+      {/* Tips and Help Section */}
+      <View style={styles.tipsSection}>
+        <Text style={styles.tipText}>
+          Tip: Use a secure password and update it regularly to enhance your account security.
+        </Text>
+        <Text style={styles.tipText}>
+          Help: If you encounter any issues, contact support or check the FAQ section.
+        </Text>
+      </View>
+
       <TouchableOpacity
         style={styles.actionButton}
         onPress={() => setPasswordModalVisible(true)}
