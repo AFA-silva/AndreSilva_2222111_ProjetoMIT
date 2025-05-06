@@ -13,6 +13,12 @@ O MIT tem como principal objetivo oferecer uma plataforma simples e acessível p
 - **JavaScript** (Código organizado e tipado)
 - **Expo** (Facilita o desenvolvimento e construção do app)
 
+## ⚠️ Importante: Compatibilidade com Expo SDK 52
+
+Este projeto foi desenvolvido com o **Expo SDK 52**, que **não é compatível com a versão atual do Expo Go disponível na Play Store (SDK 53 ou superior)**.
+👉 [📥 Baixar Expo Go compatível com SDK 52 (Android)](http://expo.dev/go?sdkVersion=52&platform=android&device=true)
+Para garantir que está a usar a versão adequada com a SDK 52, execute: npm install expo@~52.0.46
+
 ## ⚡ Como Abrir o Projeto
 
 1. Clone o repositório (Se for necessário):
