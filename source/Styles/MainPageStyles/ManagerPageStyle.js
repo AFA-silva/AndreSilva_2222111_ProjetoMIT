@@ -4,7 +4,8 @@ const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
     backgroundColor: '#F9F9F9',
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 45,
   },
   header: {
     fontSize: 26,
