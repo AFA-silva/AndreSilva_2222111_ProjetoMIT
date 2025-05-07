@@ -5,13 +5,18 @@ import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../Supabase';
 import styles from '../../Styles/Manage/IncomePageStyle';
 import IncomeChart from '../../Utility/Chart';
-import Alert from '../../Utility/Alerts'; // Alerta importado
+import Alert from '../../Utility/Alerts';
 
 const IncomePage = ({ navigation }) => {
   const [incomes, setIncomes] = useState([]);
   const [frequencies, setFrequencies] = useState([]);
   const [categories, setCategories] = useState([]);
   const [isModalVisible, setModalVisible] = useState(false);
+  const [isManageModalVisible, setManageModalVisible] = useState(false);
+  const [selectedManageType, setSelectedManageType] = useState(null);
+  const [manageFormData, setManageFormData] = useState({ name: '' });
+  const [selectedItemId, setSelectedItemId] = useState(null);
+  const [userId, setUserId] = useState(null);
   const [selectedIncome, setSelectedIncome] = useState(null);
   const [formData, setFormData] = useState({
     name: '',
@@ -20,44 +25,69 @@ const IncomePage = ({ navigation }) => {
     category_id: '',
   });
 
-  // Gerenciamento de alertas
   const [alertMessage, setAlertMessage] = useState('');
   const [alertType, setAlertType] = useState('');
   const [showAlert, setShowAlert] = useState(false);
 
-  const fetchIncomes = async () => {
-    const { data, error } = await supabase
-      .from('income')
-      .select('*, frequencies(name), categories(name)');
-    if (error) {
-      console.error('Error fetching incomes:', error);
-    } else {
+  const fetchUserIncomes = async (userId) => {
+    try {
+      const { data, error } = await supabase
+        .from('income')
+        .select('*')
+        .eq('user_id', userId);
+      if (error) {
+        console.error('Error fetching incomes:', error);
+        setIncomes([]);
+        return;
+      }
       setIncomes(data || []);
+    } catch (error) {
+      console.error('Unexpected error fetching incomes:', error);
     }
   };
 
-  const fetchFrequencies = async () => {
-    const { data, error } = await supabase.from('frequencies').select('*');
-    if (error) {
-      console.error('Error fetching frequencies:', error);
-    } else {
-      setFrequencies(data || []);
-    }
-  };
+  const fetchUserCategoriesAndFrequencies = async (userId) => {
+    try {
+      const { data: categories, error: categoriesError } = await supabase
+        .from('categories')
+        .select('*')
+        .or(`user_id.eq.${userId},user_id.is.null`);
 
-  const fetchCategories = async () => {
-    const { data, error } = await supabase.from('categories').select('*');
-    if (error) {
-      console.error('Error fetching categories:', error);
-    } else {
-      setCategories(data || []);
+      if (categoriesError) {
+        console.error('Error fetching categories:', categoriesError);
+        setCategories([]);
+      } else {
+        setCategories(categories || []);
+      }
+
+      const { data: frequencies, error: frequenciesError } = await supabase
+        .from('frequencies')
+        .select('*')
+        .or(`user_id.eq.${userId},user_id.is.null`);
+
+      if (frequenciesError) {
+        console.error('Error fetching frequencies:', frequenciesError);
+        setFrequencies([]);
+      } else {
+        setFrequencies(frequencies || []);
+      }
+    } catch (error) {
+      console.error('Unexpected error fetching categories or frequencies:', error);
     }
   };
 
   useEffect(() => {
-    fetchIncomes();
-    fetchFrequencies();
-    fetchCategories();
+    const fetchUserData = async () => {
+      const { data: { user }, error } = await supabase.auth.getUser();
+      if (error) {
+        console.error('Error fetching user:', error);
+        return;
+      }
+      setUserId(user.id);
+      fetchUserIncomes(user.id);
+      fetchUserCategoriesAndFrequencies(user.id);
+    };
+    fetchUserData();
   }, []);
 
   const handleAddIncome = () => {
@@ -87,20 +117,20 @@ const IncomePage = ({ navigation }) => {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
 
       if (authError) {
-        console.error('Erro ao autenticar o usuário:', authError);
-        alert('Erro ao obter o usuário autenticado. Por favor, tente novamente.');
+        console.error('Error authenticating user:', authError);
+        alert('Error fetching authenticated user. Please try again.');
         return;
       }
 
       const userId = user?.id;
 
       if (!userId) {
-        alert('Erro: Usuário não autenticado. Não é possível adicionar a receita.');
+        alert('Error: Unauthenticated user. Unable to add income.');
         return;
       }
 
       if (!formData.name || !formData.amount || !formData.frequency_id || !formData.category_id) {
-        alert('Por favor, preencha todos os campos antes de salvar.');
+        alert('Please fill in all fields before saving.');
         return;
       }
 
@@ -109,7 +139,7 @@ const IncomePage = ({ navigation }) => {
         amount: parseFloat(formData.amount),
         frequency_id: formData.frequency_id,
         category_id: formData.category_id,
-        user_id: userId, // Incluindo o user_id
+        user_id: userId,
       };
 
       let error;
@@ -125,21 +155,20 @@ const IncomePage = ({ navigation }) => {
       }
 
       if (error) {
-        console.error('Erro ao salvar receita:', error);
-        alert('Erro ao salvar a receita. Por favor, tente novamente.');
+        console.error('Error saving income:', error);
+        alert('Error saving income. Please try again.');
         return;
       }
 
-      // Alerta verde de sucesso
-      setAlertMessage(selectedIncome ? 'Receita atualizada com sucesso!' : 'Receita adicionada com sucesso!');
+      setAlertMessage(selectedIncome ? 'Income updated successfully!' : 'Income added successfully!');
       setAlertType('success');
       setShowAlert(true);
     } catch (error) {
-      console.error('Erro inesperado ao salvar receita:', error);
-      alert('Erro inesperado. Por favor, tente novamente.');
+      console.error('Unexpected error saving income:', error);
+      alert('Unexpected error. Please try again.');
     } finally {
       setModalVisible(false);
-      fetchIncomes(); // Atualiza a lista de receitas
+      fetchUserIncomes(userId);
     }
   };
 
@@ -148,25 +177,38 @@ const IncomePage = ({ navigation }) => {
     if (error) {
       console.error('Error deleting income:', error);
     } else {
-      fetchIncomes();
+      fetchUserIncomes(userId);
     }
   };
 
-  const handleManageCategoriesAndFrequencies = () => {
-    navigation.navigate('CategoriesAndFrequenciesPage');
-  };
+  const renderIncomeItem = ({ item }) => (
+    <View style={styles.incomeItem}>
+      <Text style={styles.incomeName}>{item.name}</Text>
+      <Text style={styles.incomeAmount}>${item.amount}</Text>
+      <TouchableOpacity onPress={() => handleEditIncome(item)}>
+        <Ionicons name="create-outline" size={24} color="blue" />
+      </TouchableOpacity>
+      <TouchableOpacity onPress={() => handleDeleteIncome(item.id)}>
+        <Ionicons name="trash-outline" size={24} color="red" />
+      </TouchableOpacity>
+    </View>
+  );
 
   return (
     <View style={styles.container}>
-      {/* Alerta */}
       {showAlert && <Alert type={alertType} message={alertMessage} onClose={() => setShowAlert(false)} />}
 
       <Text style={styles.header}>Income</Text>
 
-      {/* Income Chart */}
       <IncomeChart incomes={incomes} />
 
-      {/* Add Income Button */}
+      <FlatList
+        data={incomes}
+        keyExtractor={(item) => item.id.toString()}
+        renderItem={renderIncomeItem}
+        style={styles.incomeList}
+      />
+
       <TouchableOpacity
         style={styles.addButton}
         onPress={handleAddIncome}
@@ -175,44 +217,10 @@ const IncomePage = ({ navigation }) => {
         <Text style={styles.addButtonText}>+ Add Income</Text>
       </TouchableOpacity>
 
-      {/* Manage Categories and Frequencies Button */}
-      <TouchableOpacity
-        style={styles.manageButton}
-        onPress={handleManageCategoriesAndFrequencies}
-        activeOpacity={0.7}
-      >
-        <Text style={styles.manageButtonText}>Manage Categories & Frequencies</Text>
-      </TouchableOpacity>
-
-      {/* Income List */}
-      <FlatList
-        data={incomes}
-        keyExtractor={(item) => item.id.toString()}
-        renderItem={({ item }) => (
-          <View style={styles.incomeItem}>
-            <Text style={styles.incomeTitle}>{item.name}</Text>
-            <Text style={styles.incomeDetails}>
-              ${item.amount} - {item.frequencies?.name} - {item.categories?.name}
-            </Text>
-            <View style={styles.incomeActions}>
-              <TouchableOpacity onPress={() => handleEditIncome(item)}>
-                <Ionicons name="create-outline" size={24} color="#4CAF50" />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => handleDeleteIncome(item.id)}>
-                <Ionicons name="trash-outline" size={24} color="#D84315" />
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
-      />
-
-      {/* Modal for Adding/Editing Income */}
       <Modal visible={isModalVisible} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
-            <Text style={styles.modalHeader}>
-              {selectedIncome ? 'Edit Income' : 'Add Income'}
-            </Text>
+            <Text style={styles.modalHeader}>{selectedIncome ? 'Edit Income' : 'Add Income'}</Text>
             <TextInput
               style={styles.modalInput}
               placeholder="Name"
@@ -229,33 +237,21 @@ const IncomePage = ({ navigation }) => {
             <Picker
               selectedValue={formData.frequency_id}
               style={styles.picker}
-              onValueChange={(itemValue) =>
-                setFormData({ ...formData, frequency_id: itemValue })
-              }
+              onValueChange={(itemValue) => setFormData({ ...formData, frequency_id: itemValue })}
             >
               <Picker.Item label="Select Frequency" value="" />
               {frequencies.map((frequency) => (
-                <Picker.Item
-                  key={frequency.id}
-                  label={frequency.name}
-                  value={frequency.id}
-                />
+                <Picker.Item key={frequency.id} label={frequency.name} value={frequency.id} />
               ))}
             </Picker>
             <Picker
               selectedValue={formData.category_id}
               style={styles.picker}
-              onValueChange={(itemValue) =>
-                setFormData({ ...formData, category_id: itemValue })
-              }
+              onValueChange={(itemValue) => setFormData({ ...formData, category_id: itemValue })}
             >
               <Picker.Item label="Select Category" value="" />
               {categories.map((category) => (
-                <Picker.Item
-                  key={category.id}
-                  label={category.name}
-                  value={category.id}
-                />
+                <Picker.Item key={category.id} label={category.name} value={category.id} />
               ))}
             </Picker>
             <View style={styles.modalButtonsContainer}>

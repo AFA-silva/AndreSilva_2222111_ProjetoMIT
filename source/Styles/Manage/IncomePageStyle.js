@@ -25,6 +25,23 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 16,
   },
+  manageButton: { // New style for the Manage Categories & Frequencies button
+    backgroundColor: '#000',
+    padding: 15,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  manageButtonText: { // New style for the button's text
+    color: '#FFF',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
   incomeItem: {
     backgroundColor: '#FFFFFF',
     borderRadius: 10,
