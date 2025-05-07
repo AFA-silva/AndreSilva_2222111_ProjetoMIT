@@ -11,6 +11,7 @@ const IncomePage = ({ navigation }) => {
   const [incomes, setIncomes] = useState([]);
   const [frequencies, setFrequencies] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [chartData, setChartData] = useState([]); // Dados para o gráfico
   const [isModalVisible, setModalVisible] = useState(false); // Modal para adicionar ou editar income
   const [isDeleteModalVisible, setDeleteModalVisible] = useState(false); // Modal de confirmação de exclusão
   const [incomeToDelete, setIncomeToDelete] = useState(null); // Income selecionado para deletar
@@ -32,7 +33,7 @@ const IncomePage = ({ navigation }) => {
     try {
       const { data, error } = await supabase
         .from('income')
-        .select('*, frequencies(name), categories(name)')
+        .select('*, frequencies(name, days), categories(name)')
         .eq('user_id', userId);
       if (error) {
         console.error('Error fetching incomes:', error);
@@ -40,6 +41,7 @@ const IncomePage = ({ navigation }) => {
         return;
       }
       setIncomes(data || []);
+      processChartData(data); // Processar os dados para o gráfico
     } catch (error) {
       console.error('Unexpected error fetching incomes:', error);
     }
@@ -73,6 +75,35 @@ const IncomePage = ({ navigation }) => {
     } catch (error) {
       console.error('Unexpected error fetching categories or frequencies:', error);
     }
+  };
+
+  const processChartData = (incomeData) => {
+    const categoryMap = {};
+
+    incomeData.forEach((income) => {
+      const { category_id, categories, frequencies, amount } = income;
+      const days = frequencies?.days || 30; // Usar os dias da frequência ou 30 como padrão
+      const monthlyAmount = (amount * 30) / days; // Converter para valor mensal
+
+      if (!categoryMap[category_id]) {
+        categoryMap[category_id] = {
+          name: categories?.name || 'Uncategorized',
+          total: 0,
+        };
+      }
+
+      categoryMap[category_id].total += monthlyAmount;
+    });
+
+    const chartData = Object.values(categoryMap).map((category) => ({
+      name: category.name,
+      amount: category.total,
+      color: `#${Math.floor(Math.random() * 16777215).toString(16)}`, // Gerar cores aleatórias
+      legendFontColor: '#333',
+      legendFontSize: 12,
+    }));
+
+    setChartData(chartData);
   };
 
   useEffect(() => {
@@ -228,8 +259,8 @@ const IncomePage = ({ navigation }) => {
 
       <Text style={styles.header}>Income Management</Text>
 
-      <IncomeChart incomes={incomes} />
-
+      <IncomeChart incomes={incomes} categories={categories} frequencies={frequencies} />
+      
       <FlatList
         data={incomes}
         keyExtractor={(item) => item.id.toString()}
