@@ -3,10 +3,9 @@ import { StyleSheet } from 'react-native';
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    flexGrow: 1, // Allows the container to grow for scrolling
     backgroundColor: '#F5F5F5',
-    paddingHorizontal: 20,
-    paddingVertical: 45, // Adjusted to lower the content
+    padding: 20,
+    justifyContent: 'center',
   },
   icon: {
     marginBottom: 15,
@@ -43,8 +42,8 @@ const styles = StyleSheet.create({
     padding: 15,
     fontSize: 16,
     color: '#333',
-    height: 250, // Keeps the text area height
-    textAlignVertical: 'top',
+    height: 250, // Altura ajustada para comportar mais texto
+    textAlignVertical: 'top', // Garante que o texto comece no topo
     marginBottom: 20,
   },
   submitButton: {
@@ -132,6 +131,7 @@ const styles = StyleSheet.create({
   closeButtonText: {
     color: '#FFF',
     fontSize: 16,
+    fontWeight: 'bold',
   },
 });
 

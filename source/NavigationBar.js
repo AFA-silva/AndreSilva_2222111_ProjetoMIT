@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons'; // For icons
 import { useNavigation } from '@react-navigation/native';
 
@@ -38,9 +38,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 5,
-    position: 'absolute', // Ensures Navbar stays at the bottom
-    bottom: 0,
-    width: '100%',
   },
   navItem: {
     alignItems: 'center',

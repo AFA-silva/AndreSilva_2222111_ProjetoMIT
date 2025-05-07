@@ -5,7 +5,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     backgroundColor: '#F9F9F9',
     paddingHorizontal: 20,
-    paddingVertical: 45, 
+    paddingVertical: 30,
   },
   header: {
     fontSize: 26,
