@@ -226,7 +226,7 @@ const IncomePage = ({ navigation }) => {
     <View style={styles.container}>
       {showAlert && <AlertComponent type={alertType} message={alertMessage} onClose={() => setShowAlert(false)} />}
 
-      <Text style={styles.header}>Income</Text>
+      <Text style={styles.header}>Income Management</Text>
 
       <IncomeChart incomes={incomes} />
 
