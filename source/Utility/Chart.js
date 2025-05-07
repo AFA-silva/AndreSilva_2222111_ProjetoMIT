@@ -26,10 +26,21 @@ const Chart = ({ incomes, categories, frequencies }) => {
     },
   };
 
+  const predefinedColors = [
+    '#FFA07A', // Laranja salmão
+    '#F57C00', // Laranja escuro
+    '#FFD700', // Amarelo dourado
+    '#00BFFF', // Azul claro
+    '#32CD32', // Verde limão
+  ];
+
+  const generateRandomColor = () =>
+    `#${Math.floor(Math.random() * 16777215).toString(16)}`; // Gera uma cor aleatória em hexadecimal
+
   const calculateMonthlyIncomes = () => {
     if (!incomes || !categories || !frequencies) return [];
 
-    return categories.map((category) => {
+    return categories.map((category, index) => {
       const totalByCategory = incomes
         .filter((income) => income.category_id === category.id)
         .reduce((sum, income) => {
@@ -42,12 +53,9 @@ const Chart = ({ incomes, categories, frequencies }) => {
       return {
         name: category.name,
         population: totalByCategory,
-        color: [
-          '#FFA07A', // Laranja salmão
-          '#F57C00', // Laranja escuro
-          '#FFD700', // Amarelo dourado
-          '#FF6F61', // Vermelho claro
-        ][category.id % 4], // Ciclo de cores baseado no ID da categoria
+        color: predefinedColors[index % predefinedColors.length], // Usa cores predefinidas de forma cíclica
+        // Para cores aleatórias, substitua a linha acima por:
+        // color: generateRandomColor(),
         legendFontColor: '#333333',
         legendFontSize: 12,
       };
