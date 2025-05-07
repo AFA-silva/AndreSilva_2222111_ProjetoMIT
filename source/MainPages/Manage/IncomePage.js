@@ -5,19 +5,17 @@ import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../Supabase';
 import styles from '../../Styles/Manage/IncomePageStyle';
 import IncomeChart from '../../Utility/Chart';
-import Alert from '../../Utility/Alerts';
+import AlertComponent from '../../Utility/Alerts';
 
 const IncomePage = ({ navigation }) => {
   const [incomes, setIncomes] = useState([]);
   const [frequencies, setFrequencies] = useState([]);
   const [categories, setCategories] = useState([]);
-  const [isModalVisible, setModalVisible] = useState(false);
-  const [isManageModalVisible, setManageModalVisible] = useState(false);
-  const [selectedManageType, setSelectedManageType] = useState(null);
-  const [manageFormData, setManageFormData] = useState({ name: '' });
-  const [selectedItemId, setSelectedItemId] = useState(null);
+  const [isModalVisible, setModalVisible] = useState(false); // Modal para adicionar ou editar income
+  const [isDeleteModalVisible, setDeleteModalVisible] = useState(false); // Modal de confirmação de exclusão
+  const [incomeToDelete, setIncomeToDelete] = useState(null); // Income selecionado para deletar
   const [userId, setUserId] = useState(null);
-  const [selectedIncome, setSelectedIncome] = useState(null);
+  const [selectedIncome, setSelectedIncome] = useState(null); // Income selecionado para edição
   const [formData, setFormData] = useState({
     name: '',
     amount: '',
@@ -25,15 +23,16 @@ const IncomePage = ({ navigation }) => {
     category_id: '',
   });
 
+  // Adicionar estado para alertas
   const [alertMessage, setAlertMessage] = useState('');
   const [alertType, setAlertType] = useState('');
-  const [showAlert, setShowAlert] = useState(false);
+  const [showAlert, setShowAlert] = useState(false); // Controla a exibição do alerta
 
   const fetchUserIncomes = async (userId) => {
     try {
       const { data, error } = await supabase
         .from('income')
-        .select('*')
+        .select('*, frequencies(name), categories(name)')
         .eq('user_id', userId);
       if (error) {
         console.error('Error fetching incomes:', error);
@@ -91,6 +90,7 @@ const IncomePage = ({ navigation }) => {
   }, []);
 
   const handleAddIncome = () => {
+    // Reseta o estado do formulário e abre o modal
     setSelectedIncome(null);
     setFormData({
       name: '',
@@ -98,10 +98,11 @@ const IncomePage = ({ navigation }) => {
       frequency_id: '',
       category_id: '',
     });
-    setModalVisible(true);
+    setModalVisible(true); // Exibe o modal
   };
 
   const handleEditIncome = (income) => {
+    // Configura o estado do formulário com os dados do income selecionado e abre o modal
     setSelectedIncome(income);
     setFormData({
       name: income.name,
@@ -109,7 +110,7 @@ const IncomePage = ({ navigation }) => {
       frequency_id: income.frequency_id,
       category_id: income.category_id,
     });
-    setModalVisible(true);
+    setModalVisible(true); // Exibe o modal
   };
 
   const handleSaveIncome = async () => {
@@ -144,11 +145,13 @@ const IncomePage = ({ navigation }) => {
 
       let error;
       if (selectedIncome) {
+        // Atualiza o income selecionado
         ({ error } = await supabase
           .from('income')
           .update(payload)
           .eq('id', selectedIncome.id));
       } else {
+        // Adiciona um novo income
         ({ error } = await supabase
           .from('income')
           .insert([payload]));
@@ -160,43 +163,68 @@ const IncomePage = ({ navigation }) => {
         return;
       }
 
+      // Exibe mensagem de sucesso em um alerta
       setAlertMessage(selectedIncome ? 'Income updated successfully!' : 'Income added successfully!');
       setAlertType('success');
       setShowAlert(true);
+
+      fetchUserIncomes(userId); // Atualiza lista após salvar
     } catch (error) {
       console.error('Unexpected error saving income:', error);
       alert('Unexpected error. Please try again.');
     } finally {
-      setModalVisible(false);
-      fetchUserIncomes(userId);
+      setModalVisible(false); // Fecha o modal após salvar
     }
   };
 
-  const handleDeleteIncome = async (incomeId) => {
-    const { error } = await supabase.from('income').delete().eq('id', incomeId);
-    if (error) {
-      console.error('Error deleting income:', error);
-    } else {
-      fetchUserIncomes(userId);
+  const handleDeleteIncome = async () => {
+    try {
+      const { error } = await supabase.from('income').delete().eq('id', incomeToDelete.id);
+      if (error) {
+        console.error('Error deleting income:', error);
+      } else {
+        fetchUserIncomes(userId); // Atualiza lista após exclusão
+        // Exibe mensagem de sucesso em um alerta
+        setAlertMessage('Income deleted successfully!');
+        setAlertType('success');
+        setShowAlert(true);
+      }
+    } catch (error) {
+      console.error('Unexpected error deleting income:', error);
+    } finally {
+      setDeleteModalVisible(false); // Fecha o modal após concluir a exclusão
     }
+  };
+
+  const confirmDeleteIncome = (income) => {
+    setIncomeToDelete(income); // Define o income selecionado
+    setDeleteModalVisible(true); // Abre o modal de confirmação
   };
 
   const renderIncomeItem = ({ item }) => (
     <View style={styles.incomeItem}>
-      <Text style={styles.incomeName}>{item.name}</Text>
-      <Text style={styles.incomeAmount}>${item.amount}</Text>
-      <TouchableOpacity onPress={() => handleEditIncome(item)}>
-        <Ionicons name="create-outline" size={24} color="blue" />
-      </TouchableOpacity>
-      <TouchableOpacity onPress={() => handleDeleteIncome(item.id)}>
-        <Ionicons name="trash-outline" size={24} color="red" />
-      </TouchableOpacity>
+      <View style={styles.incomeRow}>
+        <Text style={styles.incomeTitle}>{item.name}</Text>
+        <Text style={styles.incomeDetails}>{item.categories.name}</Text>
+      </View>
+      <View style={styles.incomeRow}>
+        <Text style={styles.incomeDetails}>Amount: {item.amount}</Text>
+        <TouchableOpacity style={styles.actionButtonEdit} onPress={() => handleEditIncome(item)}>
+          <Ionicons name="pencil" size={16} color="#FFF" />
+        </TouchableOpacity>
+      </View>
+      <View style={styles.incomeRow}>
+        <Text style={styles.incomeDetails}>Frequency: {item.frequencies.name}</Text>
+        <TouchableOpacity style={styles.actionButtonDelete} onPress={() => confirmDeleteIncome(item)}>
+          <Ionicons name="trash" size={16} color="#FFF" />
+        </TouchableOpacity>
+      </View>
     </View>
   );
 
   return (
     <View style={styles.container}>
-      {showAlert && <Alert type={alertType} message={alertMessage} onClose={() => setShowAlert(false)} />}
+      {showAlert && <AlertComponent type={alertType} message={alertMessage} onClose={() => setShowAlert(false)} />}
 
       <Text style={styles.header}>Income</Text>
 
@@ -217,6 +245,7 @@ const IncomePage = ({ navigation }) => {
         <Text style={styles.addButtonText}>+ Add Income</Text>
       </TouchableOpacity>
 
+      {/* Modal de Adicionar/Editar Income */}
       <Modal visible={isModalVisible} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
@@ -263,6 +292,25 @@ const IncomePage = ({ navigation }) => {
                 onPress={() => setModalVisible(false)}
               >
                 <Text style={styles.closeButtonText}>Close</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal de Confirmação de Exclusão */}
+      <Modal visible={isDeleteModalVisible} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <Text style={styles.modalHeader}>
+              Do you want to delete the income - {incomeToDelete?.name}?
+            </Text>
+            <View style={styles.modalButtonsContainer}>
+              <TouchableOpacity style={styles.saveButton} onPress={handleDeleteIncome}>
+                <Text style={styles.saveButtonText}>Yes, Delete</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.closeButton} onPress={() => setDeleteModalVisible(false)}>
+                <Text style={styles.closeButtonText}>No, Go Back</Text>
               </TouchableOpacity>
             </View>
           </View>
