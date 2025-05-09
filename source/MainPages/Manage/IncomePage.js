@@ -6,6 +6,7 @@ import { supabase } from '../../../Supabase';
 import styles from '../../Styles/Manage/IncomePageStyle';
 import IncomeChart from '../../Utility/Chart';
 import AlertComponent from '../../Utility/Alerts';
+import { useFocusEffect } from '@react-navigation/native'; // Importação adicionada
 
 const IncomePage = ({ navigation }) => {
   const [incomes, setIncomes] = useState([]);
@@ -119,6 +120,16 @@ const IncomePage = ({ navigation }) => {
     };
     fetchUserData();
   }, []);
+
+  // Adicionada lógica para recarregar dados ao reentrar na página
+  useFocusEffect(
+    React.useCallback(() => {
+      if (userId) {
+        fetchUserIncomes(userId);
+        fetchUserCategoriesAndFrequencies(userId);
+      }
+    }, [userId])
+  );
 
   const handleAddIncome = () => {
     // Reseta o estado do formulário e abre o modal
@@ -259,8 +270,13 @@ const IncomePage = ({ navigation }) => {
 
       <Text style={styles.header}>Income Management</Text>
 
-      <IncomeChart incomes={incomes} categories={categories} frequencies={frequencies} />
-      
+      <IncomeChart
+        key={Math.random()} // Adiciona uma chave dinâmica para forçar atualização
+        incomes={incomes}
+        categories={categories}
+        frequencies={frequencies}
+      />
+
       <FlatList
         data={incomes}
         keyExtractor={(item) => item.id.toString()}

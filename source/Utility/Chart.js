@@ -3,18 +3,18 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { LineChart, BarChart, PieChart } from 'react-native-chart-kit';
 
 const Chart = ({ incomes, categories, frequencies }) => {
-  const [chartType, setChartType] = useState('line'); // Estado para alternar o tipo de gráfico
+  const [chartType, setChartType] = useState('bar'); // Estado inicial: BarChart
 
-  // Dados falsos (mock) para line e bar charts
+  // Dados mock para os gráficos
   const mockData = [50, 100, 75, 200];
   const mockLabels = ['Jan', 'Feb', 'Mar', 'Apr'];
 
   const defaultChartConfig = {
     backgroundColor: '#FFF',
-    backgroundGradientFrom: '#F57C00', // Gradiente laranja inicial
-    backgroundGradientTo: '#FFA726',   // Gradiente laranja final
+    backgroundGradientFrom: '#F57C00',
+    backgroundGradientTo: '#FFA726',
     decimalPlaces: 2,
-    color: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`, // Texto branco
+    color: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
     labelColor: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
     style: {
       borderRadius: 16,
@@ -34,9 +34,6 @@ const Chart = ({ incomes, categories, frequencies }) => {
     '#32CD32', // Verde limão
   ];
 
-  const generateRandomColor = () =>
-    `#${Math.floor(Math.random() * 16777215).toString(16)}`; // Gera uma cor aleatória em hexadecimal
-
   const calculateMonthlyIncomes = () => {
     if (!incomes || !categories || !frequencies) return [];
 
@@ -53,9 +50,7 @@ const Chart = ({ incomes, categories, frequencies }) => {
       return {
         name: category.name,
         population: totalByCategory,
-        color: predefinedColors[index % predefinedColors.length], // Usa cores predefinidas de forma cíclica
-        // Para cores aleatórias, substitua a linha acima por:
-        // color: generateRandomColor(),
+        color: predefinedColors[index % predefinedColors.length], // Usa cores predefinidas
         legendFontColor: '#333333',
         legendFontSize: 12,
       };
@@ -63,79 +58,66 @@ const Chart = ({ incomes, categories, frequencies }) => {
   };
 
   const renderChart = () => {
-    if (chartType !== 'pie') {
-      // Use dados mock para gráficos de linha e barra
-      switch (chartType) {
-        case 'line':
-          return (
-            <LineChart
-              data={{
-                labels: mockLabels,
-                datasets: [{ data: mockData }],
-              }}
-              width={300} // Tamanho ajustado: largura
-              height={200} // Tamanho ajustado: altura
-              chartConfig={{
-                ...defaultChartConfig,
-                propsForBackgroundLines: { strokeDasharray: '' },
-                propsForDots: { r: '5', fill: '#FFFFFF' }, // Bolinhas brancas
-              }}
-              bezier // Para suavizar a linha
-              style={styles.chart}
-            />
-          );
-        case 'bar':
-          return (
-            <BarChart
-              data={{
-                labels: mockLabels,
-                datasets: [{ data: mockData }],
-              }}
-              width={300}
-              height={200}
-              chartConfig={{
-                ...defaultChartConfig,
-                barPercentage: 0.7, // Largura das barras
-              }}
-              style={styles.chart}
-            />
-          );
-        default:
-          return <Text>No chart available</Text>;
-      }
-    } else {
-      // Use dados reais para o gráfico de pizza
-      const pieData = calculateMonthlyIncomes();
-      if (!pieData || pieData.length === 0) {
-        return <Text>No data available for Pie chart</Text>;
-      }
-
-      return (
-        <PieChart
-          data={pieData}
-          width={250} // Tamanho ajustado
-          height={180} // Tamanho ajustado
-          chartConfig={{
-            ...defaultChartConfig,
-          }}
-          accessor="population"
-          backgroundColor="transparent"
-          paddingLeft="15"
-          style={styles.pieChart} // Estilo específico para o Pie Chart
-        />
-      );
+    switch (chartType) {
+      case 'bar':
+        return (
+          <BarChart
+            data={{
+              labels: mockLabels,
+              datasets: [{ data: mockData }],
+            }}
+            width={300}
+            height={200}
+            chartConfig={{
+              ...defaultChartConfig,
+              barPercentage: 0.7,
+            }}
+            style={styles.chart}
+          />
+        );
+      case 'pie':
+        const pieData = calculateMonthlyIncomes();
+        if (!pieData || pieData.length === 0) {
+          return <Text>No data available for Pie chart</Text>;
+        }
+        return (
+          <PieChart
+            data={pieData}
+            width={300}
+            height={200}
+            chartConfig={defaultChartConfig}
+            accessor="population"
+            backgroundColor="transparent"
+            paddingLeft="15"
+            style={styles.chart}
+          />
+        );
+      case 'line':
+        return (
+          <LineChart
+            data={{
+              labels: mockLabels,
+              datasets: [{ data: mockData }],
+            }}
+            width={300}
+            height={200}
+            chartConfig={{
+              ...defaultChartConfig,
+              propsForBackgroundLines: { strokeDasharray: '' },
+              propsForDots: { r: '5', fill: '#FFFFFF' },
+            }}
+            bezier
+            style={styles.chart}
+          />
+        );
+      default:
+        return <Text>No chart selected</Text>;
     }
   };
 
   return (
     <View>
       <View style={styles.buttonContainer}>
-        <TouchableOpacity
-          style={[styles.button, chartType === 'line' && styles.activeButton]}
-          onPress={() => setChartType('line')}
-        >
-          <Text style={styles.buttonText}>Line</Text>
-        </TouchableOpacity>
         <TouchableOpacity
           style={[styles.button, chartType === 'bar' && styles.activeButton]}
           onPress={() => setChartType('bar')}
@@ -147,6 +129,12 @@ const Chart = ({ incomes, categories, frequencies }) => {
           onPress={() => setChartType('pie')}
         >
           <Text style={styles.buttonText}>Pie</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.button, chartType === 'line' && styles.activeButton]}
+          onPress={() => setChartType('line')}
+        >
+          <Text style={styles.buttonText}>Line</Text>
         </TouchableOpacity>
       </View>
       {renderChart()}
@@ -167,7 +155,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   activeButton: {
-    backgroundColor: '#F57C00', // Fundo mais escuro para o botão ativo
+    backgroundColor: '#F57C00',
   },
   buttonText: {
     color: '#FFFFFF',
@@ -176,10 +164,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   chart: {
-    marginVertical: 8,
-    borderRadius: 16,
-  },
-  pieChart: {
     marginVertical: 8,
     borderRadius: 16,
   },
