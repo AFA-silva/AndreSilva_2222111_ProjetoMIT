@@ -107,12 +107,19 @@ const Chart = ({ incomes, categories, frequencies }) => {
   };
 
   const calculatePieChartData = () => {
-    if (!incomes || !categories) return [];
+    if (!incomes || !categories || !frequencies) return [];
 
+    // Calcule o total mensal por categoria
     const categoryTotals = categories.map((category) => {
       const total = incomes
         .filter((income) => income.category_id === category.id)
-        .reduce((sum, income) => sum + income.amount, 0);
+        .reduce((sum, income) => {
+          const frequency = frequencies.find((freq) => freq.id === income.frequency_id);
+          const days = frequency?.days || 30;
+          // Converter para valor mensal
+          const monthlyAmount = income.amount * (30 / days);
+          return sum + monthlyAmount;
+        }, 0);
       return { name: category.name, total };
     });
 
@@ -122,7 +129,7 @@ const Chart = ({ incomes, categories, frequencies }) => {
     return categoryTotals
       .filter((cat) => cat.total > 0)
       .map((cat, index) => {
-        const percentage = Math.round((cat.total / totalSum) * 100);
+        const percentage = totalSum > 0 ? Math.round((cat.total / totalSum) * 100) : 0;
         return {
           name: `% ${cat.name}`,
           value: percentage,
