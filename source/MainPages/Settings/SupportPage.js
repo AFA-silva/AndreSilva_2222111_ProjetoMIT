@@ -28,71 +28,73 @@ const SupportPage = () => {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      {/* Icon */}
-      <Ionicons name="help-circle-outline" size={80} color="#F9A825" style={styles.icon} />
+    <ScrollView contentContainerStyle={{ paddingBottom: 100, flexGrow: 1 }}>
+      <View style={styles.container}>
+        {/* Icon */}
+        <Ionicons name="help-circle-outline" size={80} color="#F9A825" style={styles.icon} />
 
-      <Text style={styles.header}>Support Page</Text>
-      <Text style={styles.content}>Fill out the form below to contact our support team.</Text>
+        <Text style={styles.header}>Support Page</Text>
+        <Text style={styles.content}>Fill out the form below to contact our support team.</Text>
 
-      {/* Form Inputs */}
-      <TextInput
-        style={styles.input}
-        placeholder="Subject"
-        value={subject}
-        onChangeText={setSubject}
-      />
-      <TextInput
-        style={styles.textArea}
-        placeholder="Message"
-        value={message}
-        onChangeText={setMessage}
-        multiline
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Additional Information"
-        value={additionalInfo}
-        onChangeText={setAdditionalInfo}
-      />
-      <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
-        <Text style={styles.submitButtonText}>Submit</Text>
-      </TouchableOpacity>
+        {/* Form Inputs */}
+        <TextInput
+          style={styles.input}
+          placeholder="Subject"
+          value={subject}
+          onChangeText={setSubject}
+        />
+        <TextInput
+          style={styles.textArea}
+          placeholder="Message"
+          value={message}
+          onChangeText={setMessage}
+          multiline
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="Additional Information"
+          value={additionalInfo}
+          onChangeText={setAdditionalInfo}
+        />
+        <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
+          <Text style={styles.submitButtonText}>Submit</Text>
+        </TouchableOpacity>
 
-      {/* FAQ Button */}
-      <TouchableOpacity style={styles.faqButton} onPress={() => setFAQModalVisible(true)}>
-        <Text style={styles.faqButtonText}>F.A.Q</Text>
-      </TouchableOpacity>
+        {/* FAQ Button */}
+        <TouchableOpacity style={styles.faqButton} onPress={() => setFAQModalVisible(true)}>
+          <Text style={styles.faqButtonText}>F.A.Q</Text>
+        </TouchableOpacity>
 
-      {/* FAQ Modal */}
-      <Modal visible={isFAQModalVisible} transparent={true} animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
-            <Text style={styles.modalHeader}>Frequently Asked Questions</Text>
-            <ScrollView style={styles.faqScrollView}>
-              {faqs.map((faq) => (
-                <View key={faq.id} style={styles.faqItem}>
-                  <TouchableOpacity
-                    style={styles.faqTitleContainer}
-                    onPress={() => handleFAQToggle(faq.id)}
-                  >
-                    <Text style={styles.faqQuestion}>{faq.question}</Text>
-                    <Ionicons
-                      name={expandedFAQs[faq.id] ? 'chevron-up-outline' : 'chevron-down-outline'}
-                      size={20}
-                      color="#333"
-                    />
-                  </TouchableOpacity>
-                  {expandedFAQs[faq.id] && <Text style={styles.faqAnswer}>{faq.answer}</Text>}
-                </View>
-              ))}
-            </ScrollView>
-            <TouchableOpacity style={styles.closeButton} onPress={() => setFAQModalVisible(false)}>
-              <Text style={styles.closeButtonText}>Close</Text>
-            </TouchableOpacity>
+        {/* FAQ Modal */}
+        <Modal visible={isFAQModalVisible} transparent={true} animationType="fade">
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContainer}>
+              <Text style={styles.modalHeader}>Frequently Asked Questions</Text>
+              <ScrollView style={styles.faqScrollView}>
+                {faqs.map((faq) => (
+                  <View key={faq.id} style={styles.faqItem}>
+                    <TouchableOpacity
+                      style={styles.faqTitleContainer}
+                      onPress={() => handleFAQToggle(faq.id)}
+                    >
+                      <Text style={styles.faqQuestion}>{faq.question}</Text>
+                      <Ionicons
+                        name={expandedFAQs[faq.id] ? 'chevron-up-outline' : 'chevron-down-outline'}
+                        size={20}
+                        color="#333"
+                      />
+                    </TouchableOpacity>
+                    {expandedFAQs[faq.id] && <Text style={styles.faqAnswer}>{faq.answer}</Text>}
+                  </View>
+                ))}
+              </ScrollView>
+              <TouchableOpacity style={styles.closeButton} onPress={() => setFAQModalVisible(false)}>
+                <Text style={styles.closeButtonText}>Close</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
-      </Modal>
+        </Modal>
+      </View>
     </ScrollView>
   );
 };

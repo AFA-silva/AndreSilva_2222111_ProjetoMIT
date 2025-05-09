@@ -5,14 +5,18 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 20,
     paddingVertical: 45,
-    backgroundColor: '#F4F4F4', // Fundo suave e neutro
+    backgroundColor: '#FAFAFA', // Fundo mais claro
   },
   title: {
-    fontSize: 30,
+    fontSize: 32,
     fontWeight: 'bold',
-    color: '#333333', // Título em cinza escuro
-    marginBottom: 20,
+    color: '#F57C00', // Título laranja forte
+    marginBottom: 28,
     textAlign: 'center',
+    letterSpacing: 1,
+    textShadowColor: 'rgba(255, 183, 77, 0.15)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
   },
   menuGrid: {
     flexDirection: 'row',
@@ -21,31 +25,36 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   menuItem: {
-    width: '45%',
-    aspectRatio: 1, // Mantém quadrados proporcionais
-    backgroundColor: '#FFFFFF',
-    borderRadius: 15,
+    width: '46%',
+    aspectRatio: 1,
+    backgroundColor: '#FFF',
+    borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    marginBottom: 22,
+    shadowColor: '#FFA726',
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 4, // Sombra para Android
+    shadowRadius: 10,
+    elevation: 6,
     borderWidth: 1,
-    borderColor: '#E0E0E0', // Borda sutil
+    borderColor: '#FFECB3',
+    padding: 10,
   },
   menuIcon: {
-    fontSize: 40,
-    color: '#FF9800', // Ícones com cor vibrante
-    marginBottom: 10,
+    fontSize: 44,
+    color: '#FFA726', // Ícones laranja vibrante
+    marginBottom: 12,
+    textShadowColor: 'rgba(255, 183, 77, 0.18)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
   },
   menuText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#444444', // Texto em cinza médio
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#333',
     textAlign: 'center',
+    letterSpacing: 0.5,
   },
 });
 

@@ -10,6 +10,7 @@ import { useFocusEffect } from '@react-navigation/native'; // Importação adici
 
 const IncomePage = ({ navigation }) => {
   const [incomes, setIncomes] = useState([]);
+  const [chartRenderKey, setChartRenderKey] = useState(Date.now());
   const [frequencies, setFrequencies] = useState([]);
   const [categories, setCategories] = useState([]);
   const [chartData, setChartData] = useState([]); // Dados para o gráfico
@@ -29,6 +30,8 @@ const IncomePage = ({ navigation }) => {
   const [alertMessage, setAlertMessage] = useState('');
   const [alertType, setAlertType] = useState('');
   const [showAlert, setShowAlert] = useState(false); // Controla a exibição do alerta
+
+  const incomesWithAddButton = [...incomes, { isAddButton: true }];
 
   const fetchUserIncomes = async (userId) => {
     try {
@@ -127,9 +130,11 @@ const IncomePage = ({ navigation }) => {
       if (userId) {
         fetchUserIncomes(userId);
         fetchUserCategoriesAndFrequencies(userId);
+        setChartRenderKey(Date.now()); // ← FORÇA O RE-RENDER DO CHART
       }
     }, [userId])
   );
+  
 
   const handleAddIncome = () => {
     // Reseta o estado do formulário e abre o modal
@@ -243,26 +248,39 @@ const IncomePage = ({ navigation }) => {
     setDeleteModalVisible(true); // Abre o modal de confirmação
   };
 
-  const renderIncomeItem = ({ item }) => (
-    <View style={styles.incomeItem}>
-      <View style={styles.incomeRow}>
-        <Text style={styles.incomeTitle}>{item.name}</Text>
-        <Text style={styles.incomeDetails}>{item.categories.name}</Text>
-      </View>
-      <View style={styles.incomeRow}>
-        <Text style={styles.incomeDetails}>Amount: {item.amount}</Text>
-        <TouchableOpacity style={styles.actionButtonEdit} onPress={() => handleEditIncome(item)}>
-          <Ionicons name="pencil" size={16} color="#FFF" />
+  const renderIncomeItem = ({ item }) => {
+    if (item.isAddButton) {
+      return (
+        <TouchableOpacity
+          style={[styles.incomeItem, { justifyContent: 'center', alignItems: 'center', borderStyle: 'dashed', borderColor: '#FFB74D', borderWidth: 2, backgroundColor: '#FFFDE7' }]}
+          onPress={handleAddIncome}
+          activeOpacity={0.8}
+        >
+          <Text style={[styles.addButtonText, { color: '#FFA726', fontSize: 18 }]}>+ Add Income</Text>
         </TouchableOpacity>
+      );
+    }
+    return (
+      <View style={styles.incomeItem}>
+        <View style={styles.incomeRow}>
+          <Text style={styles.incomeTitle}>{item.name}</Text>
+          <Text style={styles.incomeDetails}>{item.categories.name}</Text>
+        </View>
+        <View style={styles.incomeRow}>
+          <Text style={styles.incomeDetails}>Amount: {item.amount}</Text>
+          <TouchableOpacity style={styles.actionButtonEdit} onPress={() => handleEditIncome(item)}>
+            <Ionicons name="pencil" size={16} color="#FFF" />
+          </TouchableOpacity>
+        </View>
+        <View style={styles.incomeRow}>
+          <Text style={styles.incomeDetails}>Frequency: {item.frequencies.name}</Text>
+          <TouchableOpacity style={styles.actionButtonDelete} onPress={() => confirmDeleteIncome(item)}>
+            <Ionicons name="trash" size={16} color="#FFF" />
+          </TouchableOpacity>
+        </View>
       </View>
-      <View style={styles.incomeRow}>
-        <Text style={styles.incomeDetails}>Frequency: {item.frequencies.name}</Text>
-        <TouchableOpacity style={styles.actionButtonDelete} onPress={() => confirmDeleteIncome(item)}>
-          <Ionicons name="trash" size={16} color="#FFF" />
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -271,26 +289,19 @@ const IncomePage = ({ navigation }) => {
       <Text style={styles.header}>Income Management</Text>
 
       <IncomeChart
-        key={Math.random()} // Adiciona uma chave dinâmica para forçar atualização
-        incomes={incomes}
-        categories={categories}
-        frequencies={frequencies}
-      />
+  key={chartRenderKey}
+  incomes={incomes}
+  categories={categories}
+  frequencies={frequencies}
+/>
+
 
       <FlatList
-        data={incomes}
-        keyExtractor={(item) => item.id.toString()}
+        data={incomesWithAddButton}
+        keyExtractor={(item, idx) => item.id ? item.id.toString() : `add-btn-${idx}`}
         renderItem={renderIncomeItem}
         style={styles.incomeList}
       />
-
-      <TouchableOpacity
-        style={styles.addButton}
-        onPress={handleAddIncome}
-        activeOpacity={0.7}
-      >
-        <Text style={styles.addButtonText}>+ Add Income</Text>
-      </TouchableOpacity>
 
       {/* Modal de Adicionar/Editar Income */}
       <Modal visible={isModalVisible} transparent animationType="slide">

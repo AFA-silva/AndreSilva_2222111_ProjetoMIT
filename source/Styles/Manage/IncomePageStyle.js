@@ -3,53 +3,64 @@ import { StyleSheet } from 'react-native';
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
-    padding: 20,
+    backgroundColor: '#FAFAFA',
+    padding: 16,
   },
   header: {
-    fontSize: 22, // Reduzido de 24 para 22
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 20,
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#333333',
+    marginBottom: 24,
     textAlign: 'center',
+    letterSpacing: 0.5,
   },
   addButton: {
-    backgroundColor: '#e38e20',
-    padding: 12, // Reduzido de 15 para 12
-    borderRadius: 8, // Reduzido de 10 para 8
+    backgroundColor: '#FFB74D',
+    padding: 12,
+    borderRadius: 12,
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 40,
+    shadowColor: '#FFB74D',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
   },
   addButtonText: {
-    color: '#FFF',
-    fontWeight: 'bold',
-    fontSize: 14, // Reduzido de 16 para 14
+    color: '#FFFFFF',
+    fontWeight: '600',
+    fontSize: 14,
+    letterSpacing: 0.5,
   },
   incomeItem: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 8, // Reduzido de 10 para 8
-    padding: 12, // Reduzido de 15 para 12
-    marginBottom: 10,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
     elevation: 3,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 183, 77, 0.1)',
   },
   incomeRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 5,
+    marginBottom: 8,
   },
   incomeTitle: {
-    fontSize: 16, // Reduzido de 18 para 16
-    fontWeight: 'bold',
-    color: '#333',
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333333',
+    letterSpacing: 0.3,
   },
   incomeDetails: {
-    fontSize: 14, // Reduzido de 16 para 14
-    color: '#666',
+    fontSize: 15,
+    color: '#666666',
+    letterSpacing: 0.2,
   },
   actionButton: {
     padding: 5,
@@ -58,89 +69,112 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   modalContainer: {
-    width: '80%', // Reduzido de 90% para 80%
+    width: '85%',
     backgroundColor: '#FFFFFF',
-    borderRadius: 8, // Reduzido de 10 para 8
-    padding: 15, // Reduzido de 20 para 15
+    borderRadius: 20,
+    padding: 24,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 8,
   },
   modalHeader: {
-    fontSize: 18, // Reduzido de 22 para 18
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 10,
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#FFB74D',
+    marginBottom: 20,
     textAlign: 'center',
+    letterSpacing: 0.5,
   },
   modalInput: {
     borderWidth: 1,
-    borderColor: '#CCCCCC',
-    borderRadius: 8,
-    padding: 10,
-    marginBottom: 15,
-    backgroundColor: '#F9F9F9',
-    fontSize: 14, // Adicionado para reduzir o tamanho do texto de entrada
+    borderColor: 'rgba(255, 183, 77, 0.3)',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 16,
+    backgroundColor: '#FFFFFF',
+    fontSize: 16,
+    color: '#333333',
   },
   picker: {
     borderWidth: 1,
-    borderColor: '#CCCCCC',
-    borderRadius: 8,
-    padding: 10,
-    marginBottom: 15,
-    backgroundColor: '#F9F9F9',
+    borderColor: 'rgba(255, 183, 77, 0.3)',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 16,
+    backgroundColor: '#FFFFFF',
   },
   modalButtonsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 15,
+    marginTop: 20,
+    gap: 12,
   },
   saveButton: {
     flex: 1,
-    backgroundColor: '#4CAF50',
-    padding: 12, // Reduzido de 15 para 12
-    borderRadius: 6, // Reduzido de 8 para 6
+    backgroundColor: '#FFB74D',
+    padding: 16,
+    borderRadius: 12,
     alignItems: 'center',
-    marginRight: 5,
+    shadowColor: '#FFB74D',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
   },
   saveButtonText: {
     color: '#FFFFFF',
-    fontWeight: 'bold',
-    fontSize: 14, // Reduzido de 16 para 14
+    fontWeight: '600',
+    fontSize: 16,
+    letterSpacing: 0.5,
   },
   closeButton: {
     flex: 1,
-    backgroundColor: '#D84315',
-    padding: 12, // Reduzido de 15 para 12
-    borderRadius: 6, // Reduzido de 8 para 6
+    backgroundColor: '#FF6B6B',
+    padding: 16,
+    borderRadius: 12,
     alignItems: 'center',
-    marginLeft: 5,
+    shadowColor: '#FF6B6B',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
   },
   closeButtonText: {
     color: '#FFFFFF',
-    fontWeight: 'bold',
-    fontSize: 14, // Reduzido de 16 para 14
+    fontWeight: '600',
+    fontSize: 16,
+    letterSpacing: 0.5,
   },
   actionButtonEdit: {
-    padding: 8, // Reduzido de 10 para 8
-    backgroundColor: '#FFD700', // Amarelo para o botão de edição
-    borderRadius: 5,
+    padding: 10,
+    backgroundColor: '#FFD700',
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#FFD700',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 2,
   },
   actionButtonDelete: {
-    padding: 8, // Reduzido de 10 para 8
-    backgroundColor: '#FF6347', // Vermelho para o botão de exclusão
-    borderRadius: 5,
+    padding: 10,
+    backgroundColor: '#FF6B6B',
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#FF6B6B',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 2,
   },
 });
 
