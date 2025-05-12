@@ -28,6 +28,9 @@ const GoalsPage = () => {
   const [alertType, setAlertType] = useState('');
   const [showAlert, setShowAlert] = useState(false);
 
+  const [isDetailsModalVisible, setDetailsModalVisible] = useState(false);
+  const [selectedGoal, setSelectedGoal] = useState(null);
+
   useEffect(() => {
     const fetchUserData = async () => {
       try {
@@ -131,64 +134,122 @@ const GoalsPage = () => {
       const monthsUntilDeadline = (deadlineDate.getFullYear() - today.getFullYear()) * 12 + 
         (deadlineDate.getMonth() - today.getMonth());
 
-      // Verificar se é possível atingir a meta no prazo
+      // Verificar se é possível atingir a meta no prazo atual
       if (monthsNeeded <= monthsUntilDeadline) {
         return {
           status: 'success',
-          message: `Meta alcançável! Você pode poupar ${new Intl.NumberFormat('pt-PT', {
-            style: 'currency',
-            currency: 'EUR',
-          }).format(monthlySaving)} por mês e atingir sua meta em ${monthsNeeded} meses.`,
+          message: `Meta alcançável em ${monthsNeeded} meses usando ${goal.goal_saving_minimum}% do dinheiro disponível.`,
           monthlySaving,
           monthsNeeded,
+          originalSettings: {
+            monthsNeeded,
+            monthlySaving,
+            savingPercentage: goal.goal_saving_minimum
+          }
         };
       }
 
-      // Verificar despesas de baixa prioridade que podem ser cortadas (prioridade <= 3)
-      const lowPriorityExpenses = expenses
-        .filter(expense => expense.priority <= 3)
-        .reduce((sum, expense) => {
+      // Tentar diferentes combinações de cortes e porcentagens
+      const scenarios = [];
+
+      // Cenário 1: Aumentar porcentagem de economia
+      for (let percentage = goal.goal_saving_minimum + 5; percentage <= 100; percentage += 5) {
+        const newMonthlySaving = (availableMoney * percentage) / 100;
+        const newMonthsNeeded = Math.ceil(goal.amount / newMonthlySaving);
+        
+        if (newMonthsNeeded <= monthsUntilDeadline) {
+          scenarios.push({
+            type: 'percentage',
+            percentage,
+            monthsNeeded: newMonthsNeeded,
+            monthlySaving: newMonthlySaving,
+            message: `Possível alcançar em ${newMonthsNeeded} meses aumentando para ${percentage}% do dinheiro disponível.`
+          });
+        }
+      }
+
+      // Cenário 2: Cortar despesas por prioridade
+      const priorityExpenses = {
+        1: expenses.filter(e => e.priority === 1),
+        2: expenses.filter(e => e.priority === 2),
+        3: expenses.filter(e => e.priority === 3)
+      };
+
+      // Calcular economia por prioridade
+      const savingsByPriority = {
+        1: priorityExpenses[1].reduce((sum, expense) => {
           const days = expense.frequencies?.days || 30;
           return sum + (expense.amount * 30) / days;
-        }, 0);
+        }, 0),
+        2: priorityExpenses[2].reduce((sum, expense) => {
+          const days = expense.frequencies?.days || 30;
+          return sum + (expense.amount * 30) / days;
+        }, 0),
+        3: priorityExpenses[3].reduce((sum, expense) => {
+          const days = expense.frequencies?.days || 30;
+          return sum + (expense.amount * 30) / days;
+        }, 0)
+      };
 
-      const newAvailableMoney = availableMoney + lowPriorityExpenses;
-      const newMonthlySaving = (newAvailableMoney * goal.goal_saving_minimum) / 100;
-      const newMonthsNeeded = Math.ceil(goal.amount / newMonthlySaving);
+      // Testar diferentes combinações de cortes
+      for (let priority = 1; priority <= 3; priority++) {
+        const totalSavings = Object.entries(savingsByPriority)
+          .filter(([p]) => parseInt(p) <= priority)
+          .reduce((sum, [_, amount]) => sum + amount, 0);
 
-      if (newMonthsNeeded <= monthsUntilDeadline) {
+        const newAvailableMoney = availableMoney + totalSavings;
+        const newMonthlySaving = (newAvailableMoney * goal.goal_saving_minimum) / 100;
+        const newMonthsNeeded = Math.ceil(goal.amount / newMonthlySaving);
+
+        if (newMonthsNeeded <= monthsUntilDeadline) {
+          scenarios.push({
+            type: 'priority',
+            priority,
+            monthsNeeded: newMonthsNeeded,
+            monthlySaving: newMonthlySaving,
+            savings: totalSavings,
+            message: `Possível alcançar em ${newMonthsNeeded} meses cortando despesas de prioridade ${priority} ou menor (economia de ${new Intl.NumberFormat('pt-PT', {
+              style: 'currency',
+              currency: 'EUR',
+            }).format(totalSavings)}/mês).`
+          });
+        }
+      }
+
+      // Se encontrou cenários possíveis
+      if (scenarios.length > 0) {
+        // Ordenar cenários por meses necessários
+        scenarios.sort((a, b) => a.monthsNeeded - b.monthsNeeded);
+        const bestScenario = scenarios[0];
+
         return {
           status: 'warning',
-          message: `Possível alcançar cortando despesas de baixa prioridade (${new Intl.NumberFormat('pt-PT', {
-            style: 'currency',
-            currency: 'EUR',
-          }).format(lowPriorityExpenses)}/mês). Você poderia poupar ${new Intl.NumberFormat('pt-PT', {
-            style: 'currency',
-            currency: 'EUR',
-          }).format(newMonthlySaving)} por mês e atingir sua meta em ${newMonthsNeeded} meses.`,
-          monthlySaving: newMonthlySaving,
-          monthsNeeded: newMonthsNeeded,
+          message: bestScenario.message,
+          monthlySaving: bestScenario.monthlySaving,
+          monthsNeeded: bestScenario.monthsNeeded,
+          originalSettings: {
+            monthsNeeded,
+            monthlySaving,
+            savingPercentage: goal.goal_saving_minimum
+          },
+          bestScenario
         };
       }
 
-      // Calcular datas possíveis
+      // Se nenhum cenário é possível
       const earliestDate = new Date(today);
       earliestDate.setMonth(earliestDate.getMonth() + monthsNeeded);
 
-      const earliestDateWithCuts = new Date(today);
-      earliestDateWithCuts.setMonth(earliestDateWithCuts.getMonth() + newMonthsNeeded);
-
       return {
         status: 'error',
-        message: `Meta não alcançável na data desejada. Com suas economias atuais (${new Intl.NumberFormat('pt-PT', {
-          style: 'currency',
-          currency: 'EUR',
-        }).format(monthlySaving)}/mês), você atingiria a meta em ${earliestDate.toLocaleDateString()}. Se cortar despesas de baixa prioridade (${new Intl.NumberFormat('pt-PT', {
-          style: 'currency',
-          currency: 'EUR',
-        }).format(lowPriorityExpenses)}/mês), poderia atingir em ${earliestDateWithCuts.toLocaleDateString()}.`,
-        monthlySaving: newMonthlySaving,
-        monthsNeeded: newMonthsNeeded,
+        message: `Meta não alcançável na data desejada. Com as configurações atuais, você atingiria a meta em ${earliestDate.toLocaleDateString()}.`,
+        monthlySaving,
+        monthsNeeded,
+        originalSettings: {
+          monthsNeeded,
+          monthlySaving,
+          savingPercentage: goal.goal_saving_minimum
+        }
       };
     } catch (error) {
       console.error('Error calculating goal status:', error);
@@ -309,6 +370,11 @@ const GoalsPage = () => {
     }
   };
 
+  const handleGoalPress = (goal) => {
+    setSelectedGoal(goal);
+    setDetailsModalVisible(true);
+  };
+
   const renderDatePicker = () => {
     if (Platform.OS === 'web') {
       const formatDateForDisplay = (date) => {
@@ -402,23 +468,11 @@ const GoalsPage = () => {
   };
 
   const renderGoalItem = ({ item }) => {
-    const status = goalStatuses[item.id];
-
-    const getStatusIcon = () => {
-      switch (status?.status) {
-        case 'success':
-          return <Ionicons name="checkmark-circle" size={24} color="#00B894" />;
-        case 'warning':
-          return <Ionicons name="warning" size={24} color="#FDCB6E" />;
-        case 'error':
-          return <Ionicons name="close-circle" size={24} color="#E74C3C" />;
-        default:
-          return null;
-      }
-    };
-
     return (
-      <View style={styles.goalItem}>
+      <TouchableOpacity 
+        style={styles.goalItem}
+        onPress={() => handleGoalPress(item)}
+      >
         <View style={styles.goalHeader}>
           <Text style={styles.goalTitle}>{item.name}</Text>
           <Text style={styles.goalAmount}>
@@ -431,32 +485,135 @@ const GoalsPage = () => {
         <Text style={styles.goalDeadline}>
           Deadline: {new Date(item.deadline).toLocaleDateString()}
         </Text>
-        <Text style={styles.goalSaving}>
-          Use {item.goal_saving_minimum}% of your saved money!
-        </Text>
-        {status && (
-          <View style={styles.statusContainer}>
-            <View style={styles.statusIcon}>{getStatusIcon()}</View>
-            <Text style={[styles.statusText, styles[`status${status.status.charAt(0).toUpperCase() + status.status.slice(1)}`]]}>
-              {status.message}
-            </Text>
-          </View>
-        )}
-        <View style={styles.goalActions}>
-          <TouchableOpacity
-            style={[styles.actionButton, styles.editButton]}
-            onPress={() => handleEditGoal(item)}
-          >
-            <Ionicons name="pencil" size={20} color="#FFFFFF" />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.actionButton, styles.deleteButton]}
-            onPress={() => confirmDeleteGoal(item)}
-          >
-            <Ionicons name="trash" size={20} color="#FFFFFF" />
-          </TouchableOpacity>
+      </TouchableOpacity>
+    );
+  };
+
+  const renderGoalDetails = () => {
+    if (!selectedGoal) return null;
+    const status = goalStatuses[selectedGoal.id];
+
+    const getStatusIcon = () => {
+      switch (status?.status) {
+        case 'success':
+          return <Ionicons name="checkmark-circle" size={28} color="#00B894" />;
+        case 'warning':
+          return <Ionicons name="warning" size={28} color="#FDCB6E" />;
+        case 'error':
+          return <Ionicons name="close-circle" size={28} color="#E74C3C" />;
+        default:
+          return null;
+      }
+    };
+
+    const getStatusTitle = () => {
+      switch (status?.status) {
+        case 'success':
+          return 'Meta Alcançável';
+        case 'warning':
+          return 'Meta Possível com Ajustes';
+        case 'error':
+          return 'Meta Não Alcançável';
+        default:
+          return 'Status da Meta';
+      }
+    };
+
+    return (
+      <Modal visible={isDetailsModalVisible} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <ScrollView contentContainerStyle={styles.modalScrollContent}>
+            <View style={styles.modalContainer}>
+              <View style={styles.modalHeaderContainer}>
+                <Text style={styles.modalHeader}>{selectedGoal.name}</Text>
+                <TouchableOpacity
+                  style={styles.closeButton}
+                  onPress={() => setDetailsModalVisible(false)}
+                >
+                  <Ionicons name="close" size={24} color="#7F8C8D" />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.detailsGrid}>
+                <View style={styles.detailsRow}>
+                  <View style={styles.detailsItem}>
+                    <Text style={styles.detailsLabel}>Savings</Text>
+                    <Text style={styles.detailsValue}>
+                      {selectedGoal.goal_saving_minimum}%
+                    </Text>
+                  </View>
+
+                  <View style={styles.detailsItem}>
+                    <Text style={styles.detailsLabel}>Deadline</Text>
+                    <Text style={styles.detailsValue}>
+                      {new Date(selectedGoal.deadline).toLocaleDateString()}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.detailsRow}>
+                  <View style={styles.detailsItem}>
+                    <Text style={styles.detailsLabel}>Target Amount</Text>
+                    <Text style={styles.detailsValue}>
+                      {new Intl.NumberFormat('pt-PT', {
+                        style: 'currency',
+                        currency: 'EUR',
+                      }).format(selectedGoal.amount)}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              {status && (
+                <View style={styles.statusContainer}>
+                  <View style={styles.statusHeader}>
+                    <View style={styles.statusIcon}>{getStatusIcon()}</View>
+                    <Text style={[styles.statusTitle, styles[`status${status.status.charAt(0).toUpperCase() + status.status.slice(1)}`]]}>
+                      {getStatusTitle()}
+                    </Text>
+                  </View>
+                  <Text style={[styles.statusText, styles[`status${status.status.charAt(0).toUpperCase() + status.status.slice(1)}`]]}>
+                    {status.message}
+                  </Text>
+                  {status.originalSettings && status.status !== 'success' && (
+                    <View>
+                      <Text style={styles.originalSettingsText}>
+                        Com as configurações atuais:
+                      </Text>
+                      <Text style={styles.originalSettingsValue}>
+                        {status.originalSettings.monthsNeeded} meses para a meta.
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              )}
+
+              <View style={styles.detailsActions}>
+                <TouchableOpacity
+                  style={[styles.actionButton, styles.editButton]}
+                  onPress={() => {
+                    setDetailsModalVisible(false);
+                    handleEditGoal(selectedGoal);
+                  }}
+                >
+                  <Ionicons name="pencil" size={20} color="#FFFFFF" />
+                  <Text style={styles.actionButtonText}>Edit</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.actionButton, styles.deleteButton]}
+                  onPress={() => {
+                    setDetailsModalVisible(false);
+                    confirmDeleteGoal(selectedGoal);
+                  }}
+                >
+                  <Ionicons name="trash" size={20} color="#FFFFFF" />
+                  <Text style={styles.actionButtonText}>Delete</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </ScrollView>
         </View>
-      </View>
+      </Modal>
     );
   };
 
@@ -494,6 +651,8 @@ const GoalsPage = () => {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.listContainer}
       />
+
+      {renderGoalDetails()}
 
       {/* Add/Edit Goal Modal */}
       <Modal visible={isModalVisible} transparent animationType="slide">
