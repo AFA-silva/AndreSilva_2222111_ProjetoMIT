@@ -6,19 +6,20 @@ import { supabase } from '../../../Supabase';
 import styles from '../../Styles/Manage/IncomePageStyle';
 import IncomeChart from '../../Utility/Chart';
 import AlertComponent from '../../Utility/Alerts';
-import { useFocusEffect } from '@react-navigation/native'; // Importação adicionada
+import { useFocusEffect } from '@react-navigation/native';
+import Chart from '../../Utility/Chart';
 
 const IncomePage = ({ navigation }) => {
   const [incomes, setIncomes] = useState([]);
   const [chartRenderKey, setChartRenderKey] = useState(Date.now());
   const [frequencies, setFrequencies] = useState([]);
   const [categories, setCategories] = useState([]);
-  const [chartData, setChartData] = useState([]); // Dados para o gráfico
-  const [isModalVisible, setModalVisible] = useState(false); // Modal para adicionar ou editar income
-  const [isDeleteModalVisible, setDeleteModalVisible] = useState(false); // Modal de confirmação de exclusão
-  const [incomeToDelete, setIncomeToDelete] = useState(null); // Income selecionado para deletar
+  const [chartData, setChartData] = useState([]);
+  const [isModalVisible, setModalVisible] = useState(false);
+  const [isDeleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [incomeToDelete, setIncomeToDelete] = useState(null);
   const [userId, setUserId] = useState(null);
-  const [selectedIncome, setSelectedIncome] = useState(null); // Income selecionado para edição
+  const [selectedIncome, setSelectedIncome] = useState(null);
   const [formData, setFormData] = useState({
     name: '',
     amount: '',
@@ -26,10 +27,9 @@ const IncomePage = ({ navigation }) => {
     category_id: '',
   });
 
-  // Adicionar estado para alertas
   const [alertMessage, setAlertMessage] = useState('');
   const [alertType, setAlertType] = useState('');
-  const [showAlert, setShowAlert] = useState(false); // Controla a exibição do alerta
+  const [showAlert, setShowAlert] = useState(false);
 
   const incomesWithAddButton = [...incomes, { isAddButton: true }];
 
@@ -56,7 +56,8 @@ const IncomePage = ({ navigation }) => {
       const { data: categories, error: categoriesError } = await supabase
         .from('categories')
         .select('*')
-        .or(`user_id.eq.${userId},user_id.is.null`);
+        .or(`user_id.eq.${userId},user_id.is.null`)
+        .eq('type', 'income');
 
       if (categoriesError) {
         console.error('Error fetching categories:', categoriesError);
@@ -248,6 +249,7 @@ const IncomePage = ({ navigation }) => {
     setDeleteModalVisible(true); // Abre o modal de confirmação
   };
 
+
   const renderIncomeItem = ({ item }) => {
     if (item.isAddButton) {
       return (
@@ -260,21 +262,50 @@ const IncomePage = ({ navigation }) => {
         </TouchableOpacity>
       );
     }
+
     return (
       <View style={styles.incomeItem}>
         <View style={styles.incomeRow}>
-          <Text style={styles.incomeTitle}>{item.name}</Text>
-          <Text style={styles.incomeDetails}>{item.categories.name}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <View style={[styles.priorityIndicator, { backgroundColor: '#4CAF50' }]} />
+            <Text style={styles.incomeTitle}>{item.name}</Text>
+          </View>
+          <Text style={styles.incomeDetails}>
+            {new Intl.NumberFormat('pt-PT', {
+              style: 'currency',
+              currency: 'EUR',
+            }).format(item.amount)}
+          </Text>
         </View>
+
         <View style={styles.incomeRow}>
-          <Text style={styles.incomeDetails}>Amount: {item.amount}</Text>
-          <TouchableOpacity style={styles.actionButtonEdit} onPress={() => handleEditIncome(item)}>
+          {item.categories && (
+            <View style={styles.categoryTag}>
+              <Text style={styles.categoryText}>
+                {item.categories.name}
+              </Text>
+            </View>
+          )}
+          {item.frequencies && (
+            <View style={styles.frequencyTag}>
+              <Text style={styles.frequencyText}>
+                {item.frequencies.name}
+              </Text>
+            </View>
+          )}
+        </View>
+
+        <View style={[styles.incomeRow, { marginTop: 8, justifyContent: 'flex-end' }]}>
+          <TouchableOpacity
+            style={[styles.actionButtonEdit, { marginRight: 8 }]}
+            onPress={() => handleEditIncome(item)}
+          >
             <Ionicons name="pencil" size={16} color="#FFF" />
           </TouchableOpacity>
-        </View>
-        <View style={styles.incomeRow}>
-          <Text style={styles.incomeDetails}>Frequency: {item.frequencies.name}</Text>
-          <TouchableOpacity style={styles.actionButtonDelete} onPress={() => confirmDeleteIncome(item)}>
+          <TouchableOpacity
+            style={styles.actionButtonDelete}
+            onPress={() => confirmDeleteIncome(item)}
+          >
             <Ionicons name="trash" size={16} color="#FFF" />
           </TouchableOpacity>
         </View>
@@ -288,13 +319,15 @@ const IncomePage = ({ navigation }) => {
 
       <Text style={styles.header}>Income Management</Text>
 
-      <IncomeChart
-  key={chartRenderKey}
-  incomes={incomes}
-  categories={categories}
-  frequencies={frequencies}
-/>
-
+      <View style={styles.chartContainer}>
+        <Chart
+          key={chartRenderKey}
+          incomes={incomes}
+          categories={categories}
+          frequencies={frequencies}
+          chartTypes={['Bar', 'Pie', 'Line']}
+        />
+      </View>
 
       <FlatList
         data={incomesWithAddButton}
@@ -303,7 +336,7 @@ const IncomePage = ({ navigation }) => {
         style={styles.incomeList}
       />
 
-      {/* Modal de Adicionar/Editar Income */}
+      {/* Add/Edit Modal */}
       <Modal visible={isModalVisible} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
@@ -356,7 +389,7 @@ const IncomePage = ({ navigation }) => {
         </View>
       </Modal>
 
-      {/* Modal de Confirmação de Exclusão */}
+      {/* Delete Confirmation Modal */}
       <Modal visible={isDeleteModalVisible} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
@@ -364,11 +397,17 @@ const IncomePage = ({ navigation }) => {
               Do you want to delete the income - {incomeToDelete?.name}?
             </Text>
             <View style={styles.modalButtonsContainer}>
-              <TouchableOpacity style={styles.saveButton} onPress={handleDeleteIncome}>
-                <Text style={styles.saveButtonText}>Yes, Delete</Text>
+              <TouchableOpacity 
+                style={[styles.deleteButton, { flex: 1, marginRight: 8 }]} 
+                onPress={handleDeleteIncome}
+              >
+                <Text style={styles.deleteButtonText}>Yes, Delete</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.closeButton} onPress={() => setDeleteModalVisible(false)}>
-                <Text style={styles.closeButtonText}>No, Go Back</Text>
+              <TouchableOpacity 
+                style={[styles.cancelButton, { flex: 1 }]} 
+                onPress={() => setDeleteModalVisible(false)}
+              >
+                <Text style={styles.cancelButtonText}>Go Back</Text>
               </TouchableOpacity>
             </View>
           </View>

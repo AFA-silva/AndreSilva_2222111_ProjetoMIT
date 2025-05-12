@@ -14,25 +14,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     letterSpacing: 0.5,
   },
-  addButton: {
-    backgroundColor: '#FFB74D',
-    padding: 12,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginBottom: 40,
-    shadowColor: '#FFB74D',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  addButtonText: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-    fontSize: 14,
-    letterSpacing: 0.5,
-  },
-  incomeItem: {
+  expenseItem: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 16,
@@ -45,19 +27,19 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255, 183, 77, 0.1)',
   },
-  incomeRow: {
+  expenseRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 8,
   },
-  incomeTitle: {
+  expenseTitle: {
     fontSize: 18,
     fontWeight: '600',
     color: '#333333',
     letterSpacing: 0.3,
   },
-  incomeDetails: {
+  expenseDetails: {
     fontSize: 15,
     color: '#666666',
     letterSpacing: 0.2,
@@ -176,21 +158,26 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
-  categoryHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-    paddingHorizontal: 4,
+  priorityIndicator: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 8,
   },
-  categoryHeaderText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333333',
-    letterSpacing: 0.3,
+  priorityMinima: {
+    backgroundColor: '#4CAF50',
   },
-  addCategoryButton: {
-    padding: 8,
+  priorityBaixa: {
+    backgroundColor: '#8BC34A',
+  },
+  priorityMedia: {
+    backgroundColor: '#FFD700',
+  },
+  priorityAlta: {
+    backgroundColor: '#FF9800',
+  },
+  priorityMaxima: {
+    backgroundColor: '#F44336',
   },
   categoryTag: {
     backgroundColor: '#FFF3E0',
@@ -214,6 +201,30 @@ const styles = StyleSheet.create({
     color: '#2196F3',
     fontSize: 12,
     fontWeight: '600',
+  },
+  categoriesList: {
+    maxHeight: 200,
+    marginBottom: 16,
+  },
+  categoryItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#FFF',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 183, 77, 0.2)',
+  },
+  categoryItemText: {
+    fontSize: 16,
+    color: '#333333',
+    fontWeight: '500',
+  },
+  categoryActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
 });
 

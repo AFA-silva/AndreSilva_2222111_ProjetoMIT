@@ -19,10 +19,13 @@ const ManagerPage = ({ navigation }) => {
           </View>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.managerButton}>
+        <TouchableOpacity 
+          style={styles.managerButton}
+          onPress={() => navigation.navigate('ExpensesPage')} // Navigate to ExpensesPage
+        >
           <View style={styles.buttonRow}>
             <Ionicons name="card-outline" size={24} color="#FF9800" />
-            <Text style={styles.buttonText}>Gerenciar Despesas</Text>
+            <Text style={styles.buttonText}>Manage Expenses</Text>
           </View>
         </TouchableOpacity>
 

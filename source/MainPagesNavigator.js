@@ -7,6 +7,7 @@ import ProfilePage from './MainPages/Settings/ProfilePage';
 import SecurityPage from './MainPages/Settings/SecurityPage';
 import SupportPage from './MainPages/Settings/SupportPage';
 import NavigationBar from './NavigationBar';
+import ExpensesPage from './MainPages/Manage/ExpensesPage';
 import IncomePage from './MainPages/Manage/IncomePage';
 
 const Stack = createStackNavigator();
@@ -25,6 +26,7 @@ const MainPagesNavigator = () => {
         <Stack.Screen name="MainMenuPage" component={MainMenuPage} />
         <Stack.Screen name="SettingsPage" component={SettingsPage} />
         <Stack.Screen name="IncomePage" component={IncomePage} />
+        <Stack.Screen name="ExpensesPage" component={ExpensesPage} />
         <Stack.Screen name="ManagerPage" component={ManagerPage} />
         <Stack.Screen name="ProfilePage" component={ProfilePage} /> 
         <Stack.Screen name="SupportPage" component={SupportPage} /> 

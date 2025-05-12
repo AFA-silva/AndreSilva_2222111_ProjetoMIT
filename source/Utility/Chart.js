@@ -4,8 +4,8 @@ import { LineChart, BarChart, PieChart } from 'react-native-chart-kit';
 import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 
-const Chart = ({ incomes, categories, frequencies }) => {
-  const [chartType, setChartType] = useState('bar');
+const Chart = ({ incomes, categories, frequencies, processData, chartTypes = ['Bar', 'Pie', 'Line'] }) => {
+  const [chartType, setChartType] = useState(chartTypes[0].toLowerCase());
   const [renderKey, setRenderKey] = useState(0);
   const [isChartReady, setIsChartReady] = useState(false);
   const [period, setPeriod] = useState('month'); // 'day', 'week', 'month'
@@ -209,6 +209,54 @@ const Chart = ({ incomes, categories, frequencies }) => {
     return { labels, data: data.map(value => Math.round(value)) };
   };
 
+  const calculateChartData = () => {
+    if (!incomes || !processData) {
+      // Fallback to original calculations for Income page
+      if (chartType === 'bar') {
+        const { labels, data } = calculateTopCategoriesByPeriod();
+        return { labels, data };
+      }
+      if (chartType === 'pie') {
+        return calculatePieChartData();
+      }
+      if (chartType === 'line') {
+        const { labels, data } = calculateLineChartData();
+        return { labels, data };
+      }
+      return { labels: [], data: [] };
+    }
+
+    // Process data for Expenses page
+    const processedData = processData(incomes, period);
+    if (!processedData) return { labels: [], data: [] };
+
+    switch (chartType) {
+      case 'categories':
+        return {
+          labels: processedData.categoryData.map(cat => cat.name.slice(0, 3)),
+          data: processedData.categoryData.map(cat => Math.round(cat.amount)),
+        };
+      case 'priority':
+        return processedData.priorityData;
+      case 'status':
+        return processedData.statusData;
+      default:
+        // Fallback to original calculations
+        if (chartType === 'bar') {
+          const { labels, data } = calculateTopCategoriesByPeriod();
+          return { labels, data };
+        }
+        if (chartType === 'pie') {
+          return calculatePieChartData();
+        }
+        if (chartType === 'line') {
+          const { labels, data } = calculateLineChartData();
+          return { labels, data };
+        }
+        return { labels: [], data: [] };
+    }
+  };
+
   const renderChart = () => {
     if (!isChartReady) {
       return (
@@ -218,27 +266,28 @@ const Chart = ({ incomes, categories, frequencies }) => {
       );
     }
 
-    const { labels, data } = calculateTopCategoriesByPeriod();
+    const chartData = calculateChartData();
 
-    if (!labels || !data || labels.length === 0 || data.length === 0) {
+    if (!chartData || (Array.isArray(chartData) && chartData.length === 0) || 
+        (!Array.isArray(chartData) && (!chartData.labels || !chartData.data))) {
       return (
         <View style={styles.noDataContainer}>
-          <Text style={styles.noDataText}>No data available for the chart.</Text>
+          <Text style={styles.noDataText}>No data available for the selected period.</Text>
         </View>
       );
     }
 
-    if (chartType === 'bar') {
+    if (chartType === 'bar' || chartType === 'categories') {
       return (
         <View style={styles.chartBackground}>
           <BarChart
             key={`bar-${renderKey}`}
             data={{
-              labels,
-              datasets: [{ data }],
+              labels: chartData.labels,
+              datasets: [{ data: chartData.data }],
             }}
-            width={300}
-            height={160}
+            width={screenWidth - 48}
+            height={180}
             fromZero={true}
             chartConfig={{
               ...defaultChartConfig,
@@ -246,6 +295,7 @@ const Chart = ({ incomes, categories, frequencies }) => {
               backgroundGradientToOpacity: 0,
               backgroundColor: 'transparent',
               barPercentage: 0.7,
+              decimalPlaces: 0,
             }}
             style={styles.chart}
             showValuesOnTopOfBars={true}
@@ -256,28 +306,19 @@ const Chart = ({ incomes, categories, frequencies }) => {
       );
     }
 
-    if (chartType === 'pie') {
-      const pieData = calculatePieChartData();
-      if (pieData.length === 0) {
-        return (
-          <View style={styles.noDataContainer}>
-            <Text style={styles.noDataText}>No data available for Pie chart.</Text>
-          </View>
-        );
-      }
-
+    if (chartType === 'pie' || chartType === 'priority' || chartType === 'status') {
       return (
         <PieChart
-          data={pieData}
-          width={300}
-          height={160}
+          data={Array.isArray(chartData) ? chartData : [chartData]}
+          width={screenWidth - 48}
+          height={180}
           chartConfig={{
             ...defaultChartConfig,
             backgroundGradientFromOpacity: 0,
             backgroundGradientToOpacity: 0,
             backgroundColor: 'transparent',
           }}
-          accessor="value"
+          accessor={chartType === 'priority' || chartType === 'status' ? "amount" : "value"}
           backgroundColor="transparent"
           paddingLeft="15"
           style={styles.chart}
@@ -287,7 +328,6 @@ const Chart = ({ incomes, categories, frequencies }) => {
     }
 
     if (chartType === 'line') {
-      const { labels: lineLabels, data: lineData } = calculateLineChartData();
       return (
         <LinearGradient
           colors={['#FFA726', '#FFB74D']}
@@ -295,11 +335,11 @@ const Chart = ({ incomes, categories, frequencies }) => {
         >
           <LineChart
             data={{
-              labels: lineLabels,
-              datasets: [{ data: lineData }],
+              labels: chartData.labels,
+              datasets: [{ data: chartData.data }],
             }}
-            width={300}
-            height={160}
+            width={screenWidth - 48}
+            height={180}
             chartConfig={{
               ...defaultChartConfig,
               backgroundGradientFromOpacity: 0,
@@ -343,24 +383,20 @@ const Chart = ({ incomes, categories, frequencies }) => {
       </View>
 
       <View style={styles.buttonContainer}>
-        <TouchableOpacity
-          style={[styles.button, chartType === 'bar' && styles.activeButton]}
-          onPress={() => setChartType('bar')}
-        >
-          <Text style={[styles.buttonText, chartType === 'bar' && styles.activeButtonText]}>Bar</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.button, chartType === 'pie' && styles.activeButton]}
-          onPress={() => setChartType('pie')}
-        >
-          <Text style={[styles.buttonText, chartType === 'pie' && styles.activeButtonText]}>Pie</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.button, chartType === 'line' && styles.activeButton]}
-          onPress={() => setChartType('line')}
-        >
-          <Text style={[styles.buttonText, chartType === 'line' && styles.activeButtonText]}>Line</Text>
-        </TouchableOpacity>
+        {chartTypes.map((type) => {
+          const typeLower = type.toLowerCase();
+          return (
+            <TouchableOpacity
+              key={type}
+              style={[styles.button, chartType === typeLower && styles.activeButton]}
+              onPress={() => setChartType(typeLower)}
+            >
+              <Text style={[styles.buttonText, chartType === typeLower && styles.activeButtonText]}>
+                {type}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
 
       {renderChart()}
