@@ -29,10 +29,13 @@ const ManagerPage = ({ navigation }) => {
           </View>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.managerButton}>
+        <TouchableOpacity 
+        style={styles.managerButton}
+        onPress={() => navigation.navigate('GoalsPage')} // Navigate to GoalsPage
+        >
           <View style={styles.buttonRow}>
             <Ionicons name="stats-chart-outline" size={24} color="#FF9800" />
-            <Text style={styles.buttonText}>Gerenciar Metas</Text>
+            <Text style={styles.buttonText}>Manage Goals</Text>
           </View>
         </TouchableOpacity>
 

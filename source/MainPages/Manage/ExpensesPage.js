@@ -68,10 +68,10 @@ const ExpensesPage = () => {
       const { data, error } = await supabase
         .from('expenses')
         .select(`
-          *,
-          categories (name),
-          frequencies (name)
-        `)
+            *,
+            categories (name),
+            frequencies (id, name, days)
+          `)
         .eq('user_id', userId)
         .order('created_at', { ascending: false });
 
@@ -465,93 +465,19 @@ const ExpensesPage = () => {
       // Convert amount based on frequency and period
       if (frequencies) {
         const days = frequencies.days || 30;
-        
-        // Convert directly to target period based on frequency
-        switch (days) {
-          case 1: // frequency_id: 1 (daily)
-            switch (selectedPeriod) {
-              case 'day':
-                convertedAmount = amount; // Keep daily amount
-                break;
-              case 'week':
-                convertedAmount = amount * 7; // Convert to weekly
-                break;
-              case 'month':
-                convertedAmount = amount * 30; // Convert to monthly
-                break;
-            }
-            break;
+        const monthlyAmount = (amount * 30) / days; // Convert to monthly first
 
-          case 7: // frequency_id: 2 (weekly)
-            switch (selectedPeriod) {
-              case 'day':
-                convertedAmount = amount / 7; // Convert to daily
-                break;
-              case 'week':
-                convertedAmount = amount; // Keep weekly amount
-                break;
-              case 'month':
-                convertedAmount = amount * 4.28; // Convert to monthly
-                break;
-            }
+        // Then convert to target period
+        switch (selectedPeriod) {
+          case 'day':
+            convertedAmount = monthlyAmount / 30; // Convert to daily
             break;
-
-          case 14: // frequency_id: 3 (biweekly)
-            switch (selectedPeriod) {
-              case 'day':
-                convertedAmount = amount / 14; // Convert to daily
-                break;
-              case 'week':
-                convertedAmount = amount / 2; // Convert to weekly
-                break;
-              case 'month':
-                convertedAmount = amount * 2; // Convert to monthly
-                break;
-            }
+          case 'week':
+            convertedAmount = monthlyAmount / 4.28; // Convert to weekly
             break;
-
-          case 30: // frequency_id: 4 (monthly)
-            switch (selectedPeriod) {
-              case 'day':
-                convertedAmount = amount / 30; // Convert to daily
-                break;
-              case 'week':
-                convertedAmount = amount / 4.28; // Convert to weekly
-                break;
-              case 'month':
-                convertedAmount = amount; // Keep monthly amount
-                break;
-            }
+          case 'month':
+            convertedAmount = monthlyAmount; // Keep monthly amount
             break;
-
-          case 365: // frequency_id: 5 (yearly)
-            switch (selectedPeriod) {
-              case 'day':
-                convertedAmount = amount / 365; // Convert to daily
-                break;
-              case 'week':
-                convertedAmount = amount / 52; // Convert to weekly
-                break;
-              case 'month':
-                convertedAmount = amount / 12; // Convert to monthly
-                break;
-            }
-            break;
-
-          default:
-            // For custom frequencies, convert to monthly first
-            const monthlyAmount = (amount * 30) / days;
-            switch (selectedPeriod) {
-              case 'day':
-                convertedAmount = monthlyAmount / 30;
-                break;
-              case 'week':
-                convertedAmount = monthlyAmount / 4.28;
-                break;
-              case 'month':
-                convertedAmount = monthlyAmount;
-                break;
-            }
         }
       }
 
@@ -721,22 +647,31 @@ const ExpensesPage = () => {
       {/* Delete Confirmation Modal */}
       <Modal visible={deleteModalVisible} transparent animationType="fade">
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
-            <Text style={styles.modalHeader}>
-              Do you want to delete the expense - {expenseToDelete?.name}?
+          <View style={[styles.modalContainer, { maxWidth: 400 }]}>
+            <View style={styles.deleteModalHeader}>
+              <Ionicons name="warning" size={32} color="#FF6B6B" />
+              <Text style={styles.deleteModalTitle}>Delete Expense</Text>
+            </View>
+            <Text style={styles.deleteModalText}>
+              Are you sure you want to delete "{expenseToDelete?.name}"?
+            </Text>
+            <Text style={styles.deleteModalSubtext}>
+              This action cannot be undone.
             </Text>
             <View style={styles.modalButtonsContainer}>
               <TouchableOpacity
-                style={styles.saveButton}
+                style={[styles.deleteButton, { flex: 1, marginRight: 8 }]}
                 onPress={handleDeleteExpense}
               >
-                <Text style={styles.saveButtonText}>Yes, Delete</Text>
+                <Ionicons name="trash" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
+                <Text style={styles.deleteButtonText}>Delete</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={styles.closeButton}
+                style={[styles.cancelButton, { flex: 1 }]}
                 onPress={() => setDeleteModalVisible(false)}
               >
-                <Text style={styles.closeButtonText}>No, Go Back</Text>
+                <Ionicons name="close" size={20} color="#666666" style={{ marginRight: 8 }} />
+                <Text style={styles.cancelButtonText}>Cancel</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -805,22 +740,31 @@ const ExpensesPage = () => {
       {/* Delete Category Confirmation Modal */}
       <Modal visible={isDeleteCategoryModalVisible} transparent animationType="fade">
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
-            <Text style={styles.modalHeader}>
-              Do you want to delete the category - {categoryToDelete?.name}?
+          <View style={[styles.modalContainer, { maxWidth: 400 }]}>
+            <View style={styles.deleteModalHeader}>
+              <Ionicons name="warning" size={32} color="#FF6B6B" />
+              <Text style={styles.deleteModalTitle}>Delete Category</Text>
+            </View>
+            <Text style={styles.deleteModalText}>
+              Are you sure you want to delete "{categoryToDelete?.name}"?
+            </Text>
+            <Text style={styles.deleteModalSubtext}>
+              This action cannot be undone and will affect all expenses in this category.
             </Text>
             <View style={styles.modalButtonsContainer}>
-              <TouchableOpacity 
-                style={[styles.deleteButton, { flex: 1, marginRight: 8 }]} 
+              <TouchableOpacity
+                style={[styles.deleteButton, { flex: 1, marginRight: 8 }]}
                 onPress={handleDeleteCategory}
               >
-                <Text style={styles.deleteButtonText}>Yes, Delete</Text>
+                <Ionicons name="trash" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
+                <Text style={styles.deleteButtonText}>Delete</Text>
               </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.cancelButton, { flex: 1 }]} 
+              <TouchableOpacity
+                style={[styles.cancelButton, { flex: 1 }]}
                 onPress={() => setDeleteCategoryModalVisible(false)}
               >
-                <Text style={styles.cancelButtonText}>Go Back</Text>
+                <Ionicons name="close" size={20} color="#666666" style={{ marginRight: 8 }} />
+                <Text style={styles.cancelButtonText}>Cancel</Text>
               </TouchableOpacity>
             </View>
           </View>

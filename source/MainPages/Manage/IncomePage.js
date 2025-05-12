@@ -392,22 +392,31 @@ const IncomePage = ({ navigation }) => {
       {/* Delete Confirmation Modal */}
       <Modal visible={isDeleteModalVisible} transparent animationType="fade">
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
-            <Text style={styles.modalHeader}>
-              Do you want to delete the income - {incomeToDelete?.name}?
+          <View style={[styles.modalContainer, { maxWidth: 400 }]}>
+            <View style={styles.deleteModalHeader}>
+              <Ionicons name="warning" size={32} color="#FF6B6B" />
+              <Text style={styles.deleteModalTitle}>Delete Income</Text>
+            </View>
+            <Text style={styles.deleteModalText}>
+              Are you sure you want to delete "{incomeToDelete?.name}"?
+            </Text>
+            <Text style={styles.deleteModalSubtext}>
+              This action cannot be undone.
             </Text>
             <View style={styles.modalButtonsContainer}>
-              <TouchableOpacity 
-                style={[styles.deleteButton, { flex: 1, marginRight: 8 }]} 
+              <TouchableOpacity
+                style={[styles.deleteButton, { flex: 1, marginRight: 8 }]}
                 onPress={handleDeleteIncome}
               >
-                <Text style={styles.deleteButtonText}>Yes, Delete</Text>
+                <Ionicons name="trash" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
+                <Text style={styles.deleteButtonText}>Delete</Text>
               </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.cancelButton, { flex: 1 }]} 
+              <TouchableOpacity
+                style={[styles.cancelButton, { flex: 1 }]}
                 onPress={() => setDeleteModalVisible(false)}
               >
-                <Text style={styles.cancelButtonText}>Go Back</Text>
+                <Ionicons name="close" size={20} color="#666666" style={{ marginRight: 8 }} />
+                <Text style={styles.cancelButtonText}>Cancel</Text>
               </TouchableOpacity>
             </View>
           </View>
