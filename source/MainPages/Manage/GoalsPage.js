@@ -201,9 +201,10 @@ const GoalsPage = () => {
 
       // 1. Verifica se é possível com as configurações atuais
       if (possibleDate <= new Date(goal.deadline)) {
+        const daysToReach = Math.ceil((possibleDate - today) / (1000 * 60 * 60 * 24));
         return {
           status: 'success',
-          message: `Meta alcançável! Você atingirá a meta em ${Math.ceil((daysRemainingInMonth + additionalDaysNeeded) / 30)} meses usando ${goal.goal_saving_minimum}% dos savings.`,
+          message: `Meta alcançável! Você atingirá a meta em ${daysToReach} dias (em ${possibleDate.toLocaleDateString()}) usando ${goal.goal_saving_minimum}% dos savings.`,
           monthlySaving: currentDailySaving * 30,
           monthsNeeded: Math.ceil((daysRemainingInMonth + additionalDaysNeeded) / 30),
           reachDate: possibleDate.toLocaleDateString(),
@@ -508,10 +509,39 @@ const GoalsPage = () => {
   };
 
   const renderDatePicker = () => {
+    if (Platform.OS === 'web') {
+      return (
+        <>
+          <Text style={styles.modalInputLabel}>Deadline Date:</Text>
+          <input
+            type="date"
+            style={{
+              padding: 12,
+              borderRadius: 8,
+              border: '1px solid #DFE6E9',
+              fontSize: 16,
+              color: '#2D3436',
+              backgroundColor: '#F8F9FA',
+              width: '100%',
+              marginBottom: 8,
+            }}
+            value={formData.deadline ? new Date(formData.deadline).toISOString().split('T')[0] : ''}
+            min={new Date().toISOString().split('T')[0]}
+            onChange={e => {
+              setFormData(prev => ({
+                ...prev,
+                deadline: new Date(e.target.value)
+              }));
+            }}
+          />
+        </>
+      );
+    }
+
     if (Platform.OS === 'ios') {
       return (
-        <View style={styles.modalInputContainer}>
-          <Text style={styles.modalInputLabel}>Deadline</Text>
+        <>
+          <Text style={styles.modalInputLabel}>Deadline Date:</Text>
           <DateTimePicker
             value={formData.deadline}
             mode="date"
@@ -524,13 +554,14 @@ const GoalsPage = () => {
             minimumDate={new Date()}
             style={{ height: 200 }}
           />
-        </View>
+        </>
       );
     }
 
+    // Android
     return (
-      <View style={styles.modalInputContainer}>
-        <Text style={styles.modalInputLabel}>Deadline</Text>
+      <>
+        <Text style={styles.modalInputLabel}>Deadline Date:</Text>
         <TouchableOpacity
           style={styles.datePickerButton}
           onPress={() => setShowDatePicker(true)}
@@ -553,7 +584,7 @@ const GoalsPage = () => {
             minimumDate={new Date()}
           />
         )}
-      </View>
+      </>
     );
   };
 
@@ -626,11 +657,15 @@ const GoalsPage = () => {
     const creationDate = new Date(item.created_at);
     const deadlineDate = new Date(item.deadline);
     const desiredDays = Math.ceil((deadlineDate - creationDate) / (1000 * 60 * 60 * 24));
-    const reachDate = status?.originalSettings?.reachDate ? new Date(status.originalSettings.reachDate) : null;
-    const today = new Date();
-    const predictedDays = reachDate ? Math.ceil((reachDate - today) / (1000 * 60 * 60 * 24)) : null;
-
-    // Barra de progresso baseada nos dias
+    let predictedDays = null;
+    if (status?.originalSettings?.reachDate) {
+      // Suporta formato dd/mm/yyyy
+      const [day, month, year] = status.originalSettings.reachDate.split('/');
+      const reachDate = new Date(`${year}-${month}-${day}`);
+      const today = new Date();
+      predictedDays = Math.ceil((reachDate - today) / (1000 * 60 * 60 * 24));
+      if (predictedDays < 0) predictedDays = 0;
+    }
     const progressPercentage = (predictedDays && desiredDays)
       ? Math.min((desiredDays / predictedDays) * 100, 100)
       : 0;
@@ -674,7 +709,7 @@ const GoalsPage = () => {
         <View style={styles.goalDeadlineContainer}>
           <View style={styles.deadlineRow}>
             <Text style={styles.goalDeadline}>
-              Dias para meta: {predictedDays !== null ? predictedDays : '--'} dias (Desejado: {desiredDays} dias)
+              Dias para meta: {predictedDays !== null && !isNaN(predictedDays) ? predictedDays : '--'} dias (Deadline: {desiredDays} dias)
             </Text>
             <Text style={[styles.progressPercentage, { color: statusColor }]}>
               {progressPercentage.toFixed(1)}%
@@ -689,7 +724,7 @@ const GoalsPage = () => {
     if (!selectedGoal) return null;
     const status = goalStatuses[selectedGoal.id];
     const { icon, title, textColor, backgroundColor } = getStatusInfo(status);
-    const progress = calculateGoalProgress(selectedGoal);
+    const progress = calculateTimeProgress(selectedGoal);
 
     return (
       <Modal visible={isDetailsModalVisible} transparent animationType="slide">
@@ -1078,6 +1113,18 @@ const GoalsPage = () => {
     );
   };
 
+  // Função para calcular progresso linear baseado no tempo
+  const calculateTimeProgress = (goal) => {
+    const creationDate = new Date(goal.created_at);
+    const deadlineDate = new Date(goal.deadline);
+    const today = new Date();
+    const totalDays = Math.max(Math.ceil((deadlineDate - creationDate) / (1000 * 60 * 60 * 24)), 1);
+    const daysPassed = Math.floor((today - creationDate) / (1000 * 60 * 60 * 24));
+    if (today >= deadlineDate) return 100;
+    if (daysPassed < 0) return 0;
+    return Math.min((daysPassed / totalDays) * 100, 99.99);
+  };
+
   return (
     <View style={styles.container}>
       {(!isModalVisible && !isDeleteModalVisible && !isDetailsModalVisible && showAlert) && (
@@ -1152,7 +1199,6 @@ const GoalsPage = () => {
               </View>
 
               <View style={styles.modalInputContainer}>
-                <Text style={styles.modalInputLabel}>Deadline</Text>
                 {renderDatePicker()}
               </View>
 
