@@ -1223,6 +1223,45 @@ const GoalsPage = () => {
                 {renderDatePicker()}
               </View>
 
+              {/* Real Value and Fixed Value Input */}
+              <View style={styles.modalInputContainer}>
+                <Text style={styles.modalInputLabel}>Real Value</Text>
+                <Text style={{ fontSize: 16, color: '#2D3436', marginBottom: 4 }}>
+                  {financialMetrics.availableMoney > 0
+                    ? `${((formData.goal_saving_minimum / 100) * financialMetrics.availableMoney).toFixed(2)}€/month`
+                    : '--'}
+                </Text>
+              </View>
+
+              <View style={styles.modalInputContainer}>
+                <Text style={styles.modalInputLabel}>Or enter a fixed value (€)</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  placeholder="Enter value in €"
+                  keyboardType="numeric"
+                  value={formData.fixedValue !== undefined && formData.fixedValue !== null ? formData.fixedValue.toString() : ''}
+                  onChangeText={(text) => {
+                    const value = parseFloat(text.replace(',', '.'));
+                    if (!isNaN(value) && financialMetrics.availableMoney > 0) {
+                      setFormData({
+                        ...formData,
+                        fixedValue: value,
+                        goal_saving_minimum: Math.round((value / financialMetrics.availableMoney) * 100),
+                      });
+                    } else {
+                      setFormData({
+                        ...formData,
+                        fixedValue: text,
+                        goal_saving_minimum: 0,
+                      });
+                    }
+                  }}
+                />
+                <Text style={styles.savingsDescription}>
+                  Enter a value in euros and it will convert to the corresponding percentage of your available money.
+                </Text>
+              </View>
+
               <View style={styles.modalInputContainer}>
                 <Text style={styles.modalInputLabel}>Savings Percentage</Text>
                 <TextInput
@@ -1230,12 +1269,16 @@ const GoalsPage = () => {
                   placeholder="Enter percentage"
                   keyboardType="numeric"
                   value={formData.goal_saving_minimum.toString()}
-                  onChangeText={(text) =>
+                  onChangeText={(text) => {
+                    const percent = parseFloat(text.replace(',', '.')) || 0;
                     setFormData({
                       ...formData,
-                      goal_saving_minimum: parseInt(text) || 0,
-                    })
-                  }
+                      goal_saving_minimum: percent,
+                      fixedValue: financialMetrics.availableMoney > 0
+                        ? ((percent / 100) * financialMetrics.availableMoney).toFixed(2)
+                        : '',
+                    });
+                  }}
                 />
                 <Text style={styles.savingsDescription}>
                   This percentage will be taken from your available money after expenses
