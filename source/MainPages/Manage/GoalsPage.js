@@ -201,10 +201,9 @@ const GoalsPage = () => {
 
       // 1. Verifica se é possível com as configurações atuais
       if (possibleDate <= new Date(goal.deadline)) {
-        const daysToReach = Math.ceil((possibleDate - today) / (1000 * 60 * 60 * 24));
         return {
           status: 'success',
-          message: `Meta alcançável! Você atingirá a meta em ${daysToReach} dias (em ${possibleDate.toLocaleDateString()}) usando ${goal.goal_saving_minimum}% dos savings.`,
+          message: `Meta alcançável! Você atingirá a meta no dia desejado (${new Date(goal.deadline).toLocaleDateString()}) usando ${goal.goal_saving_minimum}% dos savings.`,
           monthlySaving: currentDailySaving * 30,
           monthsNeeded: Math.ceil((daysRemainingInMonth + additionalDaysNeeded) / 30),
           reachDate: possibleDate.toLocaleDateString(),
@@ -440,12 +439,13 @@ const GoalsPage = () => {
       // Calculate new total savings percentage
       const { data: userGoals, error: goalsError } = await supabase
         .from('goals')
-        .select('goal_saving_minimum')
+        .select('id, goal_saving_minimum')
         .eq('user_id', userId);
 
       if (goalsError) throw goalsError;
 
       const currentTotalPercentage = userGoals.reduce((sum, goal) => {
+        // Ignora a meta atual ao editar
         if (editingGoal && String(goal.id) === String(editingGoal.id)) return sum;
         return sum + (goal.goal_saving_minimum || 0);
       }, 0);
@@ -459,32 +459,33 @@ const GoalsPage = () => {
         return;
       }
 
+      // Calcule o status REAL usando calculateGoalStatus
+      let statusValue = 1; // default
+      const statusResult = await calculateGoalStatus({
+        ...formData,
+        amount: parseFloat(formData.amount),
+        deadline: formData.deadline,
+        goal_saving_minimum: formData.goal_saving_minimum,
+        user_id: userId
+      });
+      if (statusResult?.status === 'success') statusValue = 1;
+      else if (statusResult?.status === 'info') statusValue = 2;
+      else if (statusResult?.status === 'error') statusValue = 3;
+
       const payload = {
         name: formData.name,
         amount: amount,
         deadline: formData.deadline.toISOString().split('T')[0],
         goal_saving_minimum: formData.goal_saving_minimum,
-        user_id: userId
+        user_id: userId,
+        status: statusValue
       };
 
       let error;
       if (editingGoal) {
-        const { error: updateError } = await supabase
-          .from('goals')
-          .update(payload)
-          .eq('id', editingGoal.id);
-        error = updateError;
+        await supabase.from('goals').update(payload).eq('id', editingGoal.id);
       } else {
-        const { error: insertError } = await supabase
-          .from('goals')
-          .insert([payload])
-          .select();
-        error = insertError;
-      }
-
-      if (error) {
-        console.error('Error details:', error);
-        throw error;
+        await supabase.from('goals').insert([payload]);
       }
 
       setAlertMessage(`Goal ${editingGoal ? 'updated' : 'added'} successfully!`);
@@ -656,19 +657,20 @@ const GoalsPage = () => {
     const status = goalStatuses[item.id];
     const creationDate = new Date(item.created_at);
     const deadlineDate = new Date(item.deadline);
-    const desiredDays = Math.ceil((deadlineDate - creationDate) / (1000 * 60 * 60 * 24));
+    const today = new Date();
+    
+    // Se a meta for alcançável, usa os dias até o deadline
     let predictedDays = null;
-    if (status?.originalSettings?.reachDate) {
-      // Suporta formato dd/mm/yyyy
+    if (status?.status === 'success') {
+      predictedDays = Math.ceil((deadlineDate - today) / (1000 * 60 * 60 * 24));
+    } else if (status?.originalSettings?.reachDate) {
       const [day, month, year] = status.originalSettings.reachDate.split('/');
       const reachDate = new Date(`${year}-${month}-${day}`);
-      const today = new Date();
       predictedDays = Math.ceil((reachDate - today) / (1000 * 60 * 60 * 24));
-      if (predictedDays < 0) predictedDays = 0;
     }
-    const progressPercentage = (predictedDays && desiredDays)
-      ? Math.min((desiredDays / predictedDays) * 100, 100)
-      : 0;
+    
+    const desiredDays = Math.ceil((deadlineDate - creationDate) / (1000 * 60 * 60 * 24));
+    const progressPercentage = calculateTimeProgress(item);
 
     // Ícone e cor
     let statusIcon = 'checkmark-circle';
@@ -851,7 +853,7 @@ const GoalsPage = () => {
     <View style={styles.financialMetricsContainer}>
       <View style={styles.metricCard}>
         <Text style={styles.metricLabel}>Monthly Income</Text>
-        <Text style={styles.metricValue}>
+        <Text style={[styles.metricValue, styles.availableMoney]}>
           {new Intl.NumberFormat('pt-PT', {
             style: 'currency',
             currency: 'EUR',
@@ -860,7 +862,7 @@ const GoalsPage = () => {
       </View>
       <View style={styles.metricCard}>
         <Text style={styles.metricLabel}>Monthly Expenses</Text>
-        <Text style={styles.metricValue}>
+        <Text style={[styles.metricValue, styles.availableMoney]}>
           {new Intl.NumberFormat('pt-PT', {
             style: 'currency',
             currency: 'EUR',
@@ -878,7 +880,7 @@ const GoalsPage = () => {
       </View>
       <View style={styles.metricCard}>
         <Text style={styles.metricLabel}>Savings Allocated</Text>
-        <Text style={[styles.metricValue, styles.savingsPercentage]}>
+        <Text style={[styles.metricValue, { color: getSavingsColor(financialMetrics.totalSavingsPercentage) }]}>
           {financialMetrics.totalSavingsPercentage}%
         </Text>
       </View>
@@ -1118,11 +1120,30 @@ const GoalsPage = () => {
     const creationDate = new Date(goal.created_at);
     const deadlineDate = new Date(goal.deadline);
     const today = new Date();
+
+    // Calcula o total de dias entre criação e deadline
     const totalDays = Math.max(Math.ceil((deadlineDate - creationDate) / (1000 * 60 * 60 * 24)), 1);
+    
+    // Calcula quantos dias já se passaram desde a criação
     const daysPassed = Math.floor((today - creationDate) / (1000 * 60 * 60 * 24));
+    
+    // Calcula a porcentagem que cada dia representa
+    const percentagePerDay = 100 / totalDays;
+    
+    // Calcula o progresso atual
+    let progress = daysPassed * percentagePerDay;
+    
+    // Limita o progresso entre 0 e 100
     if (today >= deadlineDate) return 100;
     if (daysPassed < 0) return 0;
-    return Math.min((daysPassed / totalDays) * 100, 99.99);
+    return Math.min(progress, 99.99);
+  };
+
+  // Savings color helper
+  const getSavingsColor = (percentage) => {
+    if (percentage < 50) return '#00B894'; // verde
+    if (percentage < 95) return '#FDCB6E'; // amarelo
+    return '#E74C3C'; // vermelho
   };
 
   return (
