@@ -19,6 +19,8 @@ const GoalsPage = () => {
     amount: '',
     deadline: new Date(),
     goal_saving_minimum: 20,
+    fixedValue: '',
+    inputType: 'percentage', // 'percentage' or 'fixed'
   });
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [goalStatuses, setGoalStatuses] = useState({});
@@ -376,6 +378,8 @@ const GoalsPage = () => {
       amount: '',
       deadline: new Date(),
       goal_saving_minimum: 20,
+      fixedValue: '',
+      inputType: 'percentage',
     });
     setModalVisible(true);
   };
@@ -387,6 +391,8 @@ const GoalsPage = () => {
       amount: goal.amount.toString(),
       deadline: new Date(goal.deadline),
       goal_saving_minimum: goal.goal_saving_minimum,
+      fixedValue: '',
+      inputType: 'percentage',
     });
     setModalVisible(true);
   };
@@ -436,6 +442,10 @@ const GoalsPage = () => {
         return;
       }
 
+      // Calcule o valor arredondado
+      const roundedPercentage = formData.goal_saving_minimum ? parseFloat(Number(formData.goal_saving_minimum).toFixed(2)) : 0;
+      const roundedFixedValue = formData.fixedValue && !isNaN(parseFloat(formData.fixedValue)) ? parseFloat(Number(formData.fixedValue).toFixed(2)) : 0;
+
       // Calculate new total savings percentage
       const { data: userGoals, error: goalsError } = await supabase
         .from('goals')
@@ -450,10 +460,10 @@ const GoalsPage = () => {
         return sum + (goal.goal_saving_minimum || 0);
       }, 0);
 
-      const newTotalPercentage = currentTotalPercentage + formData.goal_saving_minimum;
+      const newTotalPercentage = currentTotalPercentage + roundedPercentage;
 
       if (newTotalPercentage > 100) {
-        setAlertMessage(`Cannot add goal. Total savings percentage would exceed 100% (currently using ${currentTotalPercentage}%)`);
+        setAlertMessage(`Cannot add goal. Total savings percentage would exceed 100% (currently using ${currentTotalPercentage.toFixed(2)}%)`);
         setAlertType('error');
         setShowAlert(true);
         return;
@@ -465,7 +475,7 @@ const GoalsPage = () => {
         ...formData,
         amount: parseFloat(formData.amount),
         deadline: formData.deadline,
-        goal_saving_minimum: formData.goal_saving_minimum,
+        goal_saving_minimum: roundedPercentage,
         user_id: userId
       });
       if (statusResult?.status === 'success') statusValue = 1;
@@ -476,9 +486,9 @@ const GoalsPage = () => {
         name: formData.name,
         amount: amount,
         deadline: formData.deadline.toISOString().split('T')[0],
-        goal_saving_minimum: formData.goal_saving_minimum,
+        goal_saving_minimum: roundedPercentage,
         user_id: userId,
-        status: statusValue
+        status: statusValue,
       };
 
       let error;
@@ -512,70 +522,45 @@ const GoalsPage = () => {
   const renderDatePicker = () => {
     if (Platform.OS === 'web') {
       return (
-        <>
-          <Text style={styles.modalInputLabel}>Deadline Date:</Text>
-          <input
-            type="date"
-            style={{
-              padding: 12,
-              borderRadius: 8,
-              border: '1px solid #DFE6E9',
-              fontSize: 16,
-              color: '#2D3436',
-              backgroundColor: '#F8F9FA',
-              width: '100%',
-              marginBottom: 8,
-            }}
-            value={formData.deadline ? new Date(formData.deadline).toISOString().split('T')[0] : ''}
-            min={new Date().toISOString().split('T')[0]}
-            onChange={e => {
-              setFormData(prev => ({
-                ...prev,
-                deadline: new Date(e.target.value)
-              }));
-            }}
-          />
-        </>
+        <input
+          type="date"
+          style={{
+            padding: 12,
+            borderRadius: 8,
+            border: '1px solid #DFE6E9',
+            fontSize: 16,
+            color: '#2D3436',
+            backgroundColor: '#F8F9FA',
+            width: '92%',
+            marginBottom: 8,
+          }}
+          value={formData.deadline ? new Date(formData.deadline).toISOString().split('T')[0] : ''}
+          min={new Date().toISOString().split('T')[0]}
+          onChange={e => {
+            setFormData(prev => ({
+              ...prev,
+              deadline: new Date(e.target.value)
+            }));
+          }}
+        />
       );
     }
 
-    if (Platform.OS === 'ios') {
-      return (
-        <>
-          <Text style={styles.modalInputLabel}>Deadline Date:</Text>
-          <DateTimePicker
-            value={formData.deadline}
-            mode="date"
-            display="spinner"
-            onChange={(event, selectedDate) => {
-              if (selectedDate) {
-                setFormData(prev => ({ ...prev, deadline: selectedDate }));
-              }
-            }}
-            minimumDate={new Date()}
-            style={{ height: 200 }}
-          />
-        </>
-      );
-    }
-
-    // Android
+    // Mobile (Android/iOS)
     return (
-      <>
-        <Text style={styles.modalInputLabel}>Deadline Date:</Text>
-        <TouchableOpacity
-          style={styles.datePickerButton}
-          onPress={() => setShowDatePicker(true)}
-        >
-          <Text style={styles.datePickerButtonText}>
-            {formData.deadline.toLocaleDateString()}
-          </Text>
-        </TouchableOpacity>
+      <TouchableOpacity
+        style={styles.modalInput}
+        onPress={() => setShowDatePicker(true)}
+        activeOpacity={0.7}
+      >
+        <Text style={{ color: '#2D3436' }}>
+          {formData.deadline ? formData.deadline.toLocaleDateString() : 'Select a date'}
+        </Text>
         {showDatePicker && (
           <DateTimePicker
             value={formData.deadline}
             mode="date"
-            display="default"
+            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
             onChange={(event, selectedDate) => {
               setShowDatePicker(false);
               if (selectedDate) {
@@ -585,7 +570,7 @@ const GoalsPage = () => {
             minimumDate={new Date()}
           />
         )}
-      </>
+      </TouchableOpacity>
     );
   };
 
@@ -615,9 +600,14 @@ const GoalsPage = () => {
         title: 'Meta Não Alcançável',
         textColor: '#E74C3C',
         backgroundColor: '#E74C3C20'
+      },
+      'info-blue': {
+        icon: <Ionicons name="information-circle" size={28} color="#0984e3" />,
+        title: 'Meta no Dia!',
+        textColor: '#0984e3',
+        backgroundColor: '#d6eaff',
       }
     };
-
     return statusConfig[status?.status] || {
       icon: null,
       title: 'Status da Meta',
@@ -681,6 +671,9 @@ const GoalsPage = () => {
     } else if (status?.status === 'error') {
       statusIcon = 'alert-circle';
       statusColor = '#E74C3C';
+    } else if (predictedDays === 0) {
+      statusIcon = 'information-circle';
+      statusColor = '#0984e3';
     }
 
     return (
@@ -711,7 +704,7 @@ const GoalsPage = () => {
         <View style={styles.goalDeadlineContainer}>
           <View style={styles.deadlineRow}>
             <Text style={styles.goalDeadline}>
-              Dias para meta: {predictedDays !== null && !isNaN(predictedDays) ? predictedDays : '--'} dias (Deadline: {desiredDays} dias)
+              Dias para meta: {predictedDays === 0 ? 'Hoje!' : (predictedDays !== null && !isNaN(predictedDays) ? predictedDays : '--')} dias (Deadline: {desiredDays} dias)
             </Text>
             <Text style={[styles.progressPercentage, { color: statusColor }]}>
               {progressPercentage.toFixed(1)}%
@@ -880,8 +873,10 @@ const GoalsPage = () => {
       </View>
       <View style={styles.metricCard}>
         <Text style={styles.metricLabel}>Savings Allocated</Text>
-        <Text style={[styles.metricValue, { color: getSavingsColor(financialMetrics.totalSavingsPercentage) }]}>
-          {financialMetrics.totalSavingsPercentage}%
+        <Text style={[styles.metricValue, { color: getSavingsColor(financialMetrics.totalSavingsPercentage) }]}> 
+          {Number(financialMetrics.totalSavingsPercentage).toFixed(2)}% (
+          {new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(((financialMetrics.totalSavingsPercentage / 100) * financialMetrics.availableMoney).toFixed(2))}
+          )
         </Text>
       </View>
     </View>
@@ -1146,6 +1141,356 @@ const GoalsPage = () => {
     return '#E74C3C'; // vermelho
   };
 
+  const handleSavingsTypeChange = (type) => {
+    if (type === 'percentage' && formData.inputType === 'fixed' && financialMetrics.availableMoney > 0) {
+      // Converter valor fixo para porcentagem (com decimais)
+      const percent = (parseFloat(formData.fixedValue) / financialMetrics.availableMoney) * 100;
+      setFormData({
+        ...formData,
+        inputType: 'percentage',
+        goal_saving_minimum: percent ? parseFloat(percent.toFixed(2)) : 0,
+      });
+    } else if (type === 'fixed' && formData.inputType === 'percentage' && financialMetrics.availableMoney > 0) {
+      // Converter porcentagem para valor fixo
+      const fixed = (parseFloat(formData.goal_saving_minimum) / 100) * financialMetrics.availableMoney;
+      setFormData({
+        ...formData,
+        inputType: 'fixed',
+        fixedValue: fixed ? parseFloat(fixed.toFixed(2)) : 0,
+      });
+    } else {
+      setFormData({ ...formData, inputType: type });
+    }
+  };
+
+  const renderAddEditModal = () => {
+    if (!isModalVisible) return null;
+
+    return (
+      <Modal
+        visible={isModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeaderContainer}>
+              <Text style={styles.modalHeader}>
+                {editingGoal ? 'Edit Goal' : 'Add New Goal'}
+              </Text>
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={() => setModalVisible(false)}
+              >
+                <Ionicons name="close" size={24} color="#2D3436" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.modalContent}>
+              <View style={styles.modalInputContainer}>
+                <Text style={styles.modalInputLabel}>Goal Name</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  value={formData.name}
+                  onChangeText={(text) => setFormData({ ...formData, name: text })}
+                  placeholder="Enter goal name"
+                  placeholderTextColor="#95A5A6"
+                />
+              </View>
+
+              <View style={styles.modalInputContainer}>
+                <Text style={styles.modalInputLabel}>Amount</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  value={formData.amount.toString()}
+                  onChangeText={(text) => {
+                    const value = parseFloat(text.replace(/[^0-9.]/g, ''));
+                    if (!isNaN(value)) {
+                      setFormData({ ...formData, amount: value });
+                    }
+                  }}
+                  keyboardType="numeric"
+                  placeholder="Enter amount in €"
+                  placeholderTextColor="#95A5A6"
+                />
+              </View>
+
+              <View style={styles.modalInputContainer}>
+                <Text style={styles.modalInputLabel}>Deadline Date:</Text>
+                {renderDatePicker()}
+              </View>
+
+              <View style={styles.modalInputContainer}>
+                <Text style={styles.modalInputLabel}>Savings Type</Text>
+                <View style={styles.savingsTypeContainer}>
+                  <TouchableOpacity
+                    style={[
+                      styles.savingsTypeButton,
+                      formData.inputType === 'percentage' && styles.savingsTypeButtonActive
+                    ]}
+                    onPress={() => handleSavingsTypeChange('percentage')}
+                  >
+                    <Text style={[
+                      styles.savingsTypeButtonText,
+                      formData.inputType === 'percentage' && styles.savingsTypeButtonTextActive
+                    ]}>Percentage (%)</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.savingsTypeButton,
+                      formData.inputType === 'fixed' && styles.savingsTypeButtonActive
+                    ]}
+                    onPress={() => handleSavingsTypeChange('fixed')}
+                  >
+                    <Text style={[
+                      styles.savingsTypeButtonText,
+                      formData.inputType === 'fixed' && styles.savingsTypeButtonTextActive
+                    ]}>Fixed Value (€)</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {formData.inputType === 'fixed' ? (
+                <View style={styles.modalInputContainer}>
+                  <Text style={styles.modalInputLabel}>Fixed Monthly Value (€)</Text>
+                  <TextInput
+                    style={styles.modalInput}
+                    placeholder="Enter value in €"
+                    keyboardType="decimal-pad"
+                    value={formData.fixedValue.toString()}
+                    onChangeText={(text) => {
+                      // Aceitar apenas números e ponto
+                      const clean = text.replace(/[^0-9.]/g, '');
+                      setFormData({
+                        ...formData,
+                        fixedValue: clean,
+                        goal_saving_minimum: financialMetrics.availableMoney > 0 && !isNaN(parseFloat(clean)) ? ((parseFloat(clean) / financialMetrics.availableMoney) * 100) : 0,
+                      });
+                    }}
+                  />
+                  <Text style={styles.savingsDescription}>
+                    {isInt(formData.fixedValue) ? 'Valor inteiro' : 'Valor decimal'}
+                  </Text>
+                  <Text style={styles.savingsDescription}>
+                    Enter the fixed amount you want to save monthly
+                  </Text>
+                  <Text style={styles.savingsDescription}>
+                    Percentage: {financialMetrics.availableMoney > 0 && !isNaN(parseFloat(formData.fixedValue)) ? ((parseFloat(formData.fixedValue) / financialMetrics.availableMoney) * 100).toFixed(2) + '%' : '--'}
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.modalInputContainer}>
+                  <Text style={styles.modalInputLabel}>Savings Percentage</Text>
+                  <TextInput
+                    style={styles.modalInput}
+                    placeholder="Enter percentage"
+                    keyboardType="decimal-pad"
+                    value={formData.goal_saving_minimum.toString()}
+                    onChangeText={(text) => {
+                      // Aceitar apenas números e ponto
+                      const clean = text.replace(/[^0-9.]/g, '');
+                      const percent = parseFloat(clean) || 0;
+                      setFormData({
+                        ...formData,
+                        goal_saving_minimum: percent,
+                        fixedValue: financialMetrics.availableMoney > 0
+                          ? parseFloat(((percent / 100) * financialMetrics.availableMoney).toFixed(2))
+                          : '',
+                      });
+                    }}
+                  />
+                  <Text style={styles.savingsDescription}>
+                    {isInt(formData.goal_saving_minimum) ? 'Valor inteiro' : 'Valor decimal'}
+                  </Text>
+                  <Text style={styles.savingsDescription}>
+                    This percentage will be taken from your available money after expenses
+                  </Text>
+                  <Text style={styles.savingsDescription}>
+                    Fixed value: {financialMetrics.availableMoney > 0 ? new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(((formData.goal_saving_minimum / 100) * financialMetrics.availableMoney).toFixed(2)) : '--'}
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            <View style={styles.modalButtonsContainer}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => setModalVisible(false)}
+              >
+                <Ionicons name="close" size={20} color="#FFFFFF" />
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.saveButton]}
+                onPress={handleSaveGoal}
+              >
+                <Ionicons name="save" size={20} color="#FFFFFF" />
+                <Text style={styles.saveButtonText}>Save</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    );
+  };
+
+  const renderGoalDetailsModal = () => {
+    if (!selectedGoal) return null;
+    const status = goalStatuses[selectedGoal.id];
+    const { icon, title, textColor, backgroundColor } = getStatusInfo(
+      calculateDaysUntilDeadline(selectedGoal.deadline) === 0
+        ? { status: 'info-blue' }
+        : status
+    );
+    const progress = calculateTimeProgress(selectedGoal);
+    const fixedValue = financialMetrics.availableMoney > 0 ? (selectedGoal.goal_saving_minimum / 100) * financialMetrics.availableMoney : 0;
+    const daysToDeadline = calculateDaysUntilDeadline(selectedGoal.deadline);
+
+    return (
+      <Modal
+        visible={isDetailsModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setDetailsModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeaderContainer}>
+              <Text style={styles.modalHeader}>{selectedGoal.name}</Text>
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={() => setDetailsModalVisible(false)}
+              >
+                <Ionicons name="close" size={24} color="#2D3436" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.modalContent}>
+              <View style={styles.detailsGrid}>
+                <View style={styles.detailsRow}>
+                  <View style={styles.detailsItem}>
+                    <Text style={styles.detailsLabel}>Progress</Text>
+                    <View style={styles.progressContainer}>
+                      <View style={[styles.progressBar, { width: `${progress}%` }]} />
+                      <Text style={styles.progressText}>{progress.toFixed(1)}%</Text>
+                    </View>
+                  </View>
+                </View>
+
+                <View style={styles.detailsRow}>
+                  <View style={styles.detailsItem}>
+                    <Text style={styles.detailsLabel}>Savings (%)</Text>
+                    <Text style={styles.detailsValue}>
+                      {Number(selectedGoal.goal_saving_minimum).toFixed(2)}%
+                    </Text>
+                  </View>
+                  <View style={styles.detailsItem}>
+                    <Text style={styles.detailsLabel}>Fixed Value (€)</Text>
+                    <Text style={styles.detailsValue}>
+                      {new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(fixedValue.toFixed(2))}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.detailsRow}>
+                  <View style={styles.detailsItem}>
+                    <Text style={styles.detailsLabel}>Deadline</Text>
+                    <Text style={styles.detailsValue}>
+                      {new Date(selectedGoal.deadline).toLocaleDateString()}
+                    </Text>
+                  </View>
+                  <View style={styles.detailsItem}>
+                    <Text style={styles.detailsLabel}>Target Amount</Text>
+                    <Text style={styles.detailsValue}>
+                      {new Intl.NumberFormat('pt-PT', {
+                        style: 'currency',
+                        currency: 'EUR',
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      }).format(Number(selectedGoal.amount).toFixed(2))}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* Aviso azul se deadline chegou */}
+              {daysToDeadline === 0 ? (
+                <View style={[styles.statusContainer, { backgroundColor: '#d6eaff' }]}> 
+                  <View style={styles.statusHeader}>
+                    <Ionicons name="information-circle" size={28} color="#0984e3" style={styles.statusIcon} />
+                    <Text style={[styles.statusTitle, { color: '#0984e3' }]}>Meta no Dia!</Text>
+                  </View>
+                  <Text style={[styles.statusText, { color: '#0984e3' }]}>Hoje é o dia da meta! Reveja seu progresso ou ajuste sua meta.</Text>
+                </View>
+              ) : status && (
+                <View style={[styles.statusContainer, { backgroundColor }]}> 
+                  <View style={styles.statusHeader}>
+                    <View className={styles.statusIcon}>{icon}</View>
+                    <Text style={[styles.statusTitle, { color: textColor }]}>
+                      {title}
+                    </Text>
+                  </View>
+                  <Text style={[styles.statusText, { color: textColor }]}>
+                    {/* Corrigir Infinity ou -Infinity */}
+                    {typeof status.message === 'string' && (status.message.includes('Infinity') || status.message.includes('-Infinity'))
+                      ? 'Não é possível calcular a porcentagem necessária para atingir a meta.'
+                      : status.message}
+                  </Text>
+                  {status.originalSettings && status.status !== 'success' && (
+                    <View>
+                      <Text style={styles.originalSettingsText}>
+                        With current settings:
+                      </Text>
+                      <Text style={styles.originalSettingsValue}>
+                        {typeof status.originalSettings.monthsNeeded === 'number' && isFinite(status.originalSettings.monthsNeeded) && status.originalSettings.monthsNeeded > 0
+                          ? (status.originalSettings.monthsNeeded === 1
+                            ? `This month to reach the goal. Expected date: ${status.originalSettings.reachDate || ''}`
+                            : `${status.originalSettings.monthsNeeded} months to reach the goal. Expected date: ${status.originalSettings.reachDate || ''}`)
+                          : daysToDeadline === 0
+                            ? 'Hoje é o dia da meta!'
+                            : 'Cannot estimate time to reach the goal.'}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              )}
+
+              <View style={styles.detailsActions}>
+                <TouchableOpacity
+                  style={[styles.actionButton, styles.editButton]}
+                  onPress={() => {
+                    setDetailsModalVisible(false);
+                    handleEditGoal(selectedGoal);
+                  }}
+                >
+                  <Ionicons name="pencil" size={20} color="#FFFFFF" />
+                  <Text style={styles.actionButtonText}>Edit</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.actionButton, styles.deleteButton]}
+                  onPress={() => {
+                    setDetailsModalVisible(false);
+                    confirmDeleteGoal(selectedGoal);
+                  }}
+                >
+                  <Ionicons name="trash" size={20} color="#FFFFFF" />
+                  <Text style={styles.actionButtonText}>Delete</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    );
+  };
+
+  // Verificação de inteiro/decimal e aceitação de ponto
+  const isInt = (val) => {
+    const n = Number(val);
+    return Number.isInteger(n);
+  };
+
   return (
     <View style={styles.container}>
       {(!isModalVisible && !isDeleteModalVisible && !isDetailsModalVisible && showAlert) && (
@@ -1178,135 +1523,11 @@ const GoalsPage = () => {
         />
       </View>
 
-      {renderGoalDetails()}
-
-      {/* Add/Edit Goal Modal */}
-      <Modal visible={isModalVisible} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <ScrollView contentContainerStyle={styles.modalScrollContent}>
-            <View style={styles.modalContainer}>
-              {showAlert && (
-                <View style={styles.alertContainer}>
-                  <AlertComponent
-                    type={alertType}
-                    message={alertMessage}
-                    onClose={() => setShowAlert(false)}
-                  />
-                </View>
-              )}
-              <Text style={styles.modalHeader}>
-                {editingGoal ? 'Edit Goal' : 'Add New Goal'}
-              </Text>
-
-              <View style={styles.modalInputContainer}>
-                <Text style={styles.modalInputLabel}>Goal Name</Text>
-                <TextInput
-                  style={styles.modalInput}
-                  placeholder="Enter goal name"
-                  value={formData.name}
-                  onChangeText={(text) => setFormData({ ...formData, name: text })}
-                />
-              </View>
-
-              <View style={styles.modalInputContainer}>
-                <Text style={styles.modalInputLabel}>Amount</Text>
-                <TextInput
-                  style={styles.modalInput}
-                  placeholder="Enter amount"
-                  keyboardType="numeric"
-                  value={formData.amount}
-                  onChangeText={(text) => setFormData({ ...formData, amount: text })}
-                />
-              </View>
-
-              <View style={styles.modalInputContainer}>
-                {renderDatePicker()}
-              </View>
-
-              {/* Real Value and Fixed Value Input */}
-              <View style={styles.modalInputContainer}>
-                <Text style={styles.modalInputLabel}>Real Value</Text>
-                <Text style={{ fontSize: 16, color: '#2D3436', marginBottom: 4 }}>
-                  {financialMetrics.availableMoney > 0
-                    ? `${((formData.goal_saving_minimum / 100) * financialMetrics.availableMoney).toFixed(2)}€/month`
-                    : '--'}
-                </Text>
-              </View>
-
-              <View style={styles.modalInputContainer}>
-                <Text style={styles.modalInputLabel}>Or enter a fixed value (€)</Text>
-                <TextInput
-                  style={styles.modalInput}
-                  placeholder="Enter value in €"
-                  keyboardType="numeric"
-                  value={formData.fixedValue !== undefined && formData.fixedValue !== null ? formData.fixedValue.toString() : ''}
-                  onChangeText={(text) => {
-                    const value = parseFloat(text.replace(',', '.'));
-                    if (!isNaN(value) && financialMetrics.availableMoney > 0) {
-                      setFormData({
-                        ...formData,
-                        fixedValue: value,
-                        goal_saving_minimum: Math.round((value / financialMetrics.availableMoney) * 100),
-                      });
-                    } else {
-                      setFormData({
-                        ...formData,
-                        fixedValue: text,
-                        goal_saving_minimum: 0,
-                      });
-                    }
-                  }}
-                />
-                <Text style={styles.savingsDescription}>
-                  Enter a value in euros and it will convert to the corresponding percentage of your available money.
-                </Text>
-              </View>
-
-              <View style={styles.modalInputContainer}>
-                <Text style={styles.modalInputLabel}>Savings Percentage</Text>
-                <TextInput
-                  style={styles.modalInput}
-                  placeholder="Enter percentage"
-                  keyboardType="numeric"
-                  value={formData.goal_saving_minimum.toString()}
-                  onChangeText={(text) => {
-                    const percent = parseFloat(text.replace(',', '.')) || 0;
-                    setFormData({
-                      ...formData,
-                      goal_saving_minimum: percent,
-                      fixedValue: financialMetrics.availableMoney > 0
-                        ? ((percent / 100) * financialMetrics.availableMoney).toFixed(2)
-                        : '',
-                    });
-                  }}
-                />
-                <Text style={styles.savingsDescription}>
-                  This percentage will be taken from your available money after expenses
-                </Text>
-              </View>
-
-              <View style={styles.modalButtonsContainer}>
-                <TouchableOpacity
-                  style={[styles.modalButton, styles.saveButton]}
-                  onPress={handleSaveGoal}
-                >
-                  <Ionicons name="checkmark" size={20} color="#FFFFFF" />
-                  <Text style={styles.saveButtonText}>Save</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.modalButton, styles.cancelButton]}
-                  onPress={() => setModalVisible(false)}
-                >
-                  <Ionicons name="close" size={20} color="#FFFFFF" />
-                  <Text style={styles.cancelButtonText}>Cancel</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </ScrollView>
-        </View>
-      </Modal>
+      {renderAddEditModal()}
 
       {renderDeleteModal()}
+
+      {renderGoalDetailsModal()}
     </View>
   );
 };
