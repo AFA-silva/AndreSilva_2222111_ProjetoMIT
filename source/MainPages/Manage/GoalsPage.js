@@ -57,7 +57,18 @@ const GoalsPage = () => {
       }
     };
     fetchUserData();
-  }, []);
+
+    // Atualização automática a cada 10 segundos
+    let interval = setInterval(() => {
+      if (userId) {
+        console.log('Auto-refresh goals/metrics (10s)');
+        fetchGoals(userId);
+        calculateFinancialMetrics(userId);
+      }
+    }, 10000);
+
+    return () => clearInterval(interval);
+  }, [userId]);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -70,7 +81,6 @@ const GoalsPage = () => {
 
   const fetchGoals = async (userId) => {
     if (!userId) return;
-    
     try {
       const { data, error } = await supabase
         .from('goals')
@@ -80,8 +90,8 @@ const GoalsPage = () => {
 
       if (error) throw error;
       setGoals(data || []);
-      
-      // Calcular status para cada meta
+
+      // Calcular status para cada meta (sempre recalcule)
       if (data) {
         const statuses = {};
         for (const goal of data) {
@@ -299,7 +309,7 @@ const GoalsPage = () => {
     } catch (error) {
       console.error('Error calculating goal status:', error);
       return {
-        status: 'error',
+        status: 3,
         message: 'Erro ao calcular status da meta',
       };
     }
@@ -502,7 +512,6 @@ const GoalsPage = () => {
       setAlertType('success');
       setShowAlert(true);
       setModalVisible(false);
-      
       // Update goals and metrics
       await fetchGoals(userId);
       await calculateFinancialMetrics(userId);
@@ -583,6 +592,30 @@ const GoalsPage = () => {
 
   const getStatusInfo = (status) => {
     const statusConfig = {
+      1: {
+        icon: <Ionicons name="checkmark-circle" size={28} color="#00B894" />,
+        title: 'Meta Alcançável',
+        textColor: '#00B894',
+        backgroundColor: '#00B89420'
+      },
+      2: {
+        icon: <Ionicons name="warning" size={28} color="#FDCB6E" />,
+        title: 'Meta Possível com Ajustes',
+        textColor: '#FDCB6E',
+        backgroundColor: '#FDCB6E20'
+      },
+      3: {
+        icon: <Ionicons name="close-circle" size={28} color="#E74C3C" />,
+        title: 'Meta Não Alcançável',
+        textColor: '#E74C3C',
+        backgroundColor: '#E74C3C20'
+      },
+      4: {
+        icon: <Ionicons name="information-circle" size={28} color="#0984e3" />,
+        title: 'Meta no Dia!',
+        textColor: '#0984e3',
+        backgroundColor: '#d6eaff',
+      },
       success: {
         icon: <Ionicons name="checkmark-circle" size={28} color="#00B894" />,
         title: 'Meta Alcançável',
@@ -608,7 +641,7 @@ const GoalsPage = () => {
         backgroundColor: '#d6eaff',
       }
     };
-    return statusConfig[status?.status] || {
+    return statusConfig[status?.status] || statusConfig[status] || {
       icon: null,
       title: 'Status da Meta',
       textColor: '#2D3436',
@@ -648,32 +681,39 @@ const GoalsPage = () => {
     const creationDate = new Date(item.created_at);
     const deadlineDate = new Date(item.deadline);
     const today = new Date();
-    
-    // Se a meta for alcançável, usa os dias até o deadline
-    let predictedDays = null;
-    if (status?.status === 'success') {
-      predictedDays = Math.ceil((deadlineDate - today) / (1000 * 60 * 60 * 24));
-    } else if (status?.originalSettings?.reachDate) {
-      const [day, month, year] = status.originalSettings.reachDate.split('/');
-      const reachDate = new Date(`${year}-${month}-${day}`);
-      predictedDays = Math.ceil((reachDate - today) / (1000 * 60 * 60 * 24));
-    }
-    
-    const desiredDays = Math.ceil((deadlineDate - creationDate) / (1000 * 60 * 60 * 24));
-    const progressPercentage = calculateTimeProgress(item);
+    const daysToDeadline = Math.ceil((deadlineDate - today) / (1000 * 60 * 60 * 24));
+    const totalDays = Math.max(1, Math.ceil((deadlineDate - creationDate) / (1000 * 60 * 60 * 24)));
+    const availableMoney = financialMetrics.availableMoney || 0;
+    const financialProgress = calculateFinancialProgress(item, availableMoney);
 
-    // Ícone e cor
+    // Status e cor baseados no status calculado e deadline
     let statusIcon = 'checkmark-circle';
-    let statusColor = '#00B894';
-    if (status?.status === 'info') {
-      statusIcon = 'warning';
-      statusColor = '#FDCB6E';
-    } else if (status?.status === 'error') {
-      statusIcon = 'alert-circle';
-      statusColor = '#E74C3C';
-    } else if (predictedDays === 0) {
+    let statusColor = '#00B894'; // verde
+    if (daysToDeadline === 0) {
       statusIcon = 'information-circle';
       statusColor = '#0984e3';
+    } else if (status?.status === 1 || status?.status === 'success') {
+      statusIcon = 'checkmark-circle';
+      statusColor = '#00B894';
+    } else if (status?.status === 2 || status?.status === 'info') {
+      statusIcon = 'warning';
+      statusColor = '#FDCB6E';
+    } else if (status?.status === 3 || status?.status === 'error') {
+      statusIcon = 'close-circle';
+      statusColor = '#E74C3C';
+    } else if (status?.status === 4 || status?.status === 'info-blue') {
+      statusIcon = 'information-circle';
+      statusColor = '#0984e3';
+    }
+
+    // Mensagem de dias para meta
+    let daysMsg = '';
+    if (daysToDeadline === 0) {
+      daysMsg = 'Hoje!';
+    } else if (daysToDeadline < 0) {
+      daysMsg = 'Meta expirada';
+    } else {
+      daysMsg = `${daysToDeadline} dias (Deadline: ${totalDays} dias)`;
     }
 
     return (
@@ -693,21 +733,22 @@ const GoalsPage = () => {
             }).format(item.amount || 0)}
           </Text>
         </View>
+        {/* Barra de progresso financeiro */}
         <View style={styles.goalProgressContainer}>
           <View
             style={[
               styles.goalProgressBar,
-              { width: `${progressPercentage}%`, backgroundColor: statusColor }
+              { width: `${financialProgress}%`, backgroundColor: statusColor }
             ]}
           />
         </View>
         <View style={styles.goalDeadlineContainer}>
           <View style={styles.deadlineRow}>
             <Text style={styles.goalDeadline}>
-              Dias para meta: {predictedDays === 0 ? 'Hoje!' : (predictedDays !== null && !isNaN(predictedDays) ? predictedDays : '--')} dias (Deadline: {desiredDays} dias)
+              Dias para meta: {daysMsg}
             </Text>
-            <Text style={[styles.progressPercentage, { color: statusColor }]}>
-              {progressPercentage.toFixed(1)}%
+            <Text style={[styles.progressPercentage, { color: statusColor }]}> 
+              {financialProgress.toFixed(1)}%
             </Text>
           </View>
         </View>
@@ -890,7 +931,7 @@ const GoalsPage = () => {
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   };
 
-  const calculateOptimalDistribution = () => {
+  const calculateOptimalDistribution = (goals, availableMoney) => {
     const totalAmount = goals.reduce((sum, goal) => sum + goal.amount, 0);
     const totalCurrentAmount = goals.reduce((sum, goal) => sum + goal.current_amount, 0);
     const remainingAmount = totalAmount - totalCurrentAmount;
@@ -1084,7 +1125,7 @@ const GoalsPage = () => {
   };
 
   const renderStatusContainer = () => {
-    const optimalDistribution = calculateOptimalDistribution();
+    const optimalDistribution = calculateOptimalDistribution(goals, financialMetrics.availableMoney);
     const hasImpossibleGoals = optimalDistribution.some(goal => !goal.isPossible);
 
     if (!hasImpossibleGoals) return null;
@@ -1335,17 +1376,114 @@ const GoalsPage = () => {
     );
   };
 
+  // Função para calcular progresso financeiro automático (corrigido para metas de curto prazo)
+  const calculateFinancialProgress = (goal, availableMoney) => {
+    if (!goal || !goal.amount || !goal.created_at || !goal.deadline) return 0;
+    const creationDate = new Date(goal.created_at);
+    const today = new Date();
+    const deadlineDate = new Date(goal.deadline);
+    const totalDays = Math.max(1, Math.ceil((deadlineDate - creationDate) / (1000 * 60 * 60 * 24)));
+    const daysPassed = Math.max(0, Math.floor((today - creationDate) / (1000 * 60 * 60 * 24)));
+    let dailyGain;
+    if (totalDays < 30) {
+      // Para metas de menos de 30 dias, precisa acumular tudo no período
+      dailyGain = (goal.goal_saving_minimum / 100) * availableMoney / totalDays;
+    } else {
+      dailyGain = ((goal.goal_saving_minimum / 100) * availableMoney) / 30;
+    }
+    const accumulated = dailyGain * daysPassed;
+    return Math.min((accumulated / goal.amount) * 100, 100);
+  };
+
+  // Função auxiliar para calcular o menor savings possível só com savings (sem cortar despesas)
+  const calculateMinSavingsOnly = (goal, availableMoney) => {
+    const creationDate = new Date(goal.created_at);
+    const deadlineDate = new Date(goal.deadline);
+    const totalDays = Math.max(1, Math.ceil((deadlineDate - creationDate) / (1000 * 60 * 60 * 24)));
+    if (totalDays < 30) {
+      return availableMoney > 0 ? (goal.amount / availableMoney) * 100 : 0;
+    } else {
+      const months = totalDays / 30;
+      const minMonthly = goal.amount / months;
+      return availableMoney > 0 ? (minMonthly / availableMoney) * 100 : 0;
+    }
+  };
+
+  // Função auxiliar para calcular o menor savings possível cortando despesas
+  const calculateMinSavingsWithExpenseCut = (goal, availableMoney, expenses = []) => {
+    // Ordena despesas por prioridade (menor primeiro)
+    const sortedExpenses = [...expenses].sort((a, b) => (a.priority || 0) - (b.priority || 0));
+    for (const expense of sortedExpenses) {
+      const newAvailable = availableMoney + expense.amount;
+      const minPercent = calculateMinSavingsOnly(goal, newAvailable);
+      if (minPercent <= 100) {
+        return {
+          minPercent,
+          expense,
+        };
+      }
+    }
+    return null;
+  };
+
   const renderGoalDetailsModal = () => {
     if (!selectedGoal) return null;
     const status = goalStatuses[selectedGoal.id];
-    const { icon, title, textColor, backgroundColor } = getStatusInfo(
-      calculateDaysUntilDeadline(selectedGoal.deadline) === 0
-        ? { status: 'info-blue' }
-        : status
-    );
-    const progress = calculateTimeProgress(selectedGoal);
-    const fixedValue = financialMetrics.availableMoney > 0 ? (selectedGoal.goal_saving_minimum / 100) * financialMetrics.availableMoney : 0;
     const daysToDeadline = calculateDaysUntilDeadline(selectedGoal.deadline);
+    const progress = calculateTimeProgress(selectedGoal);
+    const availableMoney = financialMetrics.availableMoney || 0;
+    const financialProgress = calculateFinancialProgress(selectedGoal, availableMoney);
+    const fixedValue = availableMoney > 0 ? (selectedGoal.goal_saving_minimum / 100) * availableMoney : 0;
+
+    // Calcular menor savings necessário (corrigido para metas de curto prazo)
+    const creationDate = new Date(selectedGoal.created_at);
+    const deadlineDate = new Date(selectedGoal.deadline);
+    const totalDays = Math.max(1, Math.ceil((deadlineDate - creationDate) / (1000 * 60 * 60 * 24)));
+    let minMonthly, minPercent;
+    if (totalDays < 30) {
+      minMonthly = selectedGoal.amount;
+      minPercent = availableMoney > 0 ? (selectedGoal.amount / availableMoney) * 100 : 0;
+    } else {
+      const months = totalDays / 30;
+      minMonthly = selectedGoal.amount / months;
+      minPercent = availableMoney > 0 ? (minMonthly / availableMoney) * 100 : 0;
+    }
+
+    // Buscar despesas do usuário para método 2
+    // (Aqui, simulei um array de despesas. Substitua por fetch real se necessário)
+    const expenses = [
+      // Exemplo: { name: 'A', amount: 10, priority: 1 }, ...
+    ];
+    // Método 2: savings + corte de despesa
+    const minWithCut = calculateMinSavingsWithExpenseCut(selectedGoal, availableMoney, expenses);
+
+    // Status customizado para todos os casos
+    let customStatus = status;
+    if (daysToDeadline < 0 && financialProgress < 100) {
+      customStatus = {
+        status: 3,
+        message: 'Meta expirada! O prazo acabou e o objetivo financeiro não foi alcançado.',
+      };
+    } else if (financialProgress >= 100) {
+      customStatus = {
+        status: 1,
+        message: 'Parabéns! Você atingiu a meta!',
+      };
+    } else if (daysToDeadline === 0) {
+      customStatus = { status: 4, message: 'Hoje é o dia da meta! Reveja seu progresso ou ajuste sua meta.' };
+    } else if (status?.status === 3 || status?.status === 'error') {
+      customStatus = {
+        status: 3,
+        message: 'Meta não alcançável com as configurações atuais.',
+      };
+    }
+    const { icon, title, textColor, backgroundColor } = getStatusInfo(customStatus);
+
+    // Mostrar aviso de valor ideal (azul) só para status 1 (verde)
+    const showIdeal = customStatus.status === 1 && daysToDeadline > 0 && financialProgress < 100 && minPercent > 0 && selectedGoal.goal_saving_minimum > minPercent;
+
+    // Mostrar métodos possíveis para status 2 (ajustes)
+    const showMethods = customStatus.status === 2 && daysToDeadline > 0 && financialProgress < 100;
 
     return (
       <Modal
@@ -1370,14 +1508,38 @@ const GoalsPage = () => {
               <View style={styles.detailsGrid}>
                 <View style={styles.detailsRow}>
                   <View style={styles.detailsItem}>
-                    <Text style={styles.detailsLabel}>Progress</Text>
+                    <Text style={styles.detailsLabel}>Progress (Time)</Text>
                     <View style={styles.progressContainer}>
                       <View style={[styles.progressBar, { width: `${progress}%` }]} />
                       <Text style={styles.progressText}>{progress.toFixed(1)}%</Text>
                     </View>
                   </View>
                 </View>
-
+                {/* Barra de progresso financeiro */}
+                <View style={styles.detailsRow}>
+                  <View style={styles.detailsItem}>
+                    <Text style={styles.detailsLabel}>Progress (Financial)</Text>
+                    <View style={styles.progressContainer}>
+                      <View style={[styles.progressBar, { width: `${financialProgress}%`, backgroundColor: '#0984e3' }]} />
+                      <Text style={styles.progressText}>{financialProgress.toFixed(1)}%</Text>
+                    </View>
+                    <Text style={styles.detailsSubtext}>
+                      {((goal) => {
+                        const creationDate = new Date(goal.created_at);
+                        const today = new Date();
+                        const daysPassed = Math.max(0, Math.floor((today - creationDate) / (1000 * 60 * 60 * 24)));
+                        let dailyGain;
+                        if (totalDays < 30) {
+                          dailyGain = ((goal.goal_saving_minimum / 100) * availableMoney) / totalDays;
+                        } else {
+                          dailyGain = ((goal.goal_saving_minimum / 100) * availableMoney) / 30;
+                        }
+                        const accumulated = dailyGain * daysPassed;
+                        return `${accumulated.toFixed(2)} / ${goal.amount} €`;
+                      })(selectedGoal)}
+                    </Text>
+                  </View>
+                </View>
                 <View style={styles.detailsRow}>
                   <View style={styles.detailsItem}>
                     <Text style={styles.detailsLabel}>Savings (%)</Text>
@@ -1392,7 +1554,6 @@ const GoalsPage = () => {
                     </Text>
                   </View>
                 </View>
-
                 <View style={styles.detailsRow}>
                   <View style={styles.detailsItem}>
                     <Text style={styles.detailsLabel}>Deadline</Text>
@@ -1414,16 +1575,37 @@ const GoalsPage = () => {
                 </View>
               </View>
 
-              {/* Aviso azul se deadline chegou */}
-              {daysToDeadline === 0 ? (
-                <View style={[styles.statusContainer, { backgroundColor: '#d6eaff' }]}> 
-                  <View style={styles.statusHeader}>
-                    <Ionicons name="information-circle" size={28} color="#0984e3" style={styles.statusIcon} />
-                    <Text style={[styles.statusTitle, { color: '#0984e3' }]}>Meta no Dia!</Text>
-                  </View>
-                  <Text style={[styles.statusText, { color: '#0984e3' }]}>Hoje é o dia da meta! Reveja seu progresso ou ajuste sua meta.</Text>
+              {/* Aviso do menor savings necessário (azul) só para status 1) */}
+              {showIdeal && (
+                <View style={{ backgroundColor: '#eaf4fb', borderRadius: 8, padding: 8, marginBottom: 12, marginTop: 4, alignItems: 'center', flexDirection: 'row', gap: 8 }}>
+                  <Ionicons name="information-circle" size={18} color="#0984e3" style={{ marginRight: 4 }} />
+                  <Text style={{ color: '#0984e3', fontSize: 13, fontWeight: '500' }}>
+                    Economize mais! Basta usar <Text style={{ fontWeight: 'bold' }}>{minPercent.toFixed(2)}%</Text> ({new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(minMonthly)}/mês) que consegue alcançar a sua meta!
+                  </Text>
                 </View>
-              ) : status && (
+              )}
+
+              {/* Métodos possíveis para status 2 (ajustes) */}
+              {showMethods && (
+                <View style={{ backgroundColor: '#fffbe6', borderRadius: 8, padding: 10, marginBottom: 12, marginTop: 4 }}>
+                  <Text style={{ color: '#FDCB6E', fontWeight: 'bold', fontSize: 14, marginBottom: 4 }}>Como alcançar a meta:</Text>
+                  <Text style={{ color: '#636e72', fontSize: 13, marginBottom: 2 }}>
+                    1. Só com savings: {minPercent <= 100 ? `${minPercent.toFixed(2)}% (${new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(minMonthly)}/mês)` : 'Não é possível só com savings'}
+                  </Text>
+                  {minWithCut ? (
+                    <Text style={{ color: '#636e72', fontSize: 13 }}>
+                      2. Savings {minWithCut.minPercent.toFixed(2)}% ({new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format((minWithCut.minPercent / 100) * (availableMoney + (minWithCut.expense?.amount || 0)))}/mês) e cortar a despesa '{minWithCut.expense?.name}' (prioridade {minWithCut.expense?.priority})
+                    </Text>
+                  ) : (
+                    <Text style={{ color: '#636e72', fontSize: 13 }}>
+                      2. Savings + corte de despesa: Não foi possível encontrar uma despesa para cortar que torne a meta possível.
+                    </Text>
+                  )}
+                </View>
+              )}
+
+              {/* Avisos customizados */}
+              {customStatus && (
                 <View style={[styles.statusContainer, { backgroundColor }]}> 
                   <View style={styles.statusHeader}>
                     <View className={styles.statusIcon}>{icon}</View>
@@ -1432,27 +1614,8 @@ const GoalsPage = () => {
                     </Text>
                   </View>
                   <Text style={[styles.statusText, { color: textColor }]}>
-                    {/* Corrigir Infinity ou -Infinity */}
-                    {typeof status.message === 'string' && (status.message.includes('Infinity') || status.message.includes('-Infinity'))
-                      ? 'Não é possível calcular a porcentagem necessária para atingir a meta.'
-                      : status.message}
+                    {customStatus.message}
                   </Text>
-                  {status.originalSettings && status.status !== 'success' && (
-                    <View>
-                      <Text style={styles.originalSettingsText}>
-                        With current settings:
-                      </Text>
-                      <Text style={styles.originalSettingsValue}>
-                        {typeof status.originalSettings.monthsNeeded === 'number' && isFinite(status.originalSettings.monthsNeeded) && status.originalSettings.monthsNeeded > 0
-                          ? (status.originalSettings.monthsNeeded === 1
-                            ? `This month to reach the goal. Expected date: ${status.originalSettings.reachDate || ''}`
-                            : `${status.originalSettings.monthsNeeded} months to reach the goal. Expected date: ${status.originalSettings.reachDate || ''}`)
-                          : daysToDeadline === 0
-                            ? 'Hoje é o dia da meta!'
-                            : 'Cannot estimate time to reach the goal.'}
-                      </Text>
-                    </View>
-                  )}
                 </View>
               )}
 
