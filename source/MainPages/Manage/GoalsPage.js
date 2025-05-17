@@ -6,23 +6,178 @@ import { supabase } from '../../../Supabase';
 import styles from '../../Styles/Manage/GoalsPageStyle';
 import AlertComponent from '../../Utility/Alerts';
 import { useFocusEffect } from '@react-navigation/native';
+import { formatCurrency, calculateGoalProgress, calculateGoalStatus, calculateOptimalDistribution } from './GoalsCalc';
+
+// Funções auxiliares
+
+const getStatusInfo = (status) => {
+  const statusValue = status?.status || status;
+  const statusConfig = {
+    1: {
+      icon: <Ionicons name="checkmark-circle" size={28} color="#00B894" />,
+      title: 'Meta Alcançável',
+      textColor: '#00B894',
+      backgroundColor: '#00B89420'
+    },
+    2: {
+      icon: <Ionicons name="warning" size={28} color="#FDCB6E" />,
+      title: 'Meta Possível com Ajustes',
+      textColor: '#FDCB6E',
+      backgroundColor: '#FDCB6E20'
+    },
+    3: {
+      icon: <Ionicons name="close-circle" size={28} color="#E74C3C" />,
+      title: 'Meta Não Alcançável',
+      textColor: '#E74C3C',
+      backgroundColor: '#E74C3C20'
+    },
+    4: {
+      icon: <Ionicons name="information-circle" size={28} color="#0984e3" />,
+      title: 'Meta no Dia!',
+      textColor: '#0984e3',
+      backgroundColor: '#d6eaff',
+    }
+  };
+  return statusConfig[statusValue] || {
+    icon: null,
+    title: 'Status da Meta',
+    textColor: '#2D3436',
+    backgroundColor: '#DFE6E920'
+  };
+};
+
+// Componente de Barra de Progresso
+const ProgressBar = ({ progress, color = '#00B894', showPercentage = true }) => (
+  <View style={styles.progressContainer}>
+    <View style={[styles.progressBar, { width: `${progress}%`, backgroundColor: color }]} />
+    {showPercentage && <Text style={styles.progressText}>{progress.toFixed(1)}%</Text>}
+  </View>
+);
+
+// Componente de Modal de Detalhes
+const GoalDetailsModal = ({ goal, visible, onClose, onEdit, onDelete, status, financialMetrics }) => {
+  if (!goal) return null;
+  
+  const progress = calculateGoalProgress(goal, 'time');
+  const financialProgress = calculateGoalProgress(goal, 'financial', financialMetrics.availableMoney);
+  const { icon, title, textColor, backgroundColor } = getStatusInfo(status);
+  const availableMoney = financialMetrics.availableMoney || 0;
+  const fixedValue = availableMoney > 0 ? (goal.goal_saving_minimum / 100) * availableMoney : 0;
+
+  const creationDate = new Date(goal.created_at);
+  const today = new Date();
+  const daysPassed = Math.max(0, Math.floor((today - creationDate) / (1000 * 60 * 60 * 24)));
+  const dailySaving = fixedValue / 30; // Aproximação
+  const accumulated = dailySaving * daysPassed;
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeaderContainer}>
+            <Text style={styles.modalHeader}>{goal.name}</Text>
+            <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+              <Ionicons name="close" size={24} color="#2D3436" />
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.modalContent}>
+            <View style={styles.detailsGrid}>
+              <View style={styles.detailsRow}>
+                <View style={styles.detailsItem}>
+                  <Text style={styles.detailsLabel}>Progress (Time)</Text>
+                  <ProgressBar progress={progress} />
+                </View>
+              </View>
+              <View style={styles.detailsRow}>
+                <View style={styles.detailsItem}>
+                  <Text style={styles.detailsLabel}>Progress (Financial)</Text>
+                  <ProgressBar progress={financialProgress} color="#0984e3" />
+                  <Text style={styles.detailsSubtext}>
+                    {formatCurrency(accumulated)} / {formatCurrency(goal.amount)}
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.detailsRow}>
+                <View style={styles.detailsItem}>
+                  <Text style={styles.detailsLabel}>Savings (%)</Text>
+                  <Text style={styles.detailsValue}>
+                    {Number(goal.goal_saving_minimum).toFixed(2)}%
+                  </Text>
+                </View>
+                <View style={styles.detailsItem}>
+                  <Text style={styles.detailsLabel}>Fixed Value (€)</Text>
+                  <Text style={styles.detailsValue}>
+                    {formatCurrency(fixedValue)}
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.detailsRow}>
+                <View style={styles.detailsItem}>
+                  <Text style={styles.detailsLabel}>Deadline</Text>
+                  <Text style={styles.detailsValue}>
+                    {new Date(goal.deadline).toLocaleDateString()}
+                  </Text>
+                </View>
+                <View style={styles.detailsItem}>
+                  <Text style={styles.detailsLabel}>Target Amount</Text>
+                  <Text style={styles.detailsValue}>
+                    {formatCurrency(goal.amount)}
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            {status && (
+              <View style={[styles.statusContainer, { backgroundColor }]}>
+                <View style={styles.statusHeader}>
+                  <View style={styles.statusIcon}>{icon}</View>
+                  <Text style={[styles.statusTitle, { color: textColor }]}>
+                    {title}
+                  </Text>
+                </View>
+                <Text style={[styles.statusText, { color: textColor }]}>
+                  {status.message}
+                </Text>
+              </View>
+            )}
+
+            <View style={styles.detailsActions}>
+              <TouchableOpacity
+                style={[styles.actionButton, styles.editButton]}
+                onPress={onEdit}
+              >
+                <Ionicons name="pencil" size={20} color="#FFFFFF" />
+                <Text style={styles.actionButtonText}>Edit</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.actionButton, styles.deleteButton]}
+                onPress={onDelete}
+              >
+                <Ionicons name="trash" size={20} color="#FFFFFF" />
+                <Text style={styles.actionButtonText}>Delete</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+};
 
 const GoalsPage = () => {
-  const [goals, setGoals] = useState([]);
-  const [isModalVisible, setModalVisible] = useState(false);
-  const [isDeleteModalVisible, setDeleteModalVisible] = useState(false);
-  const [goalToDelete, setGoalToDelete] = useState(null);
-  const [userId, setUserId] = useState(null);
-  const [editingGoal, setEditingGoal] = useState(null);
-  const [formData, setFormData] = useState({
-    name: '',
-    amount: '',
-    deadline: new Date(),
-    goal_saving_minimum: 20,
-    fixedValue: '',
-    inputType: 'percentage', // 'percentage' or 'fixed'
+  // Estados consolidados
+  const [goalState, setGoalState] = useState({
+    isModalVisible: false,
+    isDeleteModalVisible: false,
+    isDetailsModalVisible: false,
+    selectedGoal: null,
+    goalToDelete: null,
+    editingGoal: null
   });
-  const [showDatePicker, setShowDatePicker] = useState(false);
+
+  const [goals, setGoals] = useState([]);
+  const [userId, setUserId] = useState(null);
   const [goalStatuses, setGoalStatuses] = useState({});
   const [financialMetrics, setFinancialMetrics] = useState({
     totalIncome: 0,
@@ -36,49 +191,60 @@ const GoalsPage = () => {
   const [alertType, setAlertType] = useState('');
   const [showAlert, setShowAlert] = useState(false);
 
-  const [isDetailsModalVisible, setDetailsModalVisible] = useState(false);
-  const [selectedGoal, setSelectedGoal] = useState(null);
+  const [formData, setFormData] = useState({
+    name: '',
+    amount: '',
+    deadline: new Date(),
+    goal_saving_minimum: 20,
+    fixedValue: '',
+    inputType: 'percentage',
+  });
 
-  useEffect(() => {
-    const fetchUserData = async () => {
-      try {
-        const { data: { user }, error } = await supabase.auth.getUser();
-        if (error) throw error;
-        if (user) {
-          setUserId(user.id);
-          await fetchGoals(user.id);
-          await calculateFinancialMetrics(user.id);
-        }
-      } catch (error) {
-        console.error('Error fetching user:', error);
-        setAlertMessage('Failed to fetch user data');
-        setAlertType('error');
-        setShowAlert(true);
-      }
-    };
-    fetchUserData();
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
-    // Atualização automática a cada 10 segundos
-    let interval = setInterval(() => {
-      if (userId) {
-        console.log('Auto-refresh goals/metrics (10s)');
-        fetchGoals(userId);
-        calculateFinancialMetrics(userId);
-      }
-    }, 10000);
+  // Função auxiliar para buscar dados financeiros
+  const fetchFinancialData = async (userId) => {
+    try {
+      const today = new Date();
+      const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+      const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
 
-    return () => clearInterval(interval);
-  }, [userId]);
+      const { data: incomes, error: incomeError } = await supabase
+        .from('income')
+        .select('*, frequencies(days)')
+        .eq('user_id', userId)
+        .gte('created_at', startOfMonth.toISOString())
+        .lte('created_at', endOfMonth.toISOString());
 
-  useFocusEffect(
-    React.useCallback(() => {
-      if (userId) {
-        fetchGoals(userId);
-        calculateFinancialMetrics(userId);
-      }
-    }, [userId])
-  );
+      const { data: expenses, error: expenseError } = await supabase
+        .from('expenses')
+        .select('*, frequencies(days)')
+        .eq('user_id', userId)
+        .gte('created_at', startOfMonth.toISOString())
+        .lte('created_at', endOfMonth.toISOString());
 
+      if (incomeError || expenseError) throw incomeError || expenseError;
+
+      const totalIncome = incomes.reduce((sum, income) => {
+        const days = income.frequencies?.days || 30;
+        return sum + (income.amount * 30) / days;
+      }, 0);
+
+      const totalExpenses = expenses.reduce((sum, expense) => {
+        const days = expense.frequencies?.days || 30;
+        return sum + (expense.amount * 30) / days;
+      }, 0);
+
+      const availableMoney = totalIncome - totalExpenses;
+
+      return { incomes, expenses, totalIncome, totalExpenses, availableMoney };
+    } catch (error) {
+      console.error('Error fetching financial data:', error);
+      throw error;
+    }
+  };
+
+  // Função para buscar metas
   const fetchGoals = async (userId) => {
     if (!userId) return;
     try {
@@ -91,47 +257,19 @@ const GoalsPage = () => {
       if (error) throw error;
       setGoals(data || []);
 
-      // Calcular status para cada meta (sempre recalcule)
       if (data) {
         const statuses = {};
         for (const goal of data) {
-          statuses[goal.id] = await calculateGoalStatus(goal);
+          statuses[goal.id] = await calculateGoalStatus(goal, supabase);
         }
         setGoalStatuses(statuses);
 
-        // Calcula distribuição ótima entre metas
-        const { data: incomes, error: incomeError } = await supabase
-          .from('income')
-          .select('*, frequencies(days)')
-          .eq('user_id', userId);
-
-        const { data: expenses, error: expenseError } = await supabase
-          .from('expenses')
-          .select('*, frequencies(days)')
-          .eq('user_id', userId);
-
-        if (incomeError || expenseError) throw incomeError || expenseError;
-
-        const totalIncome = incomes.reduce((sum, income) => {
-          const days = income.frequencies?.days || 30;
-          return sum + (income.amount * 30) / days;
-        }, 0);
-
-        const totalExpenses = expenses.reduce((sum, expense) => {
-          const days = expense.frequencies?.days || 30;
-          return sum + (expense.amount * 30) / days;
-        }, 0);
-
-        const availableMoney = totalIncome - totalExpenses;
+        const { availableMoney } = await fetchFinancialData(userId);
         const optimalDistribution = calculateOptimalDistribution(data, availableMoney);
         
-        // Atualiza o estado com a distribuição ótima
         setFinancialMetrics(prev => ({
           ...prev,
-          totalIncome,
-          totalExpenses,
           availableMoney,
-          totalSavingsPercentage: prev.totalSavingsPercentage,
           optimalDistribution
         }));
       }
@@ -143,219 +281,13 @@ const GoalsPage = () => {
     }
   };
 
-  const calculateGoalStatus = async (goal) => {
-    if (!userId) return null;
-
-    try {
-      const today = new Date();
-      const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-      const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-
-      // Fetch income and expenses
-      const { data: incomes, error: incomeError } = await supabase
-        .from('income')
-        .select('*, frequencies(days)')
-        .eq('user_id', userId)
-        .gte('created_at', startOfMonth.toISOString())
-        .lte('created_at', endOfMonth.toISOString());
-
-      const { data: expenses, error: expenseError } = await supabase
-        .from('expenses')
-        .select('*, frequencies(days), priority')
-        .eq('user_id', userId)
-        .gte('created_at', startOfMonth.toISOString())
-        .lte('created_at', endOfMonth.toISOString());
-
-      if (incomeError || expenseError) throw incomeError || expenseError;
-
-      // Calculate total income
-      const totalIncome = incomes.reduce((sum, income) => {
-        const days = income.frequencies?.days || 30;
-        return sum + (income.amount * 30) / days;
-      }, 0);
-
-      // Calculate total expenses
-      const totalExpenses = expenses.reduce((sum, expense) => {
-        const days = expense.frequencies?.days || 30;
-        return sum + (expense.amount * 30) / days;
-      }, 0);
-
-      const availableMoney = totalIncome - totalExpenses;
-      const remainingAmount = goal.amount - (goal.current_amount || 0);
-      const daysUntilDeadline = calculateDaysUntilDeadline(goal.deadline);
-      
-      // Calcula os dias que já passaram no mês atual
-      const daysPassedInMonth = today.getDate() - 1;
-      // Calcula os dias restantes no mês atual
-      const daysRemainingInMonth = endOfMonth.getDate() - today.getDate() + 1;
-      
-      // Calcula quanto precisa economizar por dia para atingir a meta no prazo
-      const requiredDailySaving = remainingAmount / daysUntilDeadline;
-      
-      // Calcula quanto está economizando por dia com a porcentagem atual
-      const currentDailySaving = (availableMoney * goal.goal_saving_minimum / 100) / 30;
-      
-      // Calcula quanto já economizou neste mês
-      const savedThisMonth = currentDailySaving * daysPassedInMonth;
-      
-      // Calcula quanto vai economizar até o fim do mês
-      const willSaveThisMonth = currentDailySaving * daysRemainingInMonth;
-      
-      // Calcula quanto falta economizar após este mês
-      const remainingAfterThisMonth = remainingAmount - savedThisMonth - willSaveThisMonth;
-      
-      // Calcula quantos dias adicionais precisa após este mês
-      const additionalDaysNeeded = Math.ceil(remainingAfterThisMonth / currentDailySaving);
-      
-      // Data possível considerando o mês atual
-      const possibleDate = new Date(today);
-      possibleDate.setDate(today.getDate() + daysRemainingInMonth + additionalDaysNeeded);
-
-      // 1. Verifica se é possível com as configurações atuais
-      if (possibleDate <= new Date(goal.deadline)) {
-        return {
-          status: 'success',
-          message: `Meta alcançável! Você atingirá a meta no dia desejado (${new Date(goal.deadline).toLocaleDateString()}) usando ${goal.goal_saving_minimum}% dos savings.`,
-          monthlySaving: currentDailySaving * 30,
-          monthsNeeded: Math.ceil((daysRemainingInMonth + additionalDaysNeeded) / 30),
-          reachDate: possibleDate.toLocaleDateString(),
-          originalSettings: {
-            monthsNeeded: Math.ceil((daysRemainingInMonth + additionalDaysNeeded) / 30),
-            monthlySaving: currentDailySaving * 30,
-            reachDate: possibleDate.toLocaleDateString(),
-            savingPercentage: goal.goal_saving_minimum
-          }
-        };
-      }
-
-      // 2. Verifica se é possível aumentando a porcentagem de savings
-      // Considera o que já foi economizado neste mês
-      const remainingToSave = remainingAmount - savedThisMonth;
-      const requiredPercentage = (remainingToSave / (availableMoney * (daysUntilDeadline / 30))) * 100;
-      
-      if (requiredPercentage <= 100) {
-        return {
-          status: 'info',
-          message: `A Meta é alcançável se aumentar a porcentagem de savings para ${Math.ceil(requiredPercentage)}%.`,
-          monthlySaving: (availableMoney * requiredPercentage) / 100,
-          monthsNeeded: Math.ceil(daysUntilDeadline / 30),
-          reachDate: new Date(goal.deadline).toLocaleDateString(),
-          originalSettings: {
-            monthsNeeded: Math.ceil((daysRemainingInMonth + additionalDaysNeeded) / 30),
-            monthlySaving: currentDailySaving * 30,
-            reachDate: possibleDate.toLocaleDateString(),
-            savingPercentage: goal.goal_saving_minimum
-          }
-        };
-      }
-
-      // 3. Verifica se é possível removendo despesas, começando pelas de menor prioridade
-      const priorityExpenses = {
-        1: expenses.filter(e => e.priority === 1).sort((a, b) => a.amount - b.amount), // Mínima
-        2: expenses.filter(e => e.priority === 2).sort((a, b) => a.amount - b.amount), // Baixa
-        3: expenses.filter(e => e.priority === 3).sort((a, b) => a.amount - b.amount), // Média
-        4: expenses.filter(e => e.priority === 4).sort((a, b) => a.amount - b.amount), // Alta
-        5: expenses.filter(e => e.priority === 5).sort((a, b) => a.amount - b.amount), // Máxima
-      };
-
-      const priorityNames = {
-        1: 'mínima',
-        2: 'baixa',
-        3: 'média',
-        4: 'alta',
-        5: 'máxima'
-      };
-
-      // Tenta remover despesas em ordem de prioridade (da menor para a maior)
-      for (let priority = 1; priority <= 5; priority++) {
-        for (const expense of priorityExpenses[priority]) {
-          const expenseMonthly = (expense.amount * 30) / (expense.frequencies?.days || 30);
-          const newAvailableMoney = availableMoney + expenseMonthly;
-          const newRequiredPercentage = (remainingToSave / (newAvailableMoney * (daysUntilDeadline / 30))) * 100;
-
-          if (newRequiredPercentage <= 100) {
-            return {
-              status: 'info',
-              message: `A Meta é alcançável se remover a despesa '${expense.name}' (prioridade ${priorityNames[priority]}) e usar ${Math.ceil(newRequiredPercentage)}% dos savings.`,
-              monthlySaving: (newAvailableMoney * newRequiredPercentage) / 100,
-              monthsNeeded: Math.ceil(daysUntilDeadline / 30),
-              reachDate: new Date(goal.deadline).toLocaleDateString(),
-              originalSettings: {
-                monthsNeeded: Math.ceil((daysRemainingInMonth + additionalDaysNeeded) / 30),
-                monthlySaving: currentDailySaving * 30,
-                reachDate: possibleDate.toLocaleDateString(),
-                savingPercentage: goal.goal_saving_minimum
-              }
-            };
-          }
-        }
-      }
-
-      // Se nada for possível
-      return {
-        status: 'error',
-        message: 'Meta não alcançável com as configurações atuais.',
-        monthlySaving: currentDailySaving * 30,
-        monthsNeeded: null,
-        reachDate: null,
-        originalSettings: {
-          monthsNeeded: Math.ceil((daysRemainingInMonth + additionalDaysNeeded) / 30),
-          monthlySaving: currentDailySaving * 30,
-          reachDate: possibleDate.toLocaleDateString(),
-          savingPercentage: goal.goal_saving_minimum
-        }
-      };
-
-    } catch (error) {
-      console.error('Error calculating goal status:', error);
-      return {
-        status: 3,
-        message: 'Erro ao calcular status da meta',
-      };
-    }
-  };
-
+  // Função para calcular métricas financeiras
   const calculateFinancialMetrics = async (userId) => {
     if (!userId) return;
 
     try {
-      const today = new Date();
-      const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-      const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+      const { totalIncome, totalExpenses, availableMoney } = await fetchFinancialData(userId);
 
-      // Fetch income and expenses
-      const { data: incomes, error: incomeError } = await supabase
-        .from('income')
-        .select('*, frequencies(days)')
-        .eq('user_id', userId)
-        .gte('created_at', startOfMonth.toISOString())
-        .lte('created_at', endOfMonth.toISOString());
-
-      const { data: expenses, error: expenseError } = await supabase
-        .from('expenses')
-        .select('*, frequencies(days)')
-        .eq('user_id', userId)
-        .gte('created_at', startOfMonth.toISOString())
-        .lte('created_at', endOfMonth.toISOString());
-
-      if (incomeError || expenseError) throw incomeError || expenseError;
-
-      // Calculate total income
-      const totalIncome = incomes.reduce((sum, income) => {
-        const days = income.frequencies?.days || 30;
-        return sum + (income.amount * 30) / days;
-      }, 0);
-
-      // Calculate total expenses
-      const totalExpenses = expenses.reduce((sum, expense) => {
-        const days = expense.frequencies?.days || 30;
-        return sum + (expense.amount * 30) / days;
-      }, 0);
-
-      // Calculate available money
-      const availableMoney = totalIncome - totalExpenses;
-
-      // Calculate total savings percentage from goals
       const { data: userGoals, error: goalsError } = await supabase
         .from('goals')
         .select('goal_saving_minimum')
@@ -381,8 +313,49 @@ const GoalsPage = () => {
     }
   };
 
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        const { data: { user }, error } = await supabase.auth.getUser();
+        if (error) throw error;
+        if (user) {
+          setUserId(user.id);
+          await fetchGoals(user.id);
+          await calculateFinancialMetrics(user.id);
+        }
+      } catch (error) {
+        console.error('Error fetching user:', error);
+        setAlertMessage('Failed to fetch user data');
+        setAlertType('error');
+        setShowAlert(true);
+      }
+    };
+    fetchUserData();
+
+    if (userId) {
+      const interval = setInterval(() => {
+        fetchGoals(userId);
+        calculateFinancialMetrics(userId);
+      }, 10000);
+      return () => clearInterval(interval);
+    }
+  }, [userId]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      if (userId) {
+        fetchGoals(userId);
+        calculateFinancialMetrics(userId);
+      }
+    }, [userId])
+  );
+
   const handleAddGoal = () => {
-    setEditingGoal(null);
+    setGoalState(prev => ({
+      ...prev,
+      isModalVisible: true,
+      editingGoal: null
+    }));
     setFormData({
       name: '',
       amount: '',
@@ -391,11 +364,14 @@ const GoalsPage = () => {
       fixedValue: '',
       inputType: 'percentage',
     });
-    setModalVisible(true);
   };
 
   const handleEditGoal = (goal) => {
-    setEditingGoal(goal);
+    setGoalState(prev => ({
+      ...prev,
+      isModalVisible: true,
+      editingGoal: goal
+    }));
     setFormData({
       name: goal.name,
       amount: goal.amount.toString(),
@@ -404,7 +380,6 @@ const GoalsPage = () => {
       fixedValue: '',
       inputType: 'percentage',
     });
-    setModalVisible(true);
   };
 
   const handleDeleteGoal = async () => {
@@ -412,7 +387,7 @@ const GoalsPage = () => {
       const { error } = await supabase
         .from('goals')
         .delete()
-        .eq('id', goalToDelete.id);
+        .eq('id', goalState.goalToDelete.id);
 
       if (error) throw error;
 
@@ -426,13 +401,20 @@ const GoalsPage = () => {
       setAlertType('error');
       setShowAlert(true);
     } finally {
-      setDeleteModalVisible(false);
+      setGoalState(prev => ({
+        ...prev,
+        isDeleteModalVisible: false,
+        goalToDelete: null
+      }));
     }
   };
 
   const confirmDeleteGoal = (goal) => {
-    setGoalToDelete(goal);
-    setDeleteModalVisible(true);
+    setGoalState(prev => ({
+      ...prev,
+      isDeleteModalVisible: true,
+      goalToDelete: goal
+    }));
   };
 
   const handleSaveGoal = async () => {
@@ -452,11 +434,9 @@ const GoalsPage = () => {
         return;
       }
 
-      // Calcule o valor arredondado
       const roundedPercentage = formData.goal_saving_minimum ? parseFloat(Number(formData.goal_saving_minimum).toFixed(2)) : 0;
       const roundedFixedValue = formData.fixedValue && !isNaN(parseFloat(formData.fixedValue)) ? parseFloat(Number(formData.fixedValue).toFixed(2)) : 0;
 
-      // Calculate new total savings percentage
       const { data: userGoals, error: goalsError } = await supabase
         .from('goals')
         .select('id, goal_saving_minimum')
@@ -465,8 +445,7 @@ const GoalsPage = () => {
       if (goalsError) throw goalsError;
 
       const currentTotalPercentage = userGoals.reduce((sum, goal) => {
-        // Ignora a meta atual ao editar
-        if (editingGoal && String(goal.id) === String(editingGoal.id)) return sum;
+        if (goalState.editingGoal && String(goal.id) === String(goalState.editingGoal.id)) return sum;
         return sum + (goal.goal_saving_minimum || 0);
       }, 0);
 
@@ -479,15 +458,14 @@ const GoalsPage = () => {
         return;
       }
 
-      // Calcule o status REAL usando calculateGoalStatus
-      let statusValue = 1; // default
+      let statusValue = 1;
       const statusResult = await calculateGoalStatus({
         ...formData,
         amount: parseFloat(formData.amount),
         deadline: formData.deadline,
         goal_saving_minimum: roundedPercentage,
         user_id: userId
-      });
+      }, supabase);
       if (statusResult?.status === 'success') statusValue = 1;
       else if (statusResult?.status === 'info') statusValue = 2;
       else if (statusResult?.status === 'error') statusValue = 3;
@@ -501,18 +479,20 @@ const GoalsPage = () => {
         status: statusValue,
       };
 
-      let error;
-      if (editingGoal) {
-        await supabase.from('goals').update(payload).eq('id', editingGoal.id);
+      if (goalState.editingGoal) {
+        await supabase.from('goals').update(payload).eq('id', goalState.editingGoal.id);
       } else {
         await supabase.from('goals').insert([payload]);
       }
 
-      setAlertMessage(`Goal ${editingGoal ? 'updated' : 'added'} successfully!`);
+      setAlertMessage(`Goal ${goalState.editingGoal ? 'updated' : 'added'} successfully!`);
       setAlertType('success');
       setShowAlert(true);
-      setModalVisible(false);
-      // Update goals and metrics
+      setGoalState(prev => ({
+        ...prev,
+        isModalVisible: false,
+        editingGoal: null
+      }));
       await fetchGoals(userId);
       await calculateFinancialMetrics(userId);
     } catch (error) {
@@ -524,8 +504,11 @@ const GoalsPage = () => {
   };
 
   const handleGoalPress = (goal) => {
-    setSelectedGoal(goal);
-    setDetailsModalVisible(true);
+    setGoalState(prev => ({
+      ...prev,
+      isDetailsModalVisible: true,
+      selectedGoal: goal
+    }));
   };
 
   const renderDatePicker = () => {
@@ -555,7 +538,6 @@ const GoalsPage = () => {
       );
     }
 
-    // Mobile (Android/iOS)
     return (
       <TouchableOpacity
         style={styles.modalInput}
@@ -583,99 +565,6 @@ const GoalsPage = () => {
     );
   };
 
-  const calculateGoalProgress = (goal) => {
-    const daysUntilDeadline = calculateDaysUntilDeadline(goal.deadline);
-    const totalDays = Math.ceil((new Date(goal.deadline) - new Date(goal.created_at)) / (1000 * 60 * 60 * 24));
-    const daysPassed = totalDays - daysUntilDeadline;
-    return Math.min((daysPassed / totalDays) * 100, 100);
-  };
-
-  const getStatusInfo = (status) => {
-    const statusConfig = {
-      1: {
-        icon: <Ionicons name="checkmark-circle" size={28} color="#00B894" />,
-        title: 'Meta Alcançável',
-        textColor: '#00B894',
-        backgroundColor: '#00B89420'
-      },
-      2: {
-        icon: <Ionicons name="warning" size={28} color="#FDCB6E" />,
-        title: 'Meta Possível com Ajustes',
-        textColor: '#FDCB6E',
-        backgroundColor: '#FDCB6E20'
-      },
-      3: {
-        icon: <Ionicons name="close-circle" size={28} color="#E74C3C" />,
-        title: 'Meta Não Alcançável',
-        textColor: '#E74C3C',
-        backgroundColor: '#E74C3C20'
-      },
-      4: {
-        icon: <Ionicons name="information-circle" size={28} color="#0984e3" />,
-        title: 'Meta no Dia!',
-        textColor: '#0984e3',
-        backgroundColor: '#d6eaff',
-      },
-      success: {
-        icon: <Ionicons name="checkmark-circle" size={28} color="#00B894" />,
-        title: 'Meta Alcançável',
-        textColor: '#00B894',
-        backgroundColor: '#00B89420'
-      },
-      info: {
-        icon: <Ionicons name="warning" size={28} color="#FDCB6E" />,
-        title: 'Meta Possível com Ajustes',
-        textColor: '#FDCB6E',
-        backgroundColor: '#FDCB6E20'
-      },
-      error: {
-        icon: <Ionicons name="close-circle" size={28} color="#E74C3C" />,
-        title: 'Meta Não Alcançável',
-        textColor: '#E74C3C',
-        backgroundColor: '#E74C3C20'
-      },
-      'info-blue': {
-        icon: <Ionicons name="information-circle" size={28} color="#0984e3" />,
-        title: 'Meta no Dia!',
-        textColor: '#0984e3',
-        backgroundColor: '#d6eaff',
-      }
-    };
-    return statusConfig[status?.status] || statusConfig[status] || {
-      icon: null,
-      title: 'Status da Meta',
-      textColor: '#2D3436',
-      backgroundColor: '#DFE6E920'
-    };
-  };
-
-  const calculateDailySaving = (amount, deadline) => {
-    const today = new Date();
-    const deadlineDate = new Date(deadline);
-    const daysUntilDeadline = Math.ceil((deadlineDate - today) / (1000 * 60 * 60 * 24));
-    return amount / daysUntilDeadline;
-  };
-
-  const calculateDaysRemaining = (deadline, amount, currentAmount) => {
-    const today = new Date();
-    const deadlineDate = new Date(deadline);
-    const creationDate = new Date(selectedGoal?.created_at || today);
-    
-    // Calcula os dias desejados (da criação até o deadline)
-    const desiredDays = Math.ceil((deadlineDate - creationDate) / (1000 * 60 * 60 * 24));
-    
-    // Usa a data prevista do status original
-    const status = goalStatuses[selectedGoal?.id];
-    const possibleDate = status?.originalSettings?.reachDate ? new Date(status.originalSettings.reachDate) : null;
-    
-    return {
-      daysRemaining: desiredDays,
-      daysNeeded: possibleDate ? Math.ceil((possibleDate - today) / (1000 * 60 * 60 * 24)) : 0,
-      possibleDate,
-      isPossible: possibleDate && possibleDate <= deadlineDate
-    };
-  };
-
   const renderGoalItem = ({ item }) => {
     const status = goalStatuses[item.id];
     const creationDate = new Date(item.created_at);
@@ -684,11 +573,10 @@ const GoalsPage = () => {
     const daysToDeadline = Math.ceil((deadlineDate - today) / (1000 * 60 * 60 * 24));
     const totalDays = Math.max(1, Math.ceil((deadlineDate - creationDate) / (1000 * 60 * 60 * 24)));
     const availableMoney = financialMetrics.availableMoney || 0;
-    const financialProgress = calculateFinancialProgress(item, availableMoney);
+    const financialProgress = calculateGoalProgress(item, 'financial', availableMoney);
 
-    // Status e cor baseados no status calculado e deadline
     let statusIcon = 'checkmark-circle';
-    let statusColor = '#00B894'; // verde
+    let statusColor = '#00B894';
     if (daysToDeadline === 0) {
       statusIcon = 'information-circle';
       statusColor = '#0984e3';
@@ -706,7 +594,6 @@ const GoalsPage = () => {
       statusColor = '#0984e3';
     }
 
-    // Mensagem de dias para meta
     let daysMsg = '';
     if (daysToDeadline === 0) {
       daysMsg = 'Hoje!';
@@ -727,21 +614,10 @@ const GoalsPage = () => {
             <Text style={styles.goalTitle}>{item.name}</Text>
           </View>
           <Text style={styles.goalAmount}>
-            {new Intl.NumberFormat('pt-PT', {
-              style: 'currency',
-              currency: 'EUR',
-            }).format(item.amount || 0)}
+            {formatCurrency(item.amount || 0)}
           </Text>
         </View>
-        {/* Barra de progresso financeiro */}
-        <View style={styles.goalProgressContainer}>
-          <View
-            style={[
-              styles.goalProgressBar,
-              { width: `${financialProgress}%`, backgroundColor: statusColor }
-            ]}
-          />
-        </View>
+        <ProgressBar progress={financialProgress} color={statusColor} showPercentage={false} />
         <View style={styles.goalDeadlineContainer}>
           <View style={styles.deadlineRow}>
             <Text style={styles.goalDeadline}>
@@ -753,124 +629,6 @@ const GoalsPage = () => {
           </View>
         </View>
       </TouchableOpacity>
-    );
-  };
-
-  const renderGoalDetails = () => {
-    if (!selectedGoal) return null;
-    const status = goalStatuses[selectedGoal.id];
-    const { icon, title, textColor, backgroundColor } = getStatusInfo(status);
-    const progress = calculateTimeProgress(selectedGoal);
-
-    return (
-      <Modal visible={isDetailsModalVisible} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <ScrollView contentContainerStyle={styles.modalScrollContent}>
-            <View style={styles.modalContainer}>
-              <View style={styles.modalHeaderContainer}>
-                <Text style={styles.modalHeader}>{selectedGoal.name}</Text>
-                <TouchableOpacity
-                  style={styles.closeButton}
-                  onPress={() => setDetailsModalVisible(false)}
-                >
-                  <Ionicons name="close" size={24} color="#7F8C8D" />
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.detailsGrid}>
-                <View style={styles.detailsRow}>
-                  <View style={styles.detailsItem}>
-                    <Text style={styles.detailsLabel}>Progresso</Text>
-                    <View style={styles.progressContainer}>
-                      <View style={[styles.progressBar, { width: `${progress}%` }]} />
-                      <Text style={styles.progressText}>{Math.round(progress)}%</Text>
-                    </View>
-                  </View>
-                </View>
-
-                <View style={styles.detailsRow}>
-                  <View style={styles.detailsItem}>
-                    <Text style={styles.detailsLabel}>Savings</Text>
-                    <Text style={styles.detailsValue}>
-                      {selectedGoal.goal_saving_minimum}%
-                    </Text>
-                  </View>
-
-                  <View style={styles.detailsItem}>
-                    <Text style={styles.detailsLabel}>Deadline</Text>
-                    <Text style={styles.detailsValue}>
-                      {new Date(selectedGoal.deadline).toLocaleDateString()}
-                    </Text>
-                  </View>
-                </View>
-
-                <View style={styles.detailsRow}>
-                  <View style={styles.detailsItem}>
-                    <Text style={styles.detailsLabel}>Target Amount</Text>
-                    <Text style={styles.detailsValue}>
-                      {new Intl.NumberFormat('pt-PT', {
-                        style: 'currency',
-                        currency: 'EUR',
-                      }).format(selectedGoal.amount)}
-                    </Text>
-                  </View>
-                </View>
-              </View>
-
-              {status && (
-                <View style={[styles.statusContainer, { backgroundColor }]}>
-                  <View style={styles.statusHeader}>
-                    <View style={styles.statusIcon}>{icon}</View>
-                    <Text style={[styles.statusTitle, { color: textColor }]}>
-                      {title}
-                    </Text>
-                  </View>
-                  <Text style={[styles.statusText, { color: textColor }]}>
-                    {status.message}
-                  </Text>
-                  {status.originalSettings && status.status !== 'success' && (
-                    <View>
-                      <Text style={styles.originalSettingsText}>
-                        Com as configurações atuais:
-                      </Text>
-                      <Text style={styles.originalSettingsValue}>
-                        {typeof status.originalSettings.monthsNeeded === 'number' && isFinite(status.originalSettings.monthsNeeded) && status.originalSettings.monthsNeeded > 0
-                          ? (status.originalSettings.monthsNeeded === 1
-                            ? `Este mês para a meta. Data prevista: ${status.originalSettings.reachDate || ''}`
-                            : `${status.originalSettings.monthsNeeded} meses para a meta. Data prevista: ${status.originalSettings.reachDate || ''}`)
-                          : 'Não é possível estimar o tempo para atingir a meta.'}
-                      </Text>
-                    </View>
-                  )}
-                </View>
-              )}
-
-              <View style={styles.detailsActions}>
-                <TouchableOpacity
-                  style={[styles.actionButton, styles.editButton]}
-                  onPress={() => {
-                    setDetailsModalVisible(false);
-                    handleEditGoal(selectedGoal);
-                  }}
-                >
-                  <Ionicons name="pencil" size={20} color="#FFFFFF" />
-                  <Text style={styles.actionButtonText}>Edit</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.actionButton, styles.deleteButton]}
-                  onPress={() => {
-                    setDetailsModalVisible(false);
-                    confirmDeleteGoal(selectedGoal);
-                  }}
-                >
-                  <Ionicons name="trash" size={20} color="#FFFFFF" />
-                  <Text style={styles.actionButtonText}>Delete</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </ScrollView>
-        </View>
-      </Modal>
     );
   };
 
@@ -888,341 +646,51 @@ const GoalsPage = () => {
       <View style={styles.metricCard}>
         <Text style={styles.metricLabel}>Monthly Income</Text>
         <Text style={[styles.metricValue, styles.availableMoney]}>
-          {new Intl.NumberFormat('pt-PT', {
-            style: 'currency',
-            currency: 'EUR',
-          }).format(financialMetrics.totalIncome)}
+          {formatCurrency(financialMetrics.totalIncome)}
         </Text>
       </View>
       <View style={styles.metricCard}>
         <Text style={styles.metricLabel}>Monthly Expenses</Text>
         <Text style={[styles.metricValue, styles.availableMoney]}>
-          {new Intl.NumberFormat('pt-PT', {
-            style: 'currency',
-            currency: 'EUR',
-          }).format(financialMetrics.totalExpenses)}
+          {formatCurrency(financialMetrics.totalExpenses)}
         </Text>
       </View>
       <View style={styles.metricCard}>
         <Text style={styles.metricLabel}>Available Money</Text>
         <Text style={[styles.metricValue, styles.availableMoney]}>
-          {new Intl.NumberFormat('pt-PT', {
-            style: 'currency',
-            currency: 'EUR',
-          }).format(financialMetrics.availableMoney)}
+          {formatCurrency(financialMetrics.availableMoney)}
         </Text>
       </View>
       <View style={styles.metricCard}>
         <Text style={styles.metricLabel}>Savings Allocated</Text>
         <Text style={[styles.metricValue, { color: getSavingsColor(financialMetrics.totalSavingsPercentage) }]}> 
           {Number(financialMetrics.totalSavingsPercentage).toFixed(2)}% (
-          {new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(((financialMetrics.totalSavingsPercentage / 100) * financialMetrics.availableMoney).toFixed(2))}
+          {formatCurrency(((financialMetrics.totalSavingsPercentage / 100) * financialMetrics.availableMoney).toFixed(2))}
           )
         </Text>
       </View>
     </View>
   );
 
-  // Funções auxiliares para cálculos de goals
-  const calculateDaysUntilDeadline = (deadline) => {
-    const today = new Date();
-    const deadlineDate = new Date(deadline);
-    const diffTime = deadlineDate - today;
-    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  };
-
-  const calculateOptimalDistribution = (goals, availableMoney) => {
-    const totalAmount = goals.reduce((sum, goal) => sum + goal.amount, 0);
-    const totalCurrentAmount = goals.reduce((sum, goal) => sum + goal.current_amount, 0);
-    const remainingAmount = totalAmount - totalCurrentAmount;
-    const today = new Date();
-    
-    return goals.map(goal => {
-      const remainingGoalAmount = goal.amount - goal.current_amount;
-      const percentage = (remainingGoalAmount / remainingAmount) * 100;
-      const dailySaving = calculateDailySaving(goal.amount, goal.deadline);
-      const daysNeeded = Math.ceil(remainingGoalAmount / dailySaving);
-      const possibleDate = new Date(today);
-      possibleDate.setDate(today.getDate() + daysNeeded);
-      
-      return {
-        ...goal,
-        percentage,
-        possibleDate,
-        isPossible: daysNeeded <= Math.ceil((new Date(goal.deadline) - today) / (1000 * 60 * 60 * 24))
-      };
-    });
-  };
-
-  const calculateOptimalStrategy = async (goal) => {
-    if (!userId) return null;
-
-    try {
-      const today = new Date();
-      const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-      const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-
-      // Busca receitas e despesas
-      const { data: incomes, error: incomeError } = await supabase
-        .from('income')
-        .select('*, frequencies(days)')
-        .eq('user_id', userId)
-        .gte('created_at', startOfMonth.toISOString())
-        .lte('created_at', endOfMonth.toISOString());
-
-      const { data: expenses, error: expenseError } = await supabase
-        .from('expenses')
-        .select('*, frequencies(days), priority')
-        .eq('user_id', userId)
-        .gte('created_at', startOfMonth.toISOString())
-        .lte('created_at', endOfMonth.toISOString());
-
-      if (incomeError || expenseError) throw incomeError || expenseError;
-
-      // Calcula receita total
-      const totalIncome = incomes.reduce((sum, income) => {
-        const days = income.frequencies?.days || 30;
-        return sum + (income.amount * 30) / days;
-      }, 0);
-
-      // Calcula despesas totais
-      const totalExpenses = expenses.reduce((sum, expense) => {
-        const days = expense.frequencies?.days || 30;
-        return sum + (expense.amount * 30) / days;
-      }, 0);
-
-      const availableMoney = totalIncome - totalExpenses;
-      const daysUntilDeadline = calculateDaysUntilDeadline(goal.deadline);
-      const monthlyRequired = goal.amount / (daysUntilDeadline / 30);
-      const requiredPercentage = (monthlyRequired / availableMoney) * 100;
-
-      // Estratégias possíveis
-      const strategies = [];
-
-      // 1. Apenas aumentar a porcentagem
-      if (requiredPercentage <= 100) {
-        strategies.push({
-          type: 'increase_percentage',
-          percentage: requiredPercentage,
-          message: `A Meta é alcançável dentro do tempo definido se aumentar para ${Math.ceil(requiredPercentage)}%.`
-        });
-      }
-
-      // 2. Remover despesas de baixa prioridade
-      const priority1Expenses = expenses
-        .filter(e => e.priority === 1)
-        .sort((a, b) => a.amount - b.amount);
-
-      for (const expense of priority1Expenses) {
-        const expenseMonthly = (expense.amount * 30) / (expense.frequencies?.days || 30);
-        const newAvailableMoney = availableMoney + expenseMonthly;
-        const newRequiredPercentage = (monthlyRequired / newAvailableMoney) * 100;
-
-        if (newRequiredPercentage <= 100) {
-          strategies.push({
-            type: 'remove_expense',
-            expense,
-            percentage: newRequiredPercentage,
-            message: `A Meta é alcançável dentro do tempo definido se remover a despesa '${expense.name}' e aumentar para ${Math.ceil(newRequiredPercentage)}%.`
-          });
-        }
-      }
-
-      // 3. Combinar estratégias
-      if (strategies.length > 1) {
-        const bestStrategy = strategies.reduce((best, current) => {
-          return current.percentage < best.percentage ? current : best;
-        });
-
-        if (bestStrategy.type === 'remove_expense') {
-          const increaseOnly = strategies.find(s => s.type === 'increase_percentage');
-          if (increaseOnly) {
-            bestStrategy.message += `\nAlternativamente, você pode aumentar para ${Math.ceil(increaseOnly.percentage)}% sem remover despesas.`;
-          }
-        }
-
-        return {
-          status: 'info',
-          message: bestStrategy.message,
-          monthlySaving: monthlyRequired,
-          monthsNeeded: daysUntilDeadline / 30,
-          reachDate: new Date(today.getTime() + daysUntilDeadline * 24 * 60 * 60 * 1000).toLocaleDateString(),
-          originalSettings: {
-            monthsNeeded: daysUntilDeadline / 30,
-            monthlySaving: monthlyRequired,
-            reachDate: new Date(today.getTime() + daysUntilDeadline * 24 * 60 * 60 * 1000).toLocaleDateString(),
-            savingPercentage: goal.goal_saving_minimum
-          }
-        };
-      }
-
-      // Se nenhuma estratégia for possível
-      return {
-        status: 'error',
-        message: 'Meta não alcançável com as configurações atuais.',
-        monthlySaving: 0,
-        monthsNeeded: null,
-        reachDate: null,
-        originalSettings: {
-          monthsNeeded: null,
-          monthlySaving: 0,
-          reachDate: null,
-          savingPercentage: goal.goal_saving_minimum
-        }
-      };
-
-    } catch (error) {
-      console.error('Error calculating optimal strategy:', error);
-      return {
-        status: 'error',
-        message: 'Erro ao calcular estratégia ótima',
-      };
-    }
-  };
-
-  const renderDeleteModal = () => {
-    if (!selectedGoal) return null;
-
-    return (
-      <Modal
-        visible={isDeleteModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setDeleteModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.deleteModalContainer}>
-            <View style={styles.deleteModalHeader}>
-              <Ionicons name="warning" size={32} color="#E74C3C" />
-              <Text style={styles.deleteModalTitle}>Delete Goal</Text>
-            </View>
-            <Text style={styles.deleteModalText}>
-              Are you sure you want to delete "{selectedGoal.name}"?
-            </Text>
-            <Text style={styles.deleteModalSubtext}>
-              This action cannot be undone. All progress and data associated with this goal will be permanently deleted.
-            </Text>
-            <View style={styles.deleteModalButtonsContainer}>
-              <TouchableOpacity
-                style={[styles.deleteModalButton, styles.deleteModalCancelButton]}
-                onPress={() => setDeleteModalVisible(false)}
-              >
-                <Text style={[styles.deleteModalButtonText, styles.deleteModalCancelButtonText]}>
-                  Cancel
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.deleteModalButton, styles.deleteModalConfirmButton]}
-                onPress={handleDeleteGoal}
-              >
-                <Text style={styles.deleteModalButtonText}>Delete</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-    );
-  };
-
-  const renderStatusContainer = () => {
-    const optimalDistribution = calculateOptimalDistribution(goals, financialMetrics.availableMoney);
-    const hasImpossibleGoals = optimalDistribution.some(goal => !goal.isPossible);
-
-    if (!hasImpossibleGoals) return null;
-
-    return (
-      <View style={styles.statusContainer}>
-        <View style={styles.statusHeader}>
-          <Ionicons name="information-circle" size={24} color="#FDCB6E" style={styles.statusIcon} />
-          <Text style={styles.statusTitle}>Current Settings</Text>
-        </View>
-        <Text style={styles.statusText}>
-          Based on your current savings rate, some goals may not be achievable by their deadlines. Here's the optimal distribution:
-        </Text>
-        {optimalDistribution.map(goal => (
-          <View key={goal.id} style={styles.originalSettingsValue}>
-            <Text>
-              {goal.name}: {goal.percentage.toFixed(1)}% of remaining savings
-              {!goal.isPossible && ` (Possible by ${goal.possibleDate.toLocaleDateString()})`}
-            </Text>
-          </View>
-        ))}
-      </View>
-    );
-  };
-
-  // Função para calcular progresso linear baseado no tempo
-  const calculateTimeProgress = (goal) => {
-    const creationDate = new Date(goal.created_at);
-    const deadlineDate = new Date(goal.deadline);
-    const today = new Date();
-
-    // Calcula o total de dias entre criação e deadline
-    const totalDays = Math.max(Math.ceil((deadlineDate - creationDate) / (1000 * 60 * 60 * 24)), 1);
-    
-    // Calcula quantos dias já se passaram desde a criação
-    const daysPassed = Math.floor((today - creationDate) / (1000 * 60 * 60 * 24));
-    
-    // Calcula a porcentagem que cada dia representa
-    const percentagePerDay = 100 / totalDays;
-    
-    // Calcula o progresso atual
-    let progress = daysPassed * percentagePerDay;
-    
-    // Limita o progresso entre 0 e 100
-    if (today >= deadlineDate) return 100;
-    if (daysPassed < 0) return 0;
-    return Math.min(progress, 99.99);
-  };
-
-  // Savings color helper
-  const getSavingsColor = (percentage) => {
-    if (percentage < 50) return '#00B894'; // verde
-    if (percentage < 95) return '#FDCB6E'; // amarelo
-    return '#E74C3C'; // vermelho
-  };
-
-  const handleSavingsTypeChange = (type) => {
-    if (type === 'percentage' && formData.inputType === 'fixed' && financialMetrics.availableMoney > 0) {
-      // Converter valor fixo para porcentagem (com decimais)
-      const percent = (parseFloat(formData.fixedValue) / financialMetrics.availableMoney) * 100;
-      setFormData({
-        ...formData,
-        inputType: 'percentage',
-        goal_saving_minimum: percent ? parseFloat(percent.toFixed(2)) : 0,
-      });
-    } else if (type === 'fixed' && formData.inputType === 'percentage' && financialMetrics.availableMoney > 0) {
-      // Converter porcentagem para valor fixo
-      const fixed = (parseFloat(formData.goal_saving_minimum) / 100) * financialMetrics.availableMoney;
-      setFormData({
-        ...formData,
-        inputType: 'fixed',
-        fixedValue: fixed ? parseFloat(fixed.toFixed(2)) : 0,
-      });
-    } else {
-      setFormData({ ...formData, inputType: type });
-    }
-  };
-
   const renderAddEditModal = () => {
-    if (!isModalVisible) return null;
+    if (!goalState.isModalVisible) return null;
 
     return (
       <Modal
-        visible={isModalVisible}
+        visible={goalState.isModalVisible}
         transparent
         animationType="fade"
-        onRequestClose={() => setModalVisible(false)}
+        onRequestClose={() => setGoalState(prev => ({ ...prev, isModalVisible: false }))}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
             <View style={styles.modalHeaderContainer}>
               <Text style={styles.modalHeader}>
-                {editingGoal ? 'Edit Goal' : 'Add New Goal'}
+                {goalState.editingGoal ? 'Edit Goal' : 'Add New Goal'}
               </Text>
               <TouchableOpacity
                 style={styles.closeButton}
-                onPress={() => setModalVisible(false)}
+                onPress={() => setGoalState(prev => ({ ...prev, isModalVisible: false }))}
               >
                 <Ionicons name="close" size={24} color="#2D3436" />
               </TouchableOpacity>
@@ -1301,7 +769,6 @@ const GoalsPage = () => {
                     keyboardType="decimal-pad"
                     value={formData.fixedValue.toString()}
                     onChangeText={(text) => {
-                      // Aceitar apenas números e ponto
                       const clean = text.replace(/[^0-9.]/g, '');
                       setFormData({
                         ...formData,
@@ -1311,7 +778,7 @@ const GoalsPage = () => {
                     }}
                   />
                   <Text style={styles.savingsDescription}>
-                    {isInt(formData.fixedValue) ? 'Valor inteiro' : 'Valor decimal'}
+                    {Number.isInteger(Number(formData.fixedValue)) ? 'Valor inteiro' : 'Valor decimal'}
                   </Text>
                   <Text style={styles.savingsDescription}>
                     Enter the fixed amount you want to save monthly
@@ -1329,7 +796,6 @@ const GoalsPage = () => {
                     keyboardType="decimal-pad"
                     value={formData.goal_saving_minimum.toString()}
                     onChangeText={(text) => {
-                      // Aceitar apenas números e ponto
                       const clean = text.replace(/[^0-9.]/g, '');
                       const percent = parseFloat(clean) || 0;
                       setFormData({
@@ -1342,13 +808,13 @@ const GoalsPage = () => {
                     }}
                   />
                   <Text style={styles.savingsDescription}>
-                    {isInt(formData.goal_saving_minimum) ? 'Valor inteiro' : 'Valor decimal'}
+                    {Number.isInteger(Number(formData.goal_saving_minimum)) ? 'Valor inteiro' : 'Valor decimal'}
                   </Text>
                   <Text style={styles.savingsDescription}>
                     This percentage will be taken from your available money after expenses
                   </Text>
                   <Text style={styles.savingsDescription}>
-                    Fixed value: {financialMetrics.availableMoney > 0 ? new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(((formData.goal_saving_minimum / 100) * financialMetrics.availableMoney).toFixed(2)) : '--'}
+                    Fixed value: {financialMetrics.availableMoney > 0 ? formatCurrency(((formData.goal_saving_minimum / 100) * financialMetrics.availableMoney).toFixed(2)) : '--'}
                   </Text>
                 </View>
               )}
@@ -1357,7 +823,7 @@ const GoalsPage = () => {
             <View style={styles.modalButtonsContainer}>
               <TouchableOpacity
                 style={[styles.modalButton, styles.cancelButton]}
-                onPress={() => setModalVisible(false)}
+                onPress={() => setGoalState(prev => ({ ...prev, isModalVisible: false }))}
               >
                 <Ionicons name="close" size={20} color="#FFFFFF" />
                 <Text style={styles.cancelButtonText}>Cancel</Text>
@@ -1376,271 +842,43 @@ const GoalsPage = () => {
     );
   };
 
-  // Função para calcular progresso financeiro automático (corrigido para metas de curto prazo)
-  const calculateFinancialProgress = (goal, availableMoney) => {
-    if (!goal || !goal.amount || !goal.created_at || !goal.deadline) return 0;
-    const creationDate = new Date(goal.created_at);
-    const today = new Date();
-    const deadlineDate = new Date(goal.deadline);
-    const totalDays = Math.max(1, Math.ceil((deadlineDate - creationDate) / (1000 * 60 * 60 * 24)));
-    const daysPassed = Math.max(0, Math.floor((today - creationDate) / (1000 * 60 * 60 * 24)));
-    let dailyGain;
-    if (totalDays < 30) {
-      // Para metas de menos de 30 dias, precisa acumular tudo no período
-      dailyGain = (goal.goal_saving_minimum / 100) * availableMoney / totalDays;
-    } else {
-      dailyGain = ((goal.goal_saving_minimum / 100) * availableMoney) / 30;
-    }
-    const accumulated = dailyGain * daysPassed;
-    return Math.min((accumulated / goal.amount) * 100, 100);
-  };
-
-  // Função auxiliar para calcular o menor savings possível só com savings (sem cortar despesas)
-  const calculateMinSavingsOnly = (goal, availableMoney) => {
-    const creationDate = new Date(goal.created_at);
-    const deadlineDate = new Date(goal.deadline);
-    const totalDays = Math.max(1, Math.ceil((deadlineDate - creationDate) / (1000 * 60 * 60 * 24)));
-    if (totalDays < 30) {
-      return availableMoney > 0 ? (goal.amount / availableMoney) * 100 : 0;
-    } else {
-      const months = totalDays / 30;
-      const minMonthly = goal.amount / months;
-      return availableMoney > 0 ? (minMonthly / availableMoney) * 100 : 0;
-    }
-  };
-
-  // Função auxiliar para calcular o menor savings possível cortando despesas
-  const calculateMinSavingsWithExpenseCut = (goal, availableMoney, expenses = []) => {
-    // Ordena despesas por prioridade (menor primeiro)
-    const sortedExpenses = [...expenses].sort((a, b) => (a.priority || 0) - (b.priority || 0));
-    for (const expense of sortedExpenses) {
-      const newAvailable = availableMoney + expense.amount;
-      const minPercent = calculateMinSavingsOnly(goal, newAvailable);
-      if (minPercent <= 100) {
-        return {
-          minPercent,
-          expense,
-        };
-      }
-    }
-    return null;
-  };
-
-  const renderGoalDetailsModal = () => {
-    if (!selectedGoal) return null;
-    const status = goalStatuses[selectedGoal.id];
-    const daysToDeadline = calculateDaysUntilDeadline(selectedGoal.deadline);
-    const progress = calculateTimeProgress(selectedGoal);
-    const availableMoney = financialMetrics.availableMoney || 0;
-    const financialProgress = calculateFinancialProgress(selectedGoal, availableMoney);
-    const fixedValue = availableMoney > 0 ? (selectedGoal.goal_saving_minimum / 100) * availableMoney : 0;
-
-    // Calcular menor savings necessário (corrigido para metas de curto prazo)
-    const creationDate = new Date(selectedGoal.created_at);
-    const deadlineDate = new Date(selectedGoal.deadline);
-    const totalDays = Math.max(1, Math.ceil((deadlineDate - creationDate) / (1000 * 60 * 60 * 24)));
-    let minMonthly, minPercent;
-    if (totalDays < 30) {
-      minMonthly = selectedGoal.amount;
-      minPercent = availableMoney > 0 ? (selectedGoal.amount / availableMoney) * 100 : 0;
-    } else {
-      const months = totalDays / 30;
-      minMonthly = selectedGoal.amount / months;
-      minPercent = availableMoney > 0 ? (minMonthly / availableMoney) * 100 : 0;
-    }
-
-    // Buscar despesas do usuário para método 2
-    // (Aqui, simulei um array de despesas. Substitua por fetch real se necessário)
-    const expenses = [
-      // Exemplo: { name: 'A', amount: 10, priority: 1 }, ...
-    ];
-    // Método 2: savings + corte de despesa
-    const minWithCut = calculateMinSavingsWithExpenseCut(selectedGoal, availableMoney, expenses);
-
-    // Status customizado para todos os casos
-    let customStatus = status;
-    if (daysToDeadline < 0 && financialProgress < 100) {
-      customStatus = {
-        status: 3,
-        message: 'Meta expirada! O prazo acabou e o objetivo financeiro não foi alcançado.',
-      };
-    } else if (financialProgress >= 100) {
-      customStatus = {
-        status: 1,
-        message: 'Parabéns! Você atingiu a meta!',
-      };
-    } else if (daysToDeadline === 0) {
-      customStatus = { status: 4, message: 'Hoje é o dia da meta! Reveja seu progresso ou ajuste sua meta.' };
-    } else if (status?.status === 3 || status?.status === 'error') {
-      customStatus = {
-        status: 3,
-        message: 'Meta não alcançável com as configurações atuais.',
-      };
-    }
-    const { icon, title, textColor, backgroundColor } = getStatusInfo(customStatus);
-
-    // Mostrar aviso de valor ideal (azul) só para status 1 (verde)
-    const showIdeal = customStatus.status === 1 && daysToDeadline > 0 && financialProgress < 100 && minPercent > 0 && selectedGoal.goal_saving_minimum > minPercent;
-
-    // Mostrar métodos possíveis para status 2 (ajustes)
-    const showMethods = customStatus.status === 2 && daysToDeadline > 0 && financialProgress < 100;
+  const renderDeleteModal = () => {
+    if (!goalState.goalToDelete) return null;
 
     return (
       <Modal
-        visible={isDetailsModalVisible}
+        visible={goalState.isDeleteModalVisible}
         transparent
         animationType="fade"
-        onRequestClose={() => setDetailsModalVisible(false)}
+        onRequestClose={() => setGoalState(prev => ({ ...prev, isDeleteModalVisible: false }))}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
-            <View style={styles.modalHeaderContainer}>
-              <Text style={styles.modalHeader}>{selectedGoal.name}</Text>
-              <TouchableOpacity
-                style={styles.closeButton}
-                onPress={() => setDetailsModalVisible(false)}
-              >
-                <Ionicons name="close" size={24} color="#2D3436" />
-              </TouchableOpacity>
+          <View style={styles.deleteModalContainer}>
+            <View style={styles.deleteModalHeader}>
+              <Ionicons name="warning" size={32} color="#E74C3C" />
+              <Text style={styles.deleteModalTitle}>Delete Goal</Text>
             </View>
-
-            <View style={styles.modalContent}>
-              <View style={styles.detailsGrid}>
-                <View style={styles.detailsRow}>
-                  <View style={styles.detailsItem}>
-                    <Text style={styles.detailsLabel}>Progress (Time)</Text>
-                    <View style={styles.progressContainer}>
-                      <View style={[styles.progressBar, { width: `${progress}%` }]} />
-                      <Text style={styles.progressText}>{progress.toFixed(1)}%</Text>
-                    </View>
-                  </View>
-                </View>
-                {/* Barra de progresso financeiro */}
-                <View style={styles.detailsRow}>
-                  <View style={styles.detailsItem}>
-                    <Text style={styles.detailsLabel}>Progress (Financial)</Text>
-                    <View style={styles.progressContainer}>
-                      <View style={[styles.progressBar, { width: `${financialProgress}%`, backgroundColor: '#0984e3' }]} />
-                      <Text style={styles.progressText}>{financialProgress.toFixed(1)}%</Text>
-                    </View>
-                    <Text style={styles.detailsSubtext}>
-                      {((goal) => {
-                        const creationDate = new Date(goal.created_at);
-                        const today = new Date();
-                        const daysPassed = Math.max(0, Math.floor((today - creationDate) / (1000 * 60 * 60 * 24)));
-                        let dailyGain;
-                        if (totalDays < 30) {
-                          dailyGain = ((goal.goal_saving_minimum / 100) * availableMoney) / totalDays;
-                        } else {
-                          dailyGain = ((goal.goal_saving_minimum / 100) * availableMoney) / 30;
-                        }
-                        const accumulated = dailyGain * daysPassed;
-                        return `${accumulated.toFixed(2)} / ${goal.amount} €`;
-                      })(selectedGoal)}
-                    </Text>
-                  </View>
-                </View>
-                <View style={styles.detailsRow}>
-                  <View style={styles.detailsItem}>
-                    <Text style={styles.detailsLabel}>Savings (%)</Text>
-                    <Text style={styles.detailsValue}>
-                      {Number(selectedGoal.goal_saving_minimum).toFixed(2)}%
-                    </Text>
-                  </View>
-                  <View style={styles.detailsItem}>
-                    <Text style={styles.detailsLabel}>Fixed Value (€)</Text>
-                    <Text style={styles.detailsValue}>
-                      {new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(fixedValue.toFixed(2))}
-                    </Text>
-                  </View>
-                </View>
-                <View style={styles.detailsRow}>
-                  <View style={styles.detailsItem}>
-                    <Text style={styles.detailsLabel}>Deadline</Text>
-                    <Text style={styles.detailsValue}>
-                      {new Date(selectedGoal.deadline).toLocaleDateString()}
-                    </Text>
-                  </View>
-                  <View style={styles.detailsItem}>
-                    <Text style={styles.detailsLabel}>Target Amount</Text>
-                    <Text style={styles.detailsValue}>
-                      {new Intl.NumberFormat('pt-PT', {
-                        style: 'currency',
-                        currency: 'EUR',
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      }).format(Number(selectedGoal.amount).toFixed(2))}
-                    </Text>
-                  </View>
-                </View>
-              </View>
-
-              {/* Aviso do menor savings necessário (azul) só para status 1) */}
-              {showIdeal && (
-                <View style={{ backgroundColor: '#eaf4fb', borderRadius: 8, padding: 8, marginBottom: 12, marginTop: 4, alignItems: 'center', flexDirection: 'row', gap: 8 }}>
-                  <Ionicons name="information-circle" size={18} color="#0984e3" style={{ marginRight: 4 }} />
-                  <Text style={{ color: '#0984e3', fontSize: 13, fontWeight: '500' }}>
-                    Economize mais! Basta usar <Text style={{ fontWeight: 'bold' }}>{minPercent.toFixed(2)}%</Text> ({new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(minMonthly)}/mês) que consegue alcançar a sua meta!
-                  </Text>
-                </View>
-              )}
-
-              {/* Métodos possíveis para status 2 (ajustes) */}
-              {showMethods && (
-                <View style={{ backgroundColor: '#fffbe6', borderRadius: 8, padding: 10, marginBottom: 12, marginTop: 4 }}>
-                  <Text style={{ color: '#FDCB6E', fontWeight: 'bold', fontSize: 14, marginBottom: 4 }}>Como alcançar a meta:</Text>
-                  <Text style={{ color: '#636e72', fontSize: 13, marginBottom: 2 }}>
-                    1. Só com savings: {minPercent <= 100 ? `${minPercent.toFixed(2)}% (${new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(minMonthly)}/mês)` : 'Não é possível só com savings'}
-                  </Text>
-                  {minWithCut ? (
-                    <Text style={{ color: '#636e72', fontSize: 13 }}>
-                      2. Savings {minWithCut.minPercent.toFixed(2)}% ({new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format((minWithCut.minPercent / 100) * (availableMoney + (minWithCut.expense?.amount || 0)))}/mês) e cortar a despesa '{minWithCut.expense?.name}' (prioridade {minWithCut.expense?.priority})
-                    </Text>
-                  ) : (
-                    <Text style={{ color: '#636e72', fontSize: 13 }}>
-                      2. Savings + corte de despesa: Não foi possível encontrar uma despesa para cortar que torne a meta possível.
-                    </Text>
-                  )}
-                </View>
-              )}
-
-              {/* Avisos customizados */}
-              {customStatus && (
-                <View style={[styles.statusContainer, { backgroundColor }]}> 
-                  <View style={styles.statusHeader}>
-                    <View className={styles.statusIcon}>{icon}</View>
-                    <Text style={[styles.statusTitle, { color: textColor }]}>
-                      {title}
-                    </Text>
-                  </View>
-                  <Text style={[styles.statusText, { color: textColor }]}>
-                    {customStatus.message}
-                  </Text>
-                </View>
-              )}
-
-              <View style={styles.detailsActions}>
-                <TouchableOpacity
-                  style={[styles.actionButton, styles.editButton]}
-                  onPress={() => {
-                    setDetailsModalVisible(false);
-                    handleEditGoal(selectedGoal);
-                  }}
-                >
-                  <Ionicons name="pencil" size={20} color="#FFFFFF" />
-                  <Text style={styles.actionButtonText}>Edit</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.actionButton, styles.deleteButton]}
-                  onPress={() => {
-                    setDetailsModalVisible(false);
-                    confirmDeleteGoal(selectedGoal);
-                  }}
-                >
-                  <Ionicons name="trash" size={20} color="#FFFFFF" />
-                  <Text style={styles.actionButtonText}>Delete</Text>
-                </TouchableOpacity>
-              </View>
+            <Text style={styles.deleteModalText}>
+              Are you sure you want to delete "{goalState.goalToDelete.name}"?
+            </Text>
+            <Text style={styles.deleteModalSubtext}>
+              This action cannot be undone. All progress and data associated with this goal will be permanently deleted.
+            </Text>
+            <View style={styles.deleteModalButtonsContainer}>
+              <TouchableOpacity
+                style={[styles.deleteModalButton, styles.deleteModalCancelButton]}
+                onPress={() => setGoalState(prev => ({ ...prev, isDeleteModalVisible: false }))}
+              >
+                <Text style={[styles.deleteModalButtonText, styles.deleteModalCancelButtonText]}>
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.deleteModalButton, styles.deleteModalConfirmButton]}
+                onPress={handleDeleteGoal}
+              >
+                <Text style={styles.deleteModalButtonText}>Delete</Text>
+              </TouchableOpacity>
             </View>
           </View>
         </View>
@@ -1648,15 +886,35 @@ const GoalsPage = () => {
     );
   };
 
-  // Verificação de inteiro/decimal e aceitação de ponto
-  const isInt = (val) => {
-    const n = Number(val);
-    return Number.isInteger(n);
+  const handleSavingsTypeChange = (type) => {
+    if (type === 'percentage' && formData.inputType === 'fixed' && financialMetrics.availableMoney > 0) {
+      const percent = (parseFloat(formData.fixedValue) / financialMetrics.availableMoney) * 100;
+      setFormData({
+        ...formData,
+        inputType: 'percentage',
+        goal_saving_minimum: percent ? parseFloat(percent.toFixed(2)) : 0,
+      });
+    } else if (type === 'fixed' && formData.inputType === 'percentage' && financialMetrics.availableMoney > 0) {
+      const fixed = (parseFloat(formData.goal_saving_minimum) / 100) * financialMetrics.availableMoney;
+      setFormData({
+        ...formData,
+        inputType: 'fixed',
+        fixedValue: fixed ? parseFloat(fixed.toFixed(2)) : 0,
+      });
+    } else {
+      setFormData({ ...formData, inputType: type });
+    }
+  };
+
+  const getSavingsColor = (percentage) => {
+    if (percentage < 50) return '#00B894';
+    if (percentage < 95) return '#FDCB6E';
+    return '#E74C3C';
   };
 
   return (
     <View style={styles.container}>
-      {(!isModalVisible && !isDeleteModalVisible && !isDetailsModalVisible && showAlert) && (
+      {(!goalState.isModalVisible && !goalState.isDeleteModalVisible && !goalState.isDetailsModalVisible && showAlert) && (
         <View style={styles.alertContainer}>
           <AlertComponent
             type={alertType}
@@ -1690,7 +948,21 @@ const GoalsPage = () => {
 
       {renderDeleteModal()}
 
-      {renderGoalDetailsModal()}
+      <GoalDetailsModal
+        goal={goalState.selectedGoal}
+        visible={goalState.isDetailsModalVisible}
+        onClose={() => setGoalState(prev => ({ ...prev, isDetailsModalVisible: false }))}
+        onEdit={() => {
+          setGoalState(prev => ({ ...prev, isDetailsModalVisible: false }));
+          handleEditGoal(goalState.selectedGoal);
+        }}
+        onDelete={() => {
+          setGoalState(prev => ({ ...prev, isDetailsModalVisible: false }));
+          confirmDeleteGoal(goalState.selectedGoal);
+        }}
+        status={goalState.selectedGoal ? goalStatuses[goalState.selectedGoal.id] : null}
+        financialMetrics={financialMetrics}
+      />
     </View>
   );
 };

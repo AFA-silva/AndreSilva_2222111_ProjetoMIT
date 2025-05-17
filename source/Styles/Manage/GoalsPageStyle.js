@@ -50,19 +50,19 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#00B894',
   },
-  goalProgressContainer: {
+  progressContainer: {
     height: 8,
     backgroundColor: '#DFE6E9',
     borderRadius: 4,
     marginBottom: 8,
     position: 'relative',
   },
-  goalProgressBar: {
+  progressBar: {
     height: '100%',
     backgroundColor: '#00B894',
     borderRadius: 4,
   },
-  goalProgressText: {
+  progressText: {
     position: 'absolute',
     right: 0,
     top: -20,
@@ -78,12 +78,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
   },
-  deadlineLabel: {
-    color: '#7F8C8D',
-  },
-  deadlineValue: {
-    color: '#2D3436',
-    fontWeight: '600',
+  deadlineRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 8,
   },
   progressPercentage: {
     fontSize: 12,
@@ -166,27 +165,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#DFE6E9',
   },
-  savingsInputContainer: {
-    backgroundColor: '#F8F9FA',
-    borderRadius: 8,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#DFE6E9',
-  },
-  savingsInputRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  savingsLabel: {
-    fontSize: 16,
-    color: '#2D3436',
-  },
-  savingsValue: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#00B894',
-  },
   savingsDescription: {
     fontSize: 14,
     color: '#7F8C8D',
@@ -247,17 +225,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 24,
   },
-  originalSettingsText: {
-    fontSize: 14,
-    color: '#7F8C8D',
-    marginTop: 12,
-    marginBottom: 4,
-  },
-  originalSettingsValue: {
-    fontSize: 14,
-    color: '#2D3436',
-    lineHeight: 20,
-  },
   financialMetricsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -289,9 +256,6 @@ const styles = StyleSheet.create({
   availableMoney: {
     color: '#00B894',
   },
-  savingsPercentage: {
-    color: '#FDCB6E',
-  },
   listWrapper: {
     flex: 1,
   },
@@ -316,10 +280,6 @@ const styles = StyleSheet.create({
     left: 16,
     right: 16,
     zIndex: 1000,
-  },
-  modalScrollContent: {
-    flexGrow: 1,
-    justifyContent: 'center',
   },
   detailsGrid: {
     marginBottom: 24,
@@ -347,24 +307,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#00B894',
     marginTop: 4,
-  },
-  progressContainer: {
-    height: 8,
-    backgroundColor: '#DFE6E9',
-    borderRadius: 4,
-    position: 'relative',
-  },
-  progressBar: {
-    height: '100%',
-    backgroundColor: '#00B894',
-    borderRadius: 4,
-  },
-  progressText: {
-    position: 'absolute',
-    right: 0,
-    top: -20,
-    fontSize: 14,
-    color: '#7F8C8D',
   },
   detailsActions: {
     flexDirection: 'row',
@@ -417,11 +359,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 24,
   },
-  deleteButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
   deleteModalContainer: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
@@ -455,25 +392,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   deleteModalCancelButtonText: {
-    color: '#2D3436',
-  },
-  deadlineRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  datePickerButton: {
-    backgroundColor: '#F8F9FA',
-    borderRadius: 8,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#DFE6E9',
-    height: 48,
-    justifyContent: 'center',
-  },
-  datePickerButtonText: {
-    fontSize: 16,
     color: '#2D3436',
   },
   savingsTypeContainer: {

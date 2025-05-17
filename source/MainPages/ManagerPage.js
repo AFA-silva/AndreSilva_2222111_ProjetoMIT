@@ -39,7 +39,9 @@ const ManagerPage = ({ navigation }) => {
           </View>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.managerButton}>
+        <TouchableOpacity 
+        style={styles.managerButton}
+        >
           <View style={styles.buttonRow}>
             <Ionicons name="earth-outline" size={24} color="#FF9800" />
             <Text style={styles.buttonText}>Mercado de Moedas</Text>
