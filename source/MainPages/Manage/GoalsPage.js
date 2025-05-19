@@ -70,6 +70,9 @@ const GoalDetailsModal = ({ goal, visible, onClose, onEdit, onDelete, status, fi
   const dailySaving = fixedValue / 30; // Aproximação
   const accumulated = dailySaving * daysPassed;
 
+  // Verificar se há cenários disponíveis
+  const hasScenarios = status && status.scenarios;
+
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.modalOverlay}>
@@ -81,7 +84,7 @@ const GoalDetailsModal = ({ goal, visible, onClose, onEdit, onDelete, status, fi
             </TouchableOpacity>
           </View>
 
-          <View style={styles.modalContent}>
+          <ScrollView style={styles.modalContent}>
             <View style={styles.detailsGrid}>
               <View style={styles.detailsRow}>
                 <View style={styles.detailsItem}>
@@ -142,6 +145,57 @@ const GoalDetailsModal = ({ goal, visible, onClose, onEdit, onDelete, status, fi
               </View>
             )}
 
+            {/* Nova seção para mostrar cenários */}
+            {hasScenarios && (
+              <View style={styles.scenariosContainer}>
+                <Text style={styles.sectionTitle}>Análise de Cenários</Text>
+                
+                {/* Cenário Atual */}
+                <ScenarioItem 
+                  title="Cenário Atual"
+                  possible={status.scenarios.baseScenario.possible}
+                  description={`Poupança atual: ${goal.goal_saving_minimum}% (${formatCurrency(status.scenarios.baseScenario.monthlyAmount)}/mês)`}
+                />
+
+                {/* Cenário de Ajuste de Porcentagem */}
+                <ScenarioItem
+                  title="Ajuste de Porcentagem"
+                  possible={status.scenarios.percentageScenario.possible}
+                  description={`Necessário: ${status.scenarios.percentageScenario.newPercentage.toFixed(2)}% (${formatCurrency(status.scenarios.percentageScenario.monthlyChange)} a mais/mês)`}
+                />
+
+                {/* Cenários de Despesas */}
+                {status.scenarios.expenseScenarios.map((scenario, index) => {
+                  if (scenario.removedExpenses > 0) {
+                    return (
+                      <ScenarioItem
+                        key={`expense-${index}`}
+                        title={`Remover Prioridade ${scenario.priority}`}
+                        possible={scenario.possible}
+                        description={`${scenario.removedExpenses} despesa(s): economia de ${formatCurrency(scenario.monthlySavings)}/mês`}
+                      />
+                    );
+                  }
+                  return null;
+                })}
+
+                {/* Cenários Combinados */}
+                {status.scenarios.combinedScenarios.map((scenario, index) => {
+                  if (scenario.removedExpenses > 0) {
+                    return (
+                      <ScenarioItem
+                        key={`combined-${index}`}
+                        title={`Porcentagem + Prioridade ${scenario.priority}`}
+                        possible={scenario.possible}
+                        description={`${scenario.newPercentage.toFixed(2)}% + remover ${scenario.removedExpenses} despesa(s)`}
+                      />
+                    );
+                  }
+                  return null;
+                })}
+              </View>
+            )}
+
             <View style={styles.detailsActions}>
               <TouchableOpacity
                 style={[styles.actionButton, styles.editButton]}
@@ -158,12 +212,27 @@ const GoalDetailsModal = ({ goal, visible, onClose, onEdit, onDelete, status, fi
                 <Text style={styles.actionButtonText}>Delete</Text>
               </TouchableOpacity>
             </View>
-          </View>
+          </ScrollView>
         </View>
       </View>
     </Modal>
   );
 };
+
+// Componente para mostrar um cenário
+const ScenarioItem = ({ title, possible, description }) => (
+  <View style={styles.scenarioItem}>
+    <Ionicons 
+      name={possible ? "checkmark-circle" : "close-circle"} 
+      size={20} 
+      color={possible ? "#00B894" : "#E74C3C"} 
+    />
+    <View style={styles.scenarioTextContainer}>
+      <Text style={styles.scenarioTitle}>{title}</Text>
+      <Text style={styles.scenarioDescription}>{description}</Text>
+    </View>
+  </View>
+);
 
 const GoalsPage = () => {
   // Estados consolidados

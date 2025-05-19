@@ -421,6 +421,43 @@ const styles = StyleSheet.create({
   savingsTypeButtonTextActive: {
     color: '#FFFFFF',
   },
+  scenariosContainer: {
+    marginTop: 20,
+    padding: 15,
+    backgroundColor: '#F8F9FA',
+    borderRadius: 10,
+    marginBottom: 15,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#2D3436',
+    marginBottom: 12,
+  },
+  scenarioItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginVertical: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 5,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  scenarioTextContainer: {
+    marginLeft: 10,
+    flex: 1,
+  },
+  scenarioTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#2D3436',
+    marginBottom: 4,
+  },
+  scenarioDescription: {
+    fontSize: 12,
+    color: '#636E72',
+    lineHeight: 16,
+  },
 });
 
 export default styles;
