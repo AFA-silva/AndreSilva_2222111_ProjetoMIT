@@ -450,6 +450,7 @@ const GoalsPage = () => {
   const fetchGoals = async (userId) => {
     if (!userId) return;
     try {
+      // Primeiro busca as metas
       const { data, error } = await supabase
         .from('goals')
         .select('*')
@@ -457,21 +458,71 @@ const GoalsPage = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setGoals(data || []);
-
-      if (data) {
+      
+      // Depois busca os dados financeiros necessários para os cálculos
+      const { availableMoney } = await fetchFinancialData(userId);
+      setFinancialMetrics(prev => ({
+        ...prev,
+        availableMoney
+      }));
+      
+      if (data && data.length > 0) {
+        // Calcular e atualizar os status de todas as metas
         const statuses = {};
-        for (const goal of data) {
-          statuses[goal.id] = await calculateGoalStatus(goal, supabase);
-        }
-        setGoalStatuses(statuses);
-
-        const { availableMoney } = await fetchFinancialData(userId);
+        const updatePromises = [];
         
-        setFinancialMetrics(prev => ({
-          ...prev,
-          availableMoney
-        }));
+        // Para cada meta, calcula o status e atualiza no banco se necessário
+        for (const goal of data) {
+          try {
+            const status = await calculateGoalStatus(goal, supabase);
+            statuses[goal.id] = status;
+            
+            // Converter status para números se necessário
+            const statusNum = typeof status.status === 'string' 
+              ? (status.status === 'success' ? 1 : status.status === 'info' ? 2 : status.status === 'error' ? 3 : status.status === 'info-blue' ? 4 : 1)
+              : status.status;
+              
+            // Atualizar apenas se o status for diferente do atual
+            if (goal.status !== statusNum || goal.status_message !== status.message) {
+              updatePromises.push(
+                supabase
+                  .from('goals')
+                  .update({
+                    status: statusNum,
+                    status_message: status.message
+                  })
+                  .eq('id', goal.id)
+              );
+            }
+          } catch (statusError) {
+            console.error(`Error calculating status for goal ${goal.id}:`, statusError);
+          }
+        }
+        
+        // Executar todas as atualizações em paralelo
+        if (updatePromises.length > 0) {
+          await Promise.all(updatePromises);
+          
+          // Buscar as metas atualizadas
+          const { data: updatedData } = await supabase
+            .from('goals')
+            .select('*')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false });
+            
+          if (updatedData) {
+            setGoals(updatedData);
+          } else {
+            setGoals(data);
+          }
+        } else {
+          setGoals(data);
+        }
+        
+        setGoalStatuses(statuses);
+      } else {
+        setGoals([]);
+        setGoalStatuses({});
       }
     } catch (error) {
       console.error('Error fetching goals:', error);
@@ -655,17 +706,27 @@ const GoalsPage = () => {
         return;
       }
 
-      let statusValue = 1;
-      const statusResult = await calculateGoalStatus({
+      // Criar objeto de meta temporário para cálculo de status
+      const tempGoal = {
         ...formData,
         amount: parseFloat(formData.amount),
         deadline: formData.deadline,
         goal_saving_minimum: allocation.validation.newPercentage,
-        user_id: userId
-      }, supabase);
-      if (statusResult?.status === 'success') statusValue = 1;
-      else if (statusResult?.status === 'info') statusValue = 2;
-      else if (statusResult?.status === 'error') statusValue = 3;
+        user_id: userId,
+        created_at: goalState.editingGoal?.created_at || new Date().toISOString()
+      };
+      
+      // Calcular status completo com análise de cenários
+      const statusResult = await calculateGoalStatus(tempGoal, supabase);
+      
+      // Definir o valor numérico do status
+      let statusValue = 1; // Padrão: Alcançável
+      if (statusResult) {
+        if (statusResult.status === 1 || statusResult.status === 'success') statusValue = 1;
+        else if (statusResult.status === 2 || statusResult.status === 'info') statusValue = 2;
+        else if (statusResult.status === 3 || statusResult.status === 'error') statusValue = 3;
+        else if (statusResult.status === 4 || statusResult.status === 'info-blue') statusValue = 4;
+      }
 
       const payload = {
         name: formData.name,
@@ -674,13 +735,17 @@ const GoalsPage = () => {
         goal_saving_minimum: allocation.validation.newPercentage,
         user_id: userId,
         status: statusValue,
+        status_message: statusResult?.message || '',
       };
 
+      let error;
       if (goalState.editingGoal) {
-        await supabase.from('goals').update(payload).eq('id', goalState.editingGoal.id);
+        ({ error } = await supabase.from('goals').update(payload).eq('id', goalState.editingGoal.id));
       } else {
-        await supabase.from('goals').insert([payload]);
+        ({ error } = await supabase.from('goals').insert([payload]));
       }
+
+      if (error) throw error;
 
       setAlertMessage('Goal added successfully!');
       setAlertType('success');
@@ -773,24 +838,41 @@ const GoalsPage = () => {
     const totalDays = Math.max(1, Math.ceil((deadlineDate - creationDate) / (1000 * 60 * 60 * 24)));
     const availableMoney = financialMetrics.availableMoney || 0;
     const financialProgress = calculateGoalProgress(item, 'financial', availableMoney);
+    
+    // Calcular quanto já foi poupado
+    const daysPassed = Math.max(0, Math.floor((today - creationDate) / (1000 * 60 * 60 * 24)));
+    const fixedValue = availableMoney > 0 ? (item.goal_saving_minimum / 100) * availableMoney : 0;
+    const dailySaving = fixedValue / 30; // aproximação mensal para diária
+    const alreadySaved = dailySaving * daysPassed;
+    
+    // Calcular dias estimados para conclusão considerando valor já poupado
+    const currentSaving = (item.goal_saving_minimum / 100) * availableMoney;
+    const amountLeft = Math.max(0, item.amount - alreadySaved);
+    const daysNeeded = currentSaving > 0 ? Math.ceil(amountLeft / (currentSaving / 30)) : Infinity;
+    const daysEstimated = isFinite(daysNeeded) ? daysNeeded : 0;
+    
+    // Verificar se a meta será alcançada antes do prazo
+    const willReachOnTime = daysEstimated <= daysToDeadline && daysEstimated > 0;
 
+    // Usar o status do item se disponível, senão usar o calculado
+    const effectiveStatus = item.status || (status ? status.status : 1);
+    
     let statusIcon = 'checkmark-circle';
     let statusColor = '#00B894';
-    if (daysToDeadline === 0) {
+    
+    // Definir o ícone e cor com base no status real da meta
+    if (effectiveStatus === 4) {
       statusIcon = 'information-circle';
       statusColor = '#0984e3';
-    } else if (status?.status === 1 || status?.status === 'success') {
-      statusIcon = 'checkmark-circle';
-      statusColor = '#00B894';
-    } else if (status?.status === 2 || status?.status === 'info') {
-      statusIcon = 'warning';
-      statusColor = '#FDCB6E';
-    } else if (status?.status === 3 || status?.status === 'error') {
+    } else if (effectiveStatus === 3) {
       statusIcon = 'close-circle';
       statusColor = '#E74C3C';
-    } else if (status?.status === 4 || status?.status === 'info-blue') {
-      statusIcon = 'information-circle';
-      statusColor = '#0984e3';
+    } else if (effectiveStatus === 2) {
+      statusIcon = 'warning';
+      statusColor = '#FDCB6E';
+    } else if (effectiveStatus === 1) {
+      statusIcon = 'checkmark-circle';
+      statusColor = '#00B894';
     }
 
     let daysMsg = '';
@@ -799,6 +881,7 @@ const GoalsPage = () => {
     } else if (daysToDeadline < 0) {
       daysMsg = 'Meta expirada';
     } else {
+      // Voltar para o formato original mas incluindo a informação de dias
       daysMsg = `${daysToDeadline} dias (Deadline: ${totalDays} dias)`;
     }
 
@@ -1187,3 +1270,4 @@ const GoalsPage = () => {
 };
 
 export default GoalsPage;
+

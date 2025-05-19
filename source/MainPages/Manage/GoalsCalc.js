@@ -24,12 +24,22 @@
       return Math.min(progress, 99.99);
     } else if (type === 'financial') {
       const daysPassed = Math.max(0, Math.floor((today - creationDate) / (1000 * 60 * 60 * 24)));
-      const prop = totalDays / 30;
-      const propPassed = daysPassed / 30;
-      const periodAvailable = availableMoney * prop;
-      const periodPassedAvailable = availableMoney * propPassed;
-      const accumulated = (goal.goal_saving_minimum / 100) * periodPassedAvailable;
-      return Math.min((accumulated / goal.amount) * 100, 100);
+      
+      // Cálculo de progresso financeiro com base no que deveria ter sido poupado até agora
+      const monthlyContribution = (goal.goal_saving_minimum / 100) * availableMoney;
+      const dailyContribution = monthlyContribution / 30;
+      const expectedSaved = dailyContribution * daysPassed;
+      const expectedProgress = Math.min((expectedSaved / goal.amount) * 100, 100);
+      
+      // Para metas já vencidas, ajustar a expectativa de conclusão
+      if (today > deadlineDate) {
+        // A meta estava atrasada - use 100% do esperado no dia final
+        const daysToDeadline = Math.ceil((deadlineDate - creationDate) / (1000 * 60 * 60 * 24));
+        const amountAtDeadline = dailyContribution * daysToDeadline;
+        return Math.min((amountAtDeadline / goal.amount) * 100, 100);
+      }
+      
+      return expectedProgress;
     }
     return 0;
   };
@@ -41,12 +51,15 @@
       const deadlineDate = new Date(goal.deadline);
       const daysToDeadline = Math.ceil((deadlineDate - today) / (1000 * 60 * 60 * 24));
       
+      // Status 4 apenas no dia da meta (exatamente hoje)
       if (daysToDeadline === 0) {
         return {
           status: 4,
           message: 'Hoje é o dia da meta! Verifique se já atingiu o valor necessário.'
         };
       }
+      
+      // Metas expiradas devem ser tratadas como impossíveis (status 3)
       if (daysToDeadline < 0) {
         return {
           status: 3,
@@ -109,6 +122,38 @@
           message: 'Esta meta é alcançável com a poupança atual.',
           scenarios
         };
+      } else if (scenarios.recommendedScenario) {
+        // Usar a mensagem detalhada do cenário recomendado
+        let statusMsg = '';
+        
+        if (scenarios.recommendedScenario.type === 'percentage') {
+          statusMsg = `Meta possível aumentando para ${scenarios.recommendedScenario.newPercentage.toFixed(2)}% da poupança.`;
+        } 
+        else if (scenarios.recommendedScenario.type === 'expense') {
+          const expenseNames = scenarios.recommendedScenario.expenseDetails 
+            ? scenarios.recommendedScenario.expenseDetails.map(e => e.name).join(", ")
+            : '';
+          statusMsg = `Meta possível removendo despesas: ${expenseNames}.`;
+        }
+        else if (scenarios.recommendedScenario.type === 'multiPriority') {
+          const prioritiesText = scenarios.recommendedScenario.priorities.join(', ');
+          const expenseNames = scenarios.recommendedScenario.expenseDetails
+            ? scenarios.recommendedScenario.expenseDetails.slice(0, 3).map(e => e.name).join(", ")
+            : '';
+          statusMsg = `Meta possível removendo despesas de prioridade ${prioritiesText}${expenseNames ? ` (${expenseNames}${scenarios.recommendedScenario.expenseDetails.length > 3 ? '...' : ''})` : ''}.`;
+        }
+        else if (scenarios.recommendedScenario.type === 'combined') {
+          const expenseNames = scenarios.recommendedScenario.expenseDetails
+            ? scenarios.recommendedScenario.expenseDetails.slice(0, 2).map(e => e.name).join(", ")
+            : '';
+          statusMsg = `Meta possível com ${scenarios.recommendedScenario.newPercentage.toFixed(2)}% e removendo despesas${expenseNames ? ` (${expenseNames}${scenarios.recommendedScenario.expenseDetails.length > 2 ? '...' : ''})` : ''}.`;
+        }
+        
+        return {
+          status: 2,
+          message: statusMsg,
+          scenarios
+        };
       } else if (scenarios.percentageScenario.possible) {
         return {
           status: 2,
@@ -117,16 +162,22 @@
         };
       } else if (scenarios.expenseScenarios.some(s => s.possible)) {
         const bestScenario = scenarios.expenseScenarios.find(s => s.possible);
+        const expenseNames = bestScenario.expenseDetails 
+          ? bestScenario.expenseDetails.map(e => e.name).join(", ")
+          : '';
         return {
           status: 2,
-          message: `Meta possível removendo ${bestScenario.removedExpenses} despesa(s) de prioridade ${bestScenario.priority}.`,
+          message: `Meta possível removendo despesas: ${expenseNames}.`,
           scenarios
         };
       } else if (scenarios.combinedScenarios.some(s => s.possible)) {
         const bestCombined = scenarios.combinedScenarios.find(s => s.possible);
+        const expenseNames = bestCombined.expenseDetails
+          ? bestCombined.expenseDetails.slice(0, 2).map(e => e.name).join(", ")
+          : '';
         return {
           status: 2,
-          message: `Meta possível com ${bestCombined.newPercentage.toFixed(2)}% e removendo despesas de prioridade ${bestCombined.priority}.`,
+          message: `Meta possível com ${bestCombined.newPercentage.toFixed(2)}% e removendo despesas${expenseNames ? ` (${expenseNames}${bestCombined.expenseDetails.length > 2 ? '...' : ''})` : ''}.`,
           scenarios
         };
       } else {
