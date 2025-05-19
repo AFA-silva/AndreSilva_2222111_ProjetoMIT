@@ -44,13 +44,13 @@ export const calculateGoalStatus = async (goal, supabase) => {
     if (daysToDeadline === 0) {
       return {
         status: 4,
-        message: 'Esta meta deve ser alcançada hoje!'
+        message: 'Hoje é o dia da meta! Verifique se já atingiu o valor necessário.'
       };
     }
     if (daysToDeadline < 0) {
       return {
         status: 3,
-        message: 'Esta meta já expirou e não foi alcançada.'
+        message: 'Esta meta já expirou e não foi alcançada. Altere a data de entrega para continuar.'
       };
     }
     const { data: userGoals, error: goalsError } = await supabase
@@ -99,61 +99,75 @@ export const calculateGoalStatus = async (goal, supabase) => {
   }
 };
 
-// Função para calcular a distribuição ótima
-export const calculateOptimalDistribution = (goals, availableMoney) => {
-  if (!goals || goals.length === 0 || !availableMoney) {
+// Função para calcular valores alocados
+export const calculateAllocationValue = (goals, availableMoney, currentGoalId = null, newPercentage = 0) => {
+  if (!goals || !Array.isArray(goals)) {
     return {
-      distribution: [],
       totalPercentage: 0,
-      message: 'Não há metas para distribuir.'
+      totalFixedValue: 0,
+      isValid: true,
+      message: 'Nenhuma meta encontrada'
     };
   }
-  const sortedGoals = [...goals].sort((a, b) => {
-    const deadlineA = new Date(a.deadline);
-    const deadlineB = new Date(b.deadline);
-    return deadlineA - deadlineB;
-  });
-  let totalPercentage = 0;
-  const distribution = sortedGoals.map(goal => {
-    const creationDate = new Date(goal.created_at);
-    const deadlineDate = new Date(goal.deadline);
-    const today = new Date();
-    const daysToDeadline = Math.ceil((deadlineDate - today) / (1000 * 60 * 60 * 24));
-    const totalDays = Math.max(1, Math.ceil((deadlineDate - creationDate) / (1000 * 60 * 60 * 24)));
-    const monthsToDeadline = daysToDeadline / 30;
-    const monthlyNeeded = goal.amount / monthsToDeadline;
-    const percentageNeeded = (monthlyNeeded / availableMoney) * 100;
-    if (daysToDeadline <= 0) {
-      return {
-        goalId: goal.id,
-        goalName: goal.name,
-        percentage: 0,
-        message: 'Meta expirada ou para hoje'
-      };
-    }
-    if (percentageNeeded > (100 - totalPercentage)) {
-      const remainingPercentage = 100 - totalPercentage;
-      totalPercentage = 100;
-      return {
-        goalId: goal.id,
-        goalName: goal.name,
-        percentage: remainingPercentage,
-        message: 'Distribuição parcial devido ao limite de 100%'
-      };
-    }
-    totalPercentage += percentageNeeded;
+
+  // Validação do novo valor
+  const roundedNewPercentage = newPercentage ? parseFloat(Number(newPercentage).toFixed(2)) : 0;
+  if (roundedNewPercentage < 0 || roundedNewPercentage > 100) {
     return {
-      goalId: goal.id,
-      goalName: goal.name,
-      percentage: percentageNeeded,
-      message: 'Distribuição completa'
+      totalPercentage: 0,
+      totalFixedValue: 0,
+      isValid: false,
+      message: 'Porcentagem inválida. Deve estar entre 0 e 100.'
     };
-  });
+  }
+
+  const allocation = goals.reduce((acc, goal) => {
+    // Ignora a meta atual se estiver editando
+    if (currentGoalId && String(goal.id) === String(currentGoalId)) {
+      return acc;
+    }
+
+    const percentage = goal.goal_saving_minimum || 0;
+    const fixedValue = (percentage / 100) * availableMoney;
+
+    return {
+      totalPercentage: acc.totalPercentage + percentage,
+      totalFixedValue: acc.totalFixedValue + fixedValue
+    };
+  }, { totalPercentage: 0, totalFixedValue: 0 });
+
+  // Arredonda para 2 casas decimais
+  allocation.totalPercentage = Number(allocation.totalPercentage.toFixed(2));
+  allocation.totalFixedValue = Number(allocation.totalFixedValue.toFixed(2));
+
+  // Cálculo do novo total incluindo a nova porcentagem
+  const newTotalPercentage = allocation.totalPercentage + roundedNewPercentage;
+  const newTotalFixedValue = (newTotalPercentage / 100) * availableMoney;
+
+  // Validações
+  const isValid = newTotalPercentage <= 100;
+  const remainingPercentage = 100 - allocation.totalPercentage;
+  const remainingFixedValue = availableMoney - allocation.totalFixedValue;
+
   return {
-    distribution,
-    totalPercentage,
-    message: totalPercentage >= 100 ? 
-      'Distribuição completa atingiu o limite de 100%' : 
-      'Distribuição parcial, ainda há espaço para mais metas'
+    ...allocation,
+    newTotalPercentage: Number(newTotalPercentage.toFixed(2)),
+    newTotalFixedValue: Number(newTotalFixedValue.toFixed(2)),
+    isValid,
+    remainingPercentage,
+    remainingFixedValue,
+    message: isValid 
+      ? `Alocação atual: ${allocation.totalPercentage}% (${formatCurrency(allocation.totalFixedValue)})`
+      : `Alocação excede 100% (${newTotalPercentage}%)`,
+    validation: {
+      isValid,
+      currentPercentage: allocation.totalPercentage,
+      newPercentage: roundedNewPercentage,
+      newTotalPercentage,
+      availableMoney,
+      currentFixedValue: allocation.totalFixedValue,
+      newFixedValue: (roundedNewPercentage / 100) * availableMoney
+    }
   };
 };
+

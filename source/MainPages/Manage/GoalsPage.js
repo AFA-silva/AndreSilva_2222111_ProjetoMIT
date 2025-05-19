@@ -6,7 +6,7 @@ import { supabase } from '../../../Supabase';
 import styles from '../../Styles/Manage/GoalsPageStyle';
 import AlertComponent from '../../Utility/Alerts';
 import { useFocusEffect } from '@react-navigation/native';
-import { formatCurrency, calculateGoalProgress, calculateGoalStatus, calculateOptimalDistribution } from './GoalsCalc';
+import { formatCurrency, calculateGoalProgress, calculateGoalStatus, calculateAllocationValue } from './GoalsCalc';
 
 // Funções auxiliares
 
@@ -183,7 +183,7 @@ const GoalsPage = () => {
     totalIncome: 0,
     totalExpenses: 0,
     availableMoney: 0,
-    totalSavingsPercentage: 0,
+    totalSavingsPercentage: 0
   });
 
   // Alert states
@@ -265,12 +265,10 @@ const GoalsPage = () => {
         setGoalStatuses(statuses);
 
         const { availableMoney } = await fetchFinancialData(userId);
-        const optimalDistribution = calculateOptimalDistribution(data, availableMoney);
         
         setFinancialMetrics(prev => ({
           ...prev,
-          availableMoney,
-          optimalDistribution
+          availableMoney
         }));
       }
     } catch (error) {
@@ -434,9 +432,6 @@ const GoalsPage = () => {
         return;
       }
 
-      const roundedPercentage = formData.goal_saving_minimum ? parseFloat(Number(formData.goal_saving_minimum).toFixed(2)) : 0;
-      const roundedFixedValue = formData.fixedValue && !isNaN(parseFloat(formData.fixedValue)) ? parseFloat(Number(formData.fixedValue).toFixed(2)) : 0;
-
       const { data: userGoals, error: goalsError } = await supabase
         .from('goals')
         .select('id, goal_saving_minimum')
@@ -444,15 +439,15 @@ const GoalsPage = () => {
 
       if (goalsError) throw goalsError;
 
-      const currentTotalPercentage = userGoals.reduce((sum, goal) => {
-        if (goalState.editingGoal && String(goal.id) === String(goalState.editingGoal.id)) return sum;
-        return sum + (goal.goal_saving_minimum || 0);
-      }, 0);
+      const allocation = calculateAllocationValue(
+        userGoals,
+        financialMetrics.availableMoney,
+        goalState.editingGoal?.id,
+        formData.goal_saving_minimum
+      );
 
-      const newTotalPercentage = currentTotalPercentage + roundedPercentage;
-
-      if (newTotalPercentage > 100) {
-        setAlertMessage(`Cannot add goal. Total savings percentage would exceed 100% (currently using ${currentTotalPercentage.toFixed(2)}%)`);
+      if (!allocation.isValid) {
+        setAlertMessage(allocation.message);
         setAlertType('error');
         setShowAlert(true);
         return;
@@ -463,7 +458,7 @@ const GoalsPage = () => {
         ...formData,
         amount: parseFloat(formData.amount),
         deadline: formData.deadline,
-        goal_saving_minimum: roundedPercentage,
+        goal_saving_minimum: allocation.validation.newPercentage,
         user_id: userId
       }, supabase);
       if (statusResult?.status === 'success') statusValue = 1;
@@ -474,7 +469,7 @@ const GoalsPage = () => {
         name: formData.name,
         amount: amount,
         deadline: formData.deadline.toISOString().split('T')[0],
-        goal_saving_minimum: roundedPercentage,
+        goal_saving_minimum: allocation.validation.newPercentage,
         user_id: userId,
         status: statusValue,
       };
@@ -485,14 +480,16 @@ const GoalsPage = () => {
         await supabase.from('goals').insert([payload]);
       }
 
-      setAlertMessage(`Goal ${goalState.editingGoal ? 'updated' : 'added'} successfully!`);
+      setAlertMessage('Goal added successfully!');
       setAlertType('success');
       setShowAlert(true);
-      setGoalState(prev => ({
-        ...prev,
-        isModalVisible: false,
-        editingGoal: null
-      }));
+      setTimeout(() => {
+        setGoalState(prev => ({
+          ...prev,
+          isModalVisible: false,
+          editingGoal: null
+        }));
+      }, 3000);
       await fetchGoals(userId);
       await calculateFinancialMetrics(userId);
     } catch (error) {
@@ -683,6 +680,22 @@ const GoalsPage = () => {
         onRequestClose={() => setGoalState(prev => ({ ...prev, isModalVisible: false }))}
       >
         <View style={styles.modalOverlay}>
+          {showAlert && goalState.isModalVisible && (
+            <View style={{
+              position: 'absolute',
+              top: 20,
+              left: 0,
+              right: 0,
+              zIndex: 999999,
+              alignItems: 'center',
+            }}>
+              <AlertComponent
+                type={alertType}
+                message={alertMessage}
+                onClose={() => setShowAlert(false)}
+              />
+            </View>
+          )}
           <View style={styles.modalContainer}>
             <View style={styles.modalHeaderContainer}>
               <Text style={styles.modalHeader}>
@@ -912,18 +925,18 @@ const GoalsPage = () => {
     return '#E74C3C';
   };
 
+  // Fecha o alerta automaticamente após 2 segundos
+  useEffect(() => {
+    if (showAlert) {
+      const timer = setTimeout(() => {
+        setShowAlert(false);
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [showAlert]);
+
   return (
     <View style={styles.container}>
-      {(!goalState.isModalVisible && !goalState.isDeleteModalVisible && !goalState.isDetailsModalVisible && showAlert) && (
-        <View style={styles.alertContainer}>
-          <AlertComponent
-            type={alertType}
-            message={alertMessage}
-            onClose={() => setShowAlert(false)}
-          />
-        </View>
-      )}
-
       <Text style={styles.header}>Financial Goals</Text>
 
       {renderFinancialMetrics()}
@@ -963,6 +976,23 @@ const GoalsPage = () => {
         status={goalState.selectedGoal ? goalStatuses[goalState.selectedGoal.id] : null}
         financialMetrics={financialMetrics}
       />
+
+      {showAlert && !goalState.isModalVisible && (
+        <View style={{
+          position: 'absolute',
+          top: 20,
+          left: 0,
+          right: 0,
+          zIndex: 999999,
+          alignItems: 'center',
+        }}>
+          <AlertComponent
+            type={alertType}
+            message={alertMessage}
+            onClose={() => setShowAlert(false)}
+          />
+        </View>
+      )}
     </View>
   );
 };

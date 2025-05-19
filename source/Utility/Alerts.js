@@ -28,8 +28,8 @@ const Alert = ({ message, type = 'info', onClose }) => {
 
 const styles = StyleSheet.create({
   alertContainer: {
-    position: 'absolute', // Faz com que o alerta se sobreponha aos demais elementos
-    top: 40,           // Ajuste a posição vertical conforme necessário
+    position: 'absolute',
+    top: 40,
     left: 10,
     right: 10,
     flexDirection: 'row',
@@ -37,7 +37,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 12,
     borderRadius: 8,
-    zIndex: 1000,      // Garante que fique acima de outros componentes
+    elevation: 9999, // Para Android
+    zIndex: 999999, // Para iOS
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
   },
   alertText: {
     color: 'white',
