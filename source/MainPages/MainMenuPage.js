@@ -155,7 +155,7 @@ const MainMenuPage = ({ navigation }) => {
             marginBottom: 24,
             shadowColor: '#1A365D',
             shadowOffset: { width: 0, height: 3 },
-            shadowOpacity: 0.08,
+            shadowOpacity: 0.1,
             shadowRadius: 8,
             elevation: 4,
           }}

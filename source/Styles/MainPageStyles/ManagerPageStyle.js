@@ -25,7 +25,7 @@ const styles = StyleSheet.create({
   managerButton: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    padding: 20,
+    padding: 18,
     marginBottom: 15,
     shadowColor: '#1A365D',
     shadowOffset: { width: 0, height: 3 },
@@ -42,7 +42,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   buttonText: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '700',
     color: '#2D3748',
     marginLeft: 16,
@@ -51,8 +51,8 @@ const styles = StyleSheet.create({
   categoryLabel: {
     fontSize: 14,
     color: '#718096',
-    marginTop: 6,
-    marginLeft: 40,
+    marginTop: 2,
+    marginLeft: 16,
     letterSpacing: 0.2,
   },
   iconContainer: {
@@ -64,13 +64,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   disabledButton: {
-    opacity: 0.6,
+    opacity: 0.7,
     backgroundColor: '#F5F7FA',
+    borderLeftColor: '#CBD5E0',
   },
   comingSoonBadge: {
     position: 'absolute',
-    top: 10,
-    right: 10,
+    top: 12,
+    right: 12,
     backgroundColor: 'rgba(113, 128, 150, 0.1)',
     paddingHorizontal: 8,
     paddingVertical: 4,

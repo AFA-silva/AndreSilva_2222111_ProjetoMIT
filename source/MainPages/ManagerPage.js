@@ -6,7 +6,7 @@ import styles from '../Styles/MainPageStyles/ManagerPageStyle';
 const ManagerPage = ({ navigation }) => {
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.header}>Gerenciamento</Text>
+      <Text style={styles.header}>Manager</Text>
 
       <View style={styles.menuContainer}>
         <TouchableOpacity
@@ -17,11 +17,11 @@ const ManagerPage = ({ navigation }) => {
             <View style={styles.iconContainer}>
               <Ionicons name="cash-outline" size={24} color="#FF9800" />
             </View>
-            <View style={{ flex: 1 }}>
+            <View>
               <Text style={styles.buttonText}>Manage Income</Text>
               <Text style={styles.categoryLabel}>Track all your income sources</Text>
             </View>
-            <Ionicons name="chevron-forward" size={22} color="#CBD5E0" />
+            <Ionicons name="chevron-forward" size={22} color="#CBD5E0" style={{ marginLeft: 'auto' }} />
           </View>
         </TouchableOpacity>
 
@@ -33,11 +33,11 @@ const ManagerPage = ({ navigation }) => {
             <View style={styles.iconContainer}>
               <Ionicons name="card-outline" size={24} color="#FF9800" />
             </View>
-            <View style={{ flex: 1 }}>
+            <View>
               <Text style={styles.buttonText}>Manage Expenses</Text>
               <Text style={styles.categoryLabel}>Control your spending</Text>
             </View>
-            <Ionicons name="chevron-forward" size={22} color="#CBD5E0" />
+            <Ionicons name="chevron-forward" size={22} color="#CBD5E0" style={{ marginLeft: 'auto' }} />
           </View>
         </TouchableOpacity>
 
@@ -49,11 +49,11 @@ const ManagerPage = ({ navigation }) => {
             <View style={styles.iconContainer}>
               <Ionicons name="flag-outline" size={24} color="#FF9800" />
             </View>
-            <View style={{ flex: 1 }}>
+            <View>
               <Text style={styles.buttonText}>Manage Goals</Text>
               <Text style={styles.categoryLabel}>Set and track your financial goals</Text>
             </View>
-            <Ionicons name="chevron-forward" size={22} color="#CBD5E0" />
+            <Ionicons name="chevron-forward" size={22} color="#CBD5E0" style={{ marginLeft: 'auto' }} />
           </View>
         </TouchableOpacity>
 
@@ -67,7 +67,7 @@ const ManagerPage = ({ navigation }) => {
             <View style={[styles.iconContainer, { backgroundColor: 'rgba(113, 128, 150, 0.1)' }]}>
               <Ionicons name="earth-outline" size={24} color="#718096" />
             </View>
-            <View style={{ flex: 1 }}>
+            <View>
               <Text style={[styles.buttonText, { color: '#718096' }]}>Mercado de Moedas</Text>
               <Text style={styles.categoryLabel}>Coming soon...</Text>
             </View>
@@ -84,7 +84,7 @@ const ManagerPage = ({ navigation }) => {
             <View style={[styles.iconContainer, { backgroundColor: 'rgba(113, 128, 150, 0.1)' }]}>
               <Ionicons name="trending-up-outline" size={24} color="#718096" />
             </View>
-            <View style={{ flex: 1 }}>
+            <View>
               <Text style={[styles.buttonText, { color: '#718096' }]}>Investimentos</Text>
               <Text style={styles.categoryLabel}>Coming soon...</Text>
             </View>
