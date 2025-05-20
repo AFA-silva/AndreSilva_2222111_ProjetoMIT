@@ -35,6 +35,44 @@ const SecurityPage = () => {
     fetchSession();
   }, []);
 
+  // Add a new useEffect to listen for auth state changes
+  useEffect(() => {
+    // Set up auth state change listener
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+      // If the user changes their email and verifies it, this event will fire
+      if (event === 'USER_UPDATED' && session) {
+        // Check if email has changed compared to our stored oldEmail
+        if (session.user.email !== oldEmail && session.user.email_confirmed_at) {
+          try {
+            // Now update the email in database since auth email was confirmed
+            const { error: dbError } = await supabase
+              .from('users')
+              .update({ email: session.user.email })
+              .eq('id', session.user.id);
+              
+            if (dbError) {
+              console.error('Failed to update email in database:', dbError);
+            } else {
+              // Update local session data
+              setUserSession(session);
+              setOldEmail(session.user.email);
+              showAlert('Email has been successfully updated!', 'success');
+            }
+          } catch (error) {
+            console.error('Error syncing email with database:', error);
+          }
+        }
+      }
+    });
+
+    // Clean up listener on component unmount
+    return () => {
+      if (authListener && authListener.subscription) {
+        authListener.subscription.unsubscribe();
+      }
+    };
+  }, [oldEmail]);
+
   const showAlert = (message, type) => {
     const alertId = Date.now();
     setAlerts([...alerts, { id: alertId, message, type }]);
@@ -82,6 +120,10 @@ const SecurityPage = () => {
       await supabase.from('users').update({ password: newPassword }).eq('id', userSession.user.id);
       showAlert('Password updated successfully.', 'success');
       setPasswordModalVisible(false);
+      // Clear password fields
+      setOldPassword('');
+      setNewPassword('');
+      setConfirmNewPassword('');
     } catch (error) {
       showAlert('An unexpected error occurred. Please try again.', 'error');
     }
@@ -101,7 +143,7 @@ const SecurityPage = () => {
       return;
     }
     try {
-      // Update email in Supabase Auth
+      // Update email in Supabase Auth only - don't update database yet
       const { error: authError } = await supabase.auth.updateUser({
         email: newEmail,
       });
@@ -110,22 +152,14 @@ const SecurityPage = () => {
         return;
       }
 
-      // Update email in the database
-      const { error: dbError } = await supabase
-        .from('users')
-        .update({ email: newEmail })
-        .eq('id', userSession.user.id);
-      if (dbError) {
-        showAlert(`Email updated in Auth but failed in Database: ${dbError.message}`, 'error');
-        return;
-      }
-
-      // Refresh session and show success alert
-      const sessionUpdate = await supabase.auth.getSession();
-      setUserSession(sessionUpdate.data.session);
-      showAlert('Verify your new email to confirm its respective change!', 'info');
-      setOldEmail(newEmail);
+      // Don't update the database at this point - remove the immediate database update
+      
+      // Show success alert that tells user to check their email
+      showAlert('Please check your new email inbox and click the confirmation link to complete the change.', 'info');
       setEmailModalVisible(false);
+      // Clear email fields
+      setNewEmail('');
+      setConfirmNewEmail('');
     } catch (error) {
       showAlert('An unexpected error occurred. Please try again.', 'error');
     }
@@ -147,10 +181,10 @@ const SecurityPage = () => {
       {/* Tips and Help Section */}
       <View style={styles.tipsSection}>
         <Text style={styles.tipText}>
-          Tip: Use a secure password and update it regularly to enhance your account security.
+          <Ionicons name="information-circle" size={18} color="#F9A825" /> Use a strong password with a combination of letters, numbers, and special characters.
         </Text>
         <Text style={styles.tipText}>
-          Help: If you encounter any issues, contact support or check the FAQ section.
+          <Ionicons name="information-circle" size={18} color="#F9A825" /> Regularly update your password to enhance your account security.
         </Text>
       </View>
 
@@ -158,16 +192,24 @@ const SecurityPage = () => {
         style={styles.actionButton}
         onPress={() => setPasswordModalVisible(true)}
       >
+        <View style={styles.buttonIcon}>
+          <Ionicons name="key-outline" size={18} color="#F9A825" />
+        </View>
         <Text style={styles.actionButtonText}>Change Password</Text>
       </TouchableOpacity>
+      
       <TouchableOpacity
         style={styles.actionButton}
         onPress={() => setEmailModalVisible(true)}
       >
+        <View style={styles.buttonIcon}>
+          <Ionicons name="mail-outline" size={18} color="#F9A825" />
+        </View>
         <Text style={styles.actionButtonText}>Change Email</Text>
       </TouchableOpacity>
+      
       {/* Password Modal */}
-      <Modal visible={isPasswordModalVisible} transparent>
+      <Modal visible={isPasswordModalVisible} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
             <Text style={styles.modalHeader}>Change Password</Text>
@@ -193,19 +235,20 @@ const SecurityPage = () => {
               onChangeText={setConfirmNewPassword}
             />
             <TouchableOpacity style={styles.submitButton} onPress={handlePasswordChange}>
-              <Text style={styles.submitButtonText}>Submit</Text>
+              <Text style={styles.submitButtonText}>Update Password</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.goBackButton}
               onPress={() => setPasswordModalVisible(false)}
             >
-              <Text style={styles.goBackButtonText}>Go Back</Text>
+              <Text style={styles.goBackButtonText}>Cancel</Text>
             </TouchableOpacity>
           </View>
         </View>
       </Modal>
+      
       {/* Email Modal */}
-      <Modal visible={isEmailModalVisible} transparent>
+      <Modal visible={isEmailModalVisible} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
             <Text style={styles.modalHeader}>Change Email</Text>
@@ -213,23 +256,25 @@ const SecurityPage = () => {
             <TextInput
               style={styles.input}
               placeholder="New Email"
+              keyboardType="email-address"
               value={newEmail}
               onChangeText={setNewEmail}
             />
             <TextInput
               style={styles.input}
               placeholder="Confirm New Email"
+              keyboardType="email-address"
               value={confirmNewEmail}
               onChangeText={setConfirmNewEmail}
             />
             <TouchableOpacity style={styles.submitButton} onPress={handleEmailChange}>
-              <Text style={styles.submitButtonText}>Submit</Text>
+              <Text style={styles.submitButtonText}>Update Email</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.goBackButton}
               onPress={() => setEmailModalVisible(false)}
             >
-              <Text style={styles.goBackButtonText}>Go Back</Text>
+              <Text style={styles.goBackButtonText}>Cancel</Text>
             </TouchableOpacity>
           </View>
         </View>

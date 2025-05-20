@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Animated } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 
@@ -7,13 +7,6 @@ const NavigationBar = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const [activeRoute, setActiveRoute] = useState('MainMenuPage');
-  
-  // Animation values
-  const labelOpacity = useRef({
-    MainMenuPage: new Animated.Value(0),
-    ManagerPage: new Animated.Value(0),
-    SettingsPage: new Animated.Value(0)
-  }).current;
 
   // Set the active route based on the current route
   useEffect(() => {
@@ -21,17 +14,8 @@ const NavigationBar = () => {
       ? route.params?.screen || 'MainMenuPage' 
       : route.name;
     
-    // Handle animations
-    Object.keys(labelOpacity).forEach(key => {
-      Animated.timing(labelOpacity[key], {
-        toValue: key === routeName ? 1 : 0,
-        duration: 200,
-        useNativeDriver: false
-      }).start();
-    });
-    
     setActiveRoute(routeName);
-  }, [route, labelOpacity]);
+  }, [route]);
 
   // Check if a route is active
   const isRouteActive = (routeName) => {
@@ -42,63 +26,45 @@ const NavigationBar = () => {
     <View style={styles.navbarContainer}>
       <View style={styles.navbar}>
         <TouchableOpacity 
-          style={styles.navItem} 
+          style={[styles.navItem, isRouteActive('MainMenuPage') && styles.activeNavItem]} 
           onPress={() => navigation.navigate('MainPages', { screen: 'MainMenuPage' })}
         >
-          <View style={[
-            styles.iconContainer,
-            isRouteActive('MainMenuPage') && styles.activeIconContainer
-          ]}>
+          <View style={styles.iconBackground}>
             <Ionicons 
-              name="home" 
+              name={isRouteActive('MainMenuPage') ? "home" : "home-outline"} 
               size={22} 
-              color={isRouteActive('MainMenuPage') ? '#FFFFFF' : '#333333'} 
+              color={isRouteActive('MainMenuPage') ? "#FF9800" : "#6B5B3D"} 
             />
           </View>
-          <Animated.Text style={[
-            styles.navText,
-            { opacity: labelOpacity.MainMenuPage }
-          ]}>Home</Animated.Text>
+          <Text style={[styles.navText, isRouteActive('MainMenuPage') && styles.activeNavText]}>Home</Text>
         </TouchableOpacity>
 
         <TouchableOpacity 
-          style={styles.navItem} 
+          style={[styles.navItem, isRouteActive('ManagerPage') && styles.activeNavItem]} 
           onPress={() => navigation.navigate('MainPages', { screen: 'ManagerPage' })}
         >
-          <View style={[
-            styles.iconContainer,
-            isRouteActive('ManagerPage') && styles.activeIconContainer
-          ]}>
+          <View style={styles.iconBackground}>
             <Ionicons 
-              name="briefcase" 
+              name={isRouteActive('ManagerPage') ? "briefcase" : "briefcase-outline"} 
               size={22} 
-              color={isRouteActive('ManagerPage') ? '#FFFFFF' : '#333333'} 
+              color={isRouteActive('ManagerPage') ? "#FF9800" : "#6B5B3D"} 
             />
           </View>
-          <Animated.Text style={[
-            styles.navText,
-            { opacity: labelOpacity.ManagerPage }
-          ]}>Manager</Animated.Text>
+          <Text style={[styles.navText, isRouteActive('ManagerPage') && styles.activeNavText]}>Manager</Text>
         </TouchableOpacity>
 
         <TouchableOpacity 
-          style={styles.navItem} 
+          style={[styles.navItem, isRouteActive('SettingsPage') && styles.activeNavItem]} 
           onPress={() => navigation.navigate('MainPages', { screen: 'SettingsPage' })}
         >
-          <View style={[
-            styles.iconContainer,
-            isRouteActive('SettingsPage') && styles.activeIconContainer
-          ]}>
+          <View style={styles.iconBackground}>
             <Ionicons 
-              name="settings" 
+              name={isRouteActive('SettingsPage') ? "settings" : "settings-outline"} 
               size={22} 
-              color={isRouteActive('SettingsPage') ? '#FFFFFF' : '#333333'} 
+              color={isRouteActive('SettingsPage') ? "#FF9800" : "#6B5B3D"} 
             />
           </View>
-          <Animated.Text style={[
-            styles.navText,
-            { opacity: labelOpacity.SettingsPage }
-          ]}>Settings</Animated.Text>
+          <Text style={[styles.navText, isRouteActive('SettingsPage') && styles.activeNavText]}>Settings</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -107,51 +73,53 @@ const NavigationBar = () => {
 
 const styles = StyleSheet.create({
   navbarContainer: {
-    backgroundColor: '#FFA726',
-    paddingTop: 6,
+    backgroundColor: '#FFF9E5',
+    paddingTop: 8,
     paddingBottom: 6,
-    shadowColor: 'rgba(0,0,0,0.3)',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    shadowColor: '#FFA726',
     shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 4,
-    height: 52,
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 8,
+    borderTopWidth: 1,
+    borderColor: '#FFE0B2',
   },
   navbar: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    alignItems: 'center',
-    paddingHorizontal: 15,
+    paddingHorizontal: 10,
   },
   navItem: {
     alignItems: 'center',
     justifyContent: 'center',
-    position: 'relative',
+    paddingHorizontal: 16,
+    paddingVertical: 5,
+    borderRadius: 18,
   },
-  iconContainer: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'transparent',
+  iconBackground: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#FFECB3',
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  activeIconContainer: {
-    backgroundColor: '#FF9800',
-    shadowColor: 'rgba(0,0,0,0.3)',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 3,
-    elevation: 5,
+    marginBottom: 2,
   },
   navText: {
     fontSize: 12,
+    fontWeight: '600',
+    color: '#6B5B3D',
+    marginTop: 1,
+  },
+  activeNavItem: {
+    backgroundColor: 'rgba(255, 152, 0, 0.1)',
+  },
+  activeNavText: {
+    color: '#FF9800',
     fontWeight: '700',
-    color: '#FFFFFF',
-    marginTop: 2,
-    position: 'absolute',
-    bottom: -20,
-  }
+  },
 });
 
 export default NavigationBar;

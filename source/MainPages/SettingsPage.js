@@ -4,10 +4,6 @@ import { Ionicons } from '@expo/vector-icons'; // For icons
 import styles from '../Styles/MainPageStyles/SettingsPageStyle';
 
 const SettingsPage = ({ navigation }) => {
-  const handleLogout = () => {
-    navigation.navigate('Login'); // Navigate to the login page
-  };
-
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.header}>Settings</Text>
@@ -116,11 +112,6 @@ const SettingsPage = ({ navigation }) => {
           </View>
           <Ionicons name="chevron-forward" size={22} color="#CBD5E0" />
         </View>
-      </TouchableOpacity>
-
-      {/* Logout Button */}
-      <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-        <Text style={styles.logoutText}>Logout</Text>
       </TouchableOpacity>
     </ScrollView>
   );
