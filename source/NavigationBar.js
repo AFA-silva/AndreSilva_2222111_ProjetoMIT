@@ -1,90 +1,235 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Animated, Dimensions, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
+
+const { width } = Dimensions.get('window');
 
 const NavigationBar = () => {
   const navigation = useNavigation();
   const route = useRoute();
-  const [activeRoute, setActiveRoute] = useState('MainMenuPage');
+  
+  // Estado que controla qual tab está ativa
+  const [activeTab, setActiveTab] = useState('MainMenuPage');
+  
+  // Animation values para cada tab
+  const tabAnimations = {
+    MainMenuPage: useRef(new Animated.Value(activeTab === 'MainMenuPage' ? 1 : 0)).current,
+    ManagerPage: useRef(new Animated.Value(activeTab === 'ManagerPage' ? 1 : 0)).current,
+    SettingsPage: useRef(new Animated.Value(activeTab === 'SettingsPage' ? 1 : 0)).current
+  };
+  
+  const navbarAnim = useRef(new Animated.Value(0)).current;
 
-  // Set the active route based on the current route
+  // Função para determinar qual rota está ativa
+  const getCurrentRouteName = () => {
+    try {
+      // Se estamos em um stack navigator
+      if (route.state) {
+        const currentRouteName = route.state.routes[route.state.index].name;
+        return currentRouteName;
+      }
+      
+      // Para nested navigators
+      if (route.params && route.params.screen) {
+        return route.params.screen;
+      }
+      
+      // Fallback para o nome da rota direta
+      return route.name;
+    } catch (error) {
+      console.log('Error getting route name:', error);
+      return 'MainMenuPage'; // Default fallback
+    }
+  };
+
+  // Efeito para atualizar as animações quando a tab muda
   useEffect(() => {
-    const routeName = route.name.includes('Stack') 
-      ? route.params?.screen || 'MainMenuPage' 
-      : route.name;
+    // Verificar a rota atual a partir dos estados de navegação
+    const state = navigation.getState();
     
-    setActiveRoute(routeName);
-  }, [route]);
+    // Encontrar qual stack está ativa
+    let activeRouteName = 'MainMenuPage';
+    for (const r of state.routes) {
+      if (r.name === 'MainPages' && r.state) {
+        const activeRouteIndex = r.state.index;
+        activeRouteName = r.state.routes[activeRouteIndex].name;
+        break;
+      }
+    }
+    
+    setActiveTab(activeRouteName);
+    
+    // Animar as tabs
+    const animateTab = (tab, toValue) => {
+      Animated.timing(tabAnimations[tab], {
+        toValue,
+        duration: 250,
+        useNativeDriver: Platform.OS !== 'web',
+      }).start();
+    };
+    
+    // Ativar a tab correta e desativar as outras
+    Object.keys(tabAnimations).forEach(tab => {
+      animateTab(tab, tab === activeRouteName ? 1 : 0);
+    });
+    
+  }, [navigation.getState()]);
 
-  // Check if a route is active
-  const isRouteActive = (routeName) => {
-    return activeRoute === routeName;
+  // Animação inicial da navbar
+  useEffect(() => {
+    Animated.timing(navbarAnim, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: Platform.OS !== 'web',
+    }).start();
+  }, []);
+
+  // Função para navegar para uma tab
+  const navigateToTab = (tabName) => {
+    navigation.navigate('MainPages', { screen: tabName });
+    setActiveTab(tabName);
+  };
+
+  // Renderizar um botão de tab
+  const renderTabButton = (tabName, iconName, label) => {
+    const isActive = activeTab === tabName;
+    const animValue = tabAnimations[tabName];
+    
+    return (
+      <TouchableOpacity 
+        style={[styles.navItem, isActive && styles.activeNavItem]} 
+        onPress={() => navigateToTab(tabName)}
+        activeOpacity={0.7}
+      >
+        <Animated.View 
+          style={{
+            transform: [
+              { 
+                scale: animValue.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0.9, 1]
+                }) 
+              },
+              {
+                translateY: animValue.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0, -6]
+                })
+              }
+            ]
+          }}
+        >
+          <Animated.View 
+            style={[
+              styles.iconBackground,
+              {
+                backgroundColor: animValue.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: ['#FFECB3', 'rgba(249, 168, 37, 0.15)']
+                })
+              }
+            ]}
+          >
+            <Ionicons 
+              name={isActive ? iconName : `${iconName}-outline`} 
+              size={22} 
+              color={isActive ? "#F9A825" : "#6B5B3D"} 
+            />
+          </Animated.View>
+        </Animated.View>
+        
+        <Animated.Text 
+          style={[
+            styles.navText, 
+            isActive && styles.activeNavText,
+            {
+              opacity: animValue,
+              transform: [
+                {
+                  translateY: animValue.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [-5, 0]
+                  })
+                }
+              ]
+            }
+          ]}
+        >
+          {label}
+        </Animated.Text>
+        
+        {isActive && (
+          <View style={styles.activeIndicator} />
+        )}
+      </TouchableOpacity>
+    );
   };
 
   return (
-    <View style={styles.navbarContainer}>
-      <View style={styles.navbar}>
-        <TouchableOpacity 
-          style={[styles.navItem, isRouteActive('MainMenuPage') && styles.activeNavItem]} 
-          onPress={() => navigation.navigate('MainPages', { screen: 'MainMenuPage' })}
-        >
-          <View style={styles.iconBackground}>
-            <Ionicons 
-              name={isRouteActive('MainMenuPage') ? "home" : "home-outline"} 
-              size={22} 
-              color={isRouteActive('MainMenuPage') ? "#FF9800" : "#6B5B3D"} 
-            />
-          </View>
-          <Text style={[styles.navText, isRouteActive('MainMenuPage') && styles.activeNavText]}>Home</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={[styles.navItem, isRouteActive('ManagerPage') && styles.activeNavItem]} 
-          onPress={() => navigation.navigate('MainPages', { screen: 'ManagerPage' })}
-        >
-          <View style={styles.iconBackground}>
-            <Ionicons 
-              name={isRouteActive('ManagerPage') ? "briefcase" : "briefcase-outline"} 
-              size={22} 
-              color={isRouteActive('ManagerPage') ? "#FF9800" : "#6B5B3D"} 
-            />
-          </View>
-          <Text style={[styles.navText, isRouteActive('ManagerPage') && styles.activeNavText]}>Manager</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={[styles.navItem, isRouteActive('SettingsPage') && styles.activeNavItem]} 
-          onPress={() => navigation.navigate('MainPages', { screen: 'SettingsPage' })}
-        >
-          <View style={styles.iconBackground}>
-            <Ionicons 
-              name={isRouteActive('SettingsPage') ? "settings" : "settings-outline"} 
-              size={22} 
-              color={isRouteActive('SettingsPage') ? "#FF9800" : "#6B5B3D"} 
-            />
-          </View>
-          <Text style={[styles.navText, isRouteActive('SettingsPage') && styles.activeNavText]}>Settings</Text>
-        </TouchableOpacity>
+    <Animated.View 
+      style={[
+        styles.navbarContainer,
+        {
+          transform: [
+            { 
+              translateY: navbarAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: [50, 0]
+              }) 
+            }
+          ],
+          opacity: navbarAnim
+        }
+      ]}
+    >
+      <View style={styles.navbarBackground}>
+        <View style={styles.navbarGlow} />
       </View>
-    </View>
+      
+      <View style={styles.navbar}>
+        {renderTabButton('MainMenuPage', 'home', 'Home')}
+        {renderTabButton('ManagerPage', 'briefcase', 'Manager')}
+        {renderTabButton('SettingsPage', 'settings', 'Settings')}
+      </View>
+    </Animated.View>
   );
 };
 
 const styles = StyleSheet.create({
   navbarContainer: {
-    backgroundColor: '#FFF9E5',
+    backgroundColor: '#FFFFFF',
     paddingTop: 8,
-    paddingBottom: 6,
+    paddingBottom: Platform.OS === 'ios' ? 18 : 8,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    shadowColor: '#FFA726',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 8,
-    borderTopWidth: 1,
-    borderColor: '#FFE0B2',
+    shadowColor: '#1E1E1E',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 16,
+    position: 'relative',
+    zIndex: 10,
+  },
+  navbarBackground: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    backgroundColor: '#FFFFFF',
+    overflow: 'hidden',
+  },
+  navbarGlow: {
+    position: 'absolute',
+    width: width * 1.5,
+    height: 150,
+    backgroundColor: 'rgba(249, 168, 37, 0.03)',
+    borderRadius: 100,
+    top: -60,
+    left: width / 2 - (width * 1.5) / 2,
   },
   navbar: {
     flexDirection: 'row',
@@ -94,31 +239,51 @@ const styles = StyleSheet.create({
   navItem: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 5,
-    borderRadius: 18,
+    paddingHorizontal: 15,
+    paddingVertical: 6,
+    borderRadius: 16,
+    position: 'relative',
+    minWidth: width / 5,
+    height: 64,
   },
   iconBackground: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: '#FFECB3',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 2,
+    backgroundColor: 'rgba(249, 168, 37, 0.15)',
+    shadowColor: '#F9A825',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 2,
+    marginBottom: 8,
   },
   navText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
     color: '#6B5B3D',
-    marginTop: 1,
+    marginTop: 0,
+    textAlign: 'center',
+    position: 'absolute',
+    bottom: 4,
+    opacity: 0,
   },
   activeNavItem: {
-    backgroundColor: 'rgba(255, 152, 0, 0.1)',
+    backgroundColor: 'rgba(255, 152, 0, 0.05)',
   },
   activeNavText: {
-    color: '#FF9800',
+    color: '#F9A825',
     fontWeight: '700',
+  },
+  activeIndicator: {
+    position: 'absolute',
+    width: 16,
+    height: 3,
+    backgroundColor: '#F9A825',
+    bottom: 0,
+    borderRadius: 2,
   },
 });
 

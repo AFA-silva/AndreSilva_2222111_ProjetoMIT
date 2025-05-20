@@ -1,4 +1,7 @@
-import { StyleSheet } from 'react-native';
+import { StyleSheet, Dimensions } from 'react-native';
+
+const { width } = Dimensions.get('window');
+const cardWidth = width * 0.88;
 
 const styles = StyleSheet.create({
   container: {
@@ -7,11 +10,53 @@ const styles = StyleSheet.create({
     padding: 24,
     backgroundColor: '#FCFCFD',
     paddingTop: 32,
+    alignItems: 'center',
+  },
+  contentContainer: {
+    width: '100%',
+    maxWidth: 600,
+    alignItems: 'center',
+  },
+  gradientHeader: {
+    width: '100%',
+    position: 'absolute',
+    top: 0,
+    height: 180,
+    backgroundColor: 'rgba(249, 168, 37, 0.08)',
+    borderBottomLeftRadius: 100,
+    borderBottomRightRadius: 30,
+  },
+  decorationCircle: {
+    position: 'absolute',
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    backgroundColor: 'rgba(249, 168, 37, 0.12)',
+    top: -50,
+    right: -50,
+  },
+  decorationDot: {
+    position: 'absolute',
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: 'rgba(249, 168, 37, 0.2)',
+    bottom: 100,
+    left: 30,
   },
   icon: {
-    marginBottom: 24,
+    marginBottom: 16,
     alignSelf: 'center',
     opacity: 0.9,
+  },
+  iconBackground: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: 'rgba(249, 168, 37, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 24,
   },
   header: {
     fontSize: 32,
@@ -29,12 +74,38 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     paddingHorizontal: 24,
     letterSpacing: 0.1,
+    maxWidth: 500,
   },
-  input: {
-    marginBottom: 20,
-    padding: 20,
+  formCard: {
     width: '100%',
     backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 24,
+    shadowColor: '#7B61FF',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.1,
+    shadowRadius: 20,
+    elevation: 10,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(228, 230, 239, 0.4)',
+  },
+  inputContainer: {
+    marginBottom: 20,
+    width: '100%',
+  },
+  inputLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#2D3748',
+    marginBottom: 8,
+    letterSpacing: 0.2,
+  },
+  input: {
+    marginBottom: 5,
+    padding: 20,
+    width: '100%',
+    backgroundColor: '#F8FAFD',
     borderRadius: 16,
     borderWidth: 1,
     borderColor: '#E4E6EF',
@@ -50,9 +121,9 @@ const styles = StyleSheet.create({
     padding: 20,
     height: 170,
     textAlignVertical: 'top',
-    marginBottom: 20,
+    marginBottom: 5,
     width: '100%',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F8FAFD',
     borderRadius: 16,
     borderWidth: 1,
     borderColor: '#E4E6EF',
@@ -63,6 +134,24 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.03,
     shadowRadius: 5,
     elevation: 1,
+  },
+  focusedInput: {
+    borderColor: '#F9A825',
+    backgroundColor: '#FFFDF8',
+    shadowColor: '#F9A825',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.2,
+    shadowRadius: 5,
+  },
+  inputHelpText: {
+    fontSize: 12,
+    color: '#718096',
+    marginTop: 4,
+    marginLeft: 4,
+  },
+  buttonContainer: {
+    width: '100%',
+    marginTop: 10,
   },
   submitButton: {
     backgroundColor: '#F9A825',
@@ -76,12 +165,20 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.35,
     shadowRadius: 10,
     elevation: 8,
+    flexDirection: 'row',
+    justifyContent: 'center',
   },
   submitButtonText: {
     fontSize: 18,
     fontWeight: '700',
     color: '#FFFFFF',
     letterSpacing: 0.4,
+  },
+  submitIcon: {
+    marginRight: 10,
+  },
+  faqButtonContainer: {
+    width: '100%',
   },
   faqButton: {
     backgroundColor: '#FFFFFF',
@@ -112,7 +209,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(22, 23, 34, 0.7)',
     justifyContent: 'center',
     alignItems: 'center',
-    backdropFilter: 'blur(8px)',
   },
   modalContainer: {
     width: '92%',
@@ -126,6 +222,7 @@ const styles = StyleSheet.create({
     elevation: 16,
     borderWidth: 1,
     borderColor: 'rgba(228, 230, 239, 0.4)',
+    maxWidth: 550,
   },
   modalHeader: {
     fontSize: 26,
@@ -134,6 +231,18 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: '#161722',
     letterSpacing: -0.6,
+  },
+  modalHeaderContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 24,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E4E6EF',
+    paddingBottom: 16,
+  },
+  closeIcon: {
+    padding: 8,
   },
   faqScrollView: {
     maxHeight: 420,
@@ -180,6 +289,8 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     borderColor: 'rgba(228, 230, 239, 0.6)',
+    flexDirection: 'row',
+    justifyContent: 'center',
   },
   closeButtonText: {
     fontSize: 17,
@@ -187,6 +298,49 @@ const styles = StyleSheet.create({
     color: '#4A5568',
     letterSpacing: 0.2,
   },
+  activeFaqItem: {
+    borderColor: '#F9A825',
+    shadowColor: '#F9A825',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#E4E6EF',
+    width: '100%',
+    marginVertical: 24,
+  },
+  supportInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 10,
+  },
+  supportInfoText: {
+    fontSize: 15,
+    marginLeft: 10,
+    color: '#4A5568',
+  },
+  supportInfoIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(249, 168, 37, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  supportInfoContainer: {
+    marginTop: 20,
+    marginBottom: 8,
+    width: '100%',
+  },
+  supportInfoTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#2D3748',
+    marginBottom: 16,
+  }
 });
 
 export default styles;

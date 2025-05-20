@@ -1,4 +1,6 @@
-import { StyleSheet } from 'react-native';
+import { StyleSheet, Dimensions } from 'react-native';
+
+const { width } = Dimensions.get('window');
 
 const styles = StyleSheet.create({
   container: {
@@ -6,6 +8,40 @@ const styles = StyleSheet.create({
     padding: 24,
     backgroundColor: '#FCFCFD',
     paddingTop: 32,
+    alignItems: 'center',
+  },
+  contentContainer: {
+    width: '100%',
+    maxWidth: 600,
+    alignItems: 'center',
+  },
+  // Decorative elements
+  gradientHeader: {
+    width: '100%',
+    position: 'absolute',
+    top: 0,
+    height: 180,
+    backgroundColor: 'rgba(249, 168, 37, 0.08)',
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 100,
+  },
+  decorationCircle: {
+    position: 'absolute',
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    backgroundColor: 'rgba(249, 168, 37, 0.1)',
+    top: -30,
+    left: -50,
+  },
+  decorationDot: {
+    position: 'absolute',
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: 'rgba(249, 168, 37, 0.2)',
+    bottom: 60,
+    right: 30,
   },
   header: {
     fontSize: 32,
@@ -16,9 +52,18 @@ const styles = StyleSheet.create({
     letterSpacing: -0.8,
   },
   icon: {
-    marginBottom: 24,
+    marginBottom: 16,
     alignSelf: 'center',
     opacity: 0.9,
+  },
+  iconBackground: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: 'rgba(249, 168, 37, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 24,
   },
   tipsSection: {
     marginTop: 24,
@@ -35,13 +80,25 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(228, 230, 239, 0.7)',
   },
+  tipContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+  },
+  tipIcon: {
+    marginRight: 10,
+    marginTop: 2,
+  },
   tipText: {
     fontSize: 15,
-    marginBottom: 14,
-    textAlign: 'left',
     color: '#4A5568',
     lineHeight: 22,
     letterSpacing: 0.1,
+    flex: 1,
+  },
+  actionButtonsContainer: {
+    width: '100%',
+    marginTop: 16,
   },
   actionButton: {
     backgroundColor: '#FFFFFF',
@@ -67,12 +124,17 @@ const styles = StyleSheet.create({
     marginLeft: 16,
     letterSpacing: 0.1,
   },
+  actionButtonDescription: {
+    fontSize: 13,
+    color: '#718096',
+    marginTop: 4,
+    marginLeft: 50,
+  },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(22, 23, 34, 0.7)',
     justifyContent: 'center',
     alignItems: 'center',
-    backdropFilter: 'blur(8px)',
   },
   modalContainer: {
     width: '92%',
@@ -86,18 +148,40 @@ const styles = StyleSheet.create({
     elevation: 16,
     borderWidth: 1,
     borderColor: 'rgba(228, 230, 239, 0.4)',
+    maxWidth: 550,
+  },
+  modalHeaderContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 24,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E4E6EF',
+    paddingBottom: 16,
   },
   modalHeader: {
     fontSize: 26,
     fontWeight: '700',
-    marginBottom: 30,
-    textAlign: 'center',
     color: '#161722',
     letterSpacing: -0.6,
   },
+  closeIcon: {
+    padding: 8,
+  },
+  inputContainer: {
+    marginBottom: 20,
+    width: '100%',
+  },
+  inputLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#2D3748',
+    marginBottom: 8,
+    letterSpacing: 0.2,
+  },
   input: {
     padding: 20,
-    marginBottom: 20,
+    marginBottom: 5,
     width: '100%',
     backgroundColor: '#FCFCFD',
     borderRadius: 16,
@@ -111,6 +195,24 @@ const styles = StyleSheet.create({
     shadowRadius: 5,
     elevation: 1,
   },
+  focusedInput: {
+    borderColor: '#F9A825',
+    backgroundColor: '#FFFDF8',
+    shadowColor: '#F9A825',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.2,
+    shadowRadius: 5,
+  },
+  inputHelpText: {
+    fontSize: 12,
+    color: '#718096',
+    marginTop: 4,
+    marginLeft: 4,
+  },
+  buttonContainer: {
+    width: '100%',
+    marginTop: 10,
+  },
   submitButton: {
     backgroundColor: '#F9A825',
     paddingVertical: 18,
@@ -122,12 +224,17 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.35,
     shadowRadius: 10,
     elevation: 8,
+    flexDirection: 'row',
+    justifyContent: 'center',
   },
   submitButtonText: {
     fontSize: 18,
     fontWeight: '700',
     color: '#FFFFFF',
     letterSpacing: 0.4,
+  },
+  submitIcon: {
+    marginRight: 10,
   },
   goBackButton: {
     backgroundColor: '#F1F3F9',
@@ -138,6 +245,8 @@ const styles = StyleSheet.create({
     width: '100%',
     borderWidth: 1,
     borderColor: 'rgba(228, 230, 239, 0.6)',
+    flexDirection: 'row',
+    justifyContent: 'center',
   },
   goBackButtonText: {
     fontSize: 17,
@@ -166,6 +275,49 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(249, 168, 37, 0.15)',
     borderRadius: 12,
     marginRight: 16,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#E4E6EF',
+    width: '100%',
+    marginVertical: 24,
+  },
+  securityStatusContainer: {
+    padding: 20,
+    backgroundColor: '#FFFDF8',
+    borderRadius: 16,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(249, 168, 37, 0.3)',
+    width: '100%',
+  },
+  securityStatusTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#161722',
+    marginBottom: 16,
+  },
+  securityStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  securityStatusText: {
+    fontSize: 15,
+    color: '#4A5568',
+    marginLeft: 12,
+  },
+  securityStatusStrong: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#00B894',
+  },
+  securityAdvice: {
+    fontSize: 14,
+    fontStyle: 'italic',
+    color: '#718096',
+    marginTop: 8,
+    lineHeight: 20,
   },
 });
 
