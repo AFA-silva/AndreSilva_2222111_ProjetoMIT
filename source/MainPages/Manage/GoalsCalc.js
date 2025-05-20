@@ -23,23 +23,22 @@
       if (daysPassed < 0) return 0;
       return Math.min(progress, 99.99);
     } else if (type === 'financial') {
+      // Cálculo financeiro simplificado, baseado em economia diária
       const daysPassed = Math.max(0, Math.floor((today - creationDate) / (1000 * 60 * 60 * 24)));
       
-      // Cálculo de progresso financeiro com base no que deveria ter sido poupado até agora
+      // Contribuição mensal com base na percentagem
       const monthlyContribution = (goal.goal_saving_minimum / 100) * availableMoney;
+      
+      // Contribuição diária (simplesmente dividindo por 30 dias)
       const dailyContribution = monthlyContribution / 30;
-      const expectedSaved = dailyContribution * daysPassed;
-      const expectedProgress = Math.min((expectedSaved / goal.amount) * 100, 100);
       
-      // Para metas já vencidas, ajustar a expectativa de conclusão
-      if (today > deadlineDate) {
-        // A meta estava atrasada - use 100% do esperado no dia final
-        const daysToDeadline = Math.ceil((deadlineDate - creationDate) / (1000 * 60 * 60 * 24));
-        const amountAtDeadline = dailyContribution * daysToDeadline;
-        return Math.min((amountAtDeadline / goal.amount) * 100, 100);
-      }
+      // Total acumulado até hoje
+      const accumulatedSavings = dailyContribution * daysPassed;
       
-      return expectedProgress;
+      // Progresso financeiro (percentagem do objetivo já poupada)
+      const financialProgress = (accumulatedSavings / goal.amount) * 100;
+      
+      return Math.min(Math.max(0, financialProgress), 100);
     }
     return 0;
   };
@@ -118,7 +117,7 @@
       // Determinar status com base nos cenários
       if (scenarios.baseScenario.possible) {
         return {
-          status: 1,
+          status: 1, // Verde - Alcançável
           message: 'Esta meta é alcançável com a poupança atual.',
           scenarios
         };
@@ -150,13 +149,13 @@
         }
         
         return {
-          status: 2,
+          status: 2, // Amarelo - Possível com ajustes
           message: statusMsg,
           scenarios
         };
       } else if (scenarios.percentageScenario.possible) {
         return {
-          status: 2,
+          status: 2, // Amarelo - Possível com ajustes
           message: `Meta possível aumentando para ${scenarios.percentageScenario.newPercentage.toFixed(2)}% da poupança.`,
           scenarios
         };
@@ -166,7 +165,7 @@
           ? bestScenario.expenseDetails.map(e => e.name).join(", ")
           : '';
         return {
-          status: 2,
+          status: 2, // Amarelo - Possível com ajustes
           message: `Meta possível removendo despesas: ${expenseNames}.`,
           scenarios
         };
@@ -176,13 +175,13 @@
           ? bestCombined.expenseDetails.slice(0, 2).map(e => e.name).join(", ")
           : '';
         return {
-          status: 2,
+          status: 2, // Amarelo - Possível com ajustes
           message: `Meta possível com ${bestCombined.newPercentage.toFixed(2)}% e removendo despesas${expenseNames ? ` (${expenseNames}${bestCombined.expenseDetails.length > 2 ? '...' : ''})` : ''}.`,
           scenarios
         };
       } else {
         return {
-          status: 3,
+          status: 3, // Vermelho - Não alcançável
           message: 'Esta meta não é alcançável mesmo com ajustes na poupança e despesas.',
           scenarios
         };
@@ -190,7 +189,7 @@
     } catch (error) {
       console.error('Error calculating goal status:', error);
       return {
-        status: 3,
+        status: 3, // Vermelho - Erro
         message: 'Erro ao calcular o status da meta.'
       };
     }
@@ -202,8 +201,8 @@
       // Organizar despesas por prioridade (assumindo que existe um campo 'priority')
       // Se não existir, você pode modificar essa lógica
       const expensesByPriority = {};
-      for (let i = 1; i <= 5; i++) {
-        // Filtra despesas por prioridade (1-5)
+      for (let i = 1; i <= 3; i++) { // Apenas considerar prioridades 1-3
+        // Filtra despesas por prioridade (1-3)
         expensesByPriority[i] = expenses.filter(e => e.priority === i || (!e.priority && i === 3));
       }
       
@@ -241,7 +240,7 @@
       const expenseScenarios = [];
       let cumulativeSavings = 0;
       
-      for (let priority = 1; priority <= 5; priority++) {
+      for (let priority = 1; priority <= 3; priority++) { // Apenas considerar prioridades 1-3
         const priorityExpenses = expensesByPriority[priority] || [];
         
         // Só considere se houver despesas nesta prioridade
@@ -285,7 +284,7 @@
       // Cenário 4: Combinação de ajuste de porcentagem e remoção de despesas
       const combinedScenarios = [];
       
-      for (let priority = 1; priority <= 5; priority++) {
+      for (let priority = 1; priority <= 3; priority++) { // Apenas considerar prioridades 1-3
         // Encontrar o cenário de remoção de despesas para esta prioridade
         const expenseScenario = expenseScenarios.find(s => s.priority === priority);
         
@@ -390,109 +389,119 @@
       
       // Encontrar a combinação mais eficiente entre todas viáveis
       let mostEfficientScenario = null;
-      let efficientScore = Infinity; // Menor é melhor
       
-      // Verificar cenários de ajuste de percentual
+      // PRIORIDADE MÁXIMA: Ajuste de Porcentagem (se for possível)
       if (percentageScenario.possible) {
-        const score = percentageScenario.newPercentage;
-        if (score < efficientScore) {
-          efficientScore = score;
+        mostEfficientScenario = {
+          type: 'percentage',
+          newPercentage: percentageScenario.newPercentage,
+          possible: true,
+          message: `Ajustar poupança para ${percentageScenario.newPercentage.toFixed(2)}% é suficiente.`
+        };
+      }
+      // Se ajuste de porcentagem não for possível, verificar despesas de baixa prioridade
+      else if (expenseScenarios.some(s => s.priority === 1 && s.possible)) {
+        const scenario = expenseScenarios.find(s => s.priority === 1 && s.possible);
+        const expenseNamesText = scenario.expenseDetails && scenario.expenseDetails.length > 0
+          ? scenario.expenseDetails.map(e => e.name).join(", ")
+          : `${scenario.removedExpenses} despesa(s)`;
+          
+        mostEfficientScenario = {
+          type: 'expense',
+          priority: scenario.priority,
+          possible: true,
+          monthlySavings: scenario.monthlySavings,
+          expenseDetails: scenario.expenseDetails,
+          message: `Remover despesas de prioridade ${scenario.priority} (${expenseNamesText}) é suficiente.`
+        };
+      }
+      // Verificar despesas de prioridade 2
+      else if (expenseScenarios.some(s => s.priority === 2 && s.possible)) {
+        const scenario = expenseScenarios.find(s => s.priority === 2 && s.possible);
+        const expenseNamesText = scenario.expenseDetails && scenario.expenseDetails.length > 0
+          ? scenario.expenseDetails.map(e => e.name).join(", ")
+          : `${scenario.removedExpenses} despesa(s)`;
+          
+        mostEfficientScenario = {
+          type: 'expense',
+          priority: scenario.priority,
+          possible: true,
+          monthlySavings: scenario.monthlySavings,
+          expenseDetails: scenario.expenseDetails,
+          message: `Remover despesas de prioridade ${scenario.priority} (${expenseNamesText}) é suficiente.`
+        };
+      }
+      // Verificar despesas de prioridade 3
+      else if (expenseScenarios.some(s => s.priority === 3 && s.possible)) {
+        const scenario = expenseScenarios.find(s => s.priority === 3 && s.possible);
+        const expenseNamesText = scenario.expenseDetails && scenario.expenseDetails.length > 0
+          ? scenario.expenseDetails.map(e => e.name).join(", ")
+          : `${scenario.removedExpenses} despesa(s)`;
+          
+        mostEfficientScenario = {
+          type: 'expense',
+          priority: scenario.priority,
+          possible: true,
+          monthlySavings: scenario.monthlySavings,
+          expenseDetails: scenario.expenseDetails,
+          message: `Remover despesas de prioridade ${scenario.priority} (${expenseNamesText}) é suficiente.`
+        };
+      }
+      // Verificar cenários de múltiplas prioridades
+      else if (multiPriorityScenarios.some(s => s.possible)) {
+        // Ordenar por soma das prioridades (menor é melhor)
+        const possibleMulti = multiPriorityScenarios.filter(s => s.possible)
+          .sort((a, b) => {
+            const sumA = a.priorities.reduce((sum, p) => sum + p, 0);
+            const sumB = b.priorities.reduce((sum, p) => sum + p, 0);
+            return sumA - sumB;
+          });
+          
+        if (possibleMulti.length > 0) {
+          const bestMulti = possibleMulti[0];
+          
           mostEfficientScenario = {
-            type: 'percentage',
-            newPercentage: percentageScenario.newPercentage,
+            type: 'multiPriority',
+            priorities: bestMulti.priorities,
             possible: true,
-            message: `Ajustar poupança para ${percentageScenario.newPercentage.toFixed(2)}% é suficiente.`
+            monthlySavings: bestMulti.monthlySavings,
+            expenseDetails: bestMulti.expenseDetails,
+            message: `Remover despesas de prioridades ${bestMulti.priorities.join(', ')} é suficiente.`
           };
         }
       }
-      
-      // Verificar cenários de despesa única
-      for (const scenario of expenseScenarios) {
-        if (scenario.possible) {
-          // Pontuação baseada na prioridade (menor é melhor)
-          const score = scenario.priority;
-          if (score < efficientScore) {
-            efficientScore = score;
-            
-            // Preparar descrição detalhada das despesas
-            const expenseNamesText = scenario.expenseDetails && scenario.expenseDetails.length > 0
-              ? scenario.expenseDetails.map(e => e.name).join(", ")
-              : `${scenario.removedExpenses} despesa(s)`;
-              
-            mostEfficientScenario = {
-              type: 'expense',
-              priority: scenario.priority,
-              possible: true,
-              monthlySavings: scenario.monthlySavings,
-              expenseDetails: scenario.expenseDetails,
-              message: `Remover despesas de prioridade ${scenario.priority} (${expenseNamesText}) é suficiente.`
-            };
-          }
-        }
-      }
-      
-      // Verificar cenários multi-prioridade
-      for (const scenario of multiPriorityScenarios) {
-        if (scenario.possible) {
-          // Pontuação baseada na média das prioridades (menor é melhor)
-          const avgPriority = scenario.priorities.reduce((sum, p) => sum + p, 0) / scenario.priorities.length;
-          if (avgPriority < efficientScore) {
-            efficientScore = avgPriority;
-            
-            // Agrupar despesas por prioridade
-            const expensesByPriority = {};
-            scenario.expenseDetails.forEach(expense => {
-              if (!expensesByPriority[expense.priority]) {
-                expensesByPriority[expense.priority] = [];
-              }
-              expensesByPriority[expense.priority].push(expense);
-            });
-            
-            // Criar uma mensagem mais detalhada
-            const detailedMessage = Object.keys(expensesByPriority)
-              .map(priority => {
-                const total = expensesByPriority[priority].reduce((sum, e) => sum + e.amount, 0);
-                return `Prioridade ${priority}: ${formatCurrency(total)}`;
-              })
-              .join(', ');
-            
-            mostEfficientScenario = {
-              type: 'multiPriority',
-              priorities: scenario.priorities,
-              possible: true,
-              monthlySavings: scenario.monthlySavings,
-              expenseDetails: scenario.expenseDetails,
-              message: `Remover despesas de prioridades ${scenario.priorities.join(', ')} (${detailedMessage}) é suficiente.`
-            };
-          }
-        }
-      }
-      
       // Verificar cenários combinados
-      for (const scenario of combinedScenarios) {
-        if (scenario.possible) {
-          // Pontuação baseada na prioridade + porcentagem normalizada
-          const normalizedPercent = scenario.newPercentage / 100;
-          const score = scenario.priority + normalizedPercent;
-          if (score < efficientScore) {
-            efficientScore = score;
+      else if (combinedScenarios.some(s => s.possible)) {
+        // Ordenar por prioridade (menor é melhor)
+        const possibleCombined = combinedScenarios.filter(s => s.possible)
+          .sort((a, b) => a.priority - b.priority);
+          
+        if (possibleCombined.length > 0) {
+          const bestCombined = possibleCombined[0];
+          const expenseNamesText = bestCombined.expenseDetails && bestCombined.expenseDetails.length > 0
+            ? bestCombined.expenseDetails.map(e => e.name).join(", ")
+            : `${bestCombined.removedExpenses} despesa(s)`;
             
-            // Preparar descrição detalhada das despesas
-            const expenseNamesText = scenario.expenseDetails && scenario.expenseDetails.length > 0
-              ? scenario.expenseDetails.map(e => e.name).join(", ")
-              : `${scenario.removedExpenses} despesa(s)`;
-              
-            mostEfficientScenario = {
-              type: 'combined',
-              priority: scenario.priority,
-              newPercentage: scenario.newPercentage,
-              possible: true,
-              monthlySavings: scenario.monthlySavings,
-              expenseDetails: scenario.expenseDetails,
-              message: `Ajustar para ${scenario.newPercentage.toFixed(2)}% e remover despesas de prioridade ${scenario.priority} (${expenseNamesText}).`
-            };
-          }
+          mostEfficientScenario = {
+            type: 'combined',
+            priority: bestCombined.priority,
+            newPercentage: bestCombined.newPercentage,
+            possible: true,
+            monthlySavings: bestCombined.monthlySavings,
+            expenseDetails: bestCombined.expenseDetails,
+            message: `Ajustar para ${bestCombined.newPercentage.toFixed(2)}% e remover despesas de prioridade ${bestCombined.priority} (${expenseNamesText}).`
+          };
         }
+      }
+      // Em último caso, cenário atual (se possível)
+      else if (baseScenario.possible) {
+        mostEfficientScenario = {
+          type: 'current',
+          possible: true,
+          monthlyAmount: baseScenario.monthlyAmount,
+          totalSaved: baseScenario.totalSaved,
+          message: `A configuração atual já é suficiente (${goal.goal_saving_minimum}%).`
+        };
       }
       
       // Cenário recomendado

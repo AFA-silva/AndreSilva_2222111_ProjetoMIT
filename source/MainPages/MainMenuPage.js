@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, Dimensions, ScrollView, Modal } from 'react-native';
+import { View, Text, TouchableOpacity, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import styles from '../Styles/MainPageStyles/MainMenuPageStyle';
 import { supabase } from '../../Supabase';
@@ -14,8 +14,6 @@ const MainMenuPage = ({ navigation }) => {
   const [totalIncome, setTotalIncome] = useState(null);
   const [totalExpenses, setTotalExpenses] = useState(null);
   const [availableMoney, setAvailableMoney] = useState(null);
-  const [goalsModal, setGoalsModal] = useState(false);
-  const [recentGoals, setRecentGoals] = useState([]);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -50,16 +48,12 @@ const MainMenuPage = ({ navigation }) => {
           setWarningCount(warnings);
           setProblemCount(problems);
           setTodayCount(today);
-          
-          // Armazene as 5 metas mais recentes
-          setRecentGoals(goals.slice(0, 5));
         } else {
           // Reset counters if no goals found
           setOkCount(0);
           setWarningCount(0);
           setProblemCount(0);
           setTodayCount(0);
-          setRecentGoals([]);
         }
         
         // Income
@@ -116,32 +110,11 @@ const MainMenuPage = ({ navigation }) => {
     return () => clearInterval(interval);
   }, []);
 
-  const getStatusIcon = (status) => {
-    switch (status) {
-      case 1:
-        return <Ionicons name="checkmark-circle" size={24} color="#00B894" />;
-      case 2:
-        return <Ionicons name="warning" size={24} color="#FDCB6E" />;
-      case 3:
-        return <Ionicons name="alert-circle" size={24} color="#E74C3C" />;
-      case 4:
-        return <Ionicons name="information-circle" size={24} color="#0984e3" />;
-      default:
-        return <Ionicons name="help-circle" size={24} color="#7F8C8D" />;
-    }
-  };
-
   const formatCurrency = (value) => {
     return new Intl.NumberFormat('pt-PT', { 
       style: 'currency', 
       currency: 'EUR' 
     }).format(value);
-  };
-
-  const formatDate = (dateString) => {
-    if (!dateString) return '';
-    const date = new Date(dateString);
-    return date.toLocaleDateString();
   };
 
   const cardStyle = {
@@ -169,7 +142,7 @@ const MainMenuPage = ({ navigation }) => {
         {/* Goals Info Card */}
         <TouchableOpacity
           style={{ ...cardStyle, borderColor: '#FDCB6E', borderWidth: 2 }}
-          onPress={() => setGoalsModal(true)}
+          onPress={() => navigation.navigate('GoalsPage')}
           activeOpacity={0.85}
         >
           <Text style={{ fontWeight: 'bold', color: '#2D3436', fontSize: 18, marginBottom: 12, letterSpacing: 0.5, textAlign: 'center' }}>Goals Info</Text>
@@ -224,117 +197,6 @@ const MainMenuPage = ({ navigation }) => {
           </Text>
         </View>
       </View>
-
-      {/* Modal de Detalhes das Metas */}
-      <Modal
-        visible={goalsModal}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setGoalsModal(false)}
-      >
-        <View style={{
-          flex: 1,
-          backgroundColor: 'rgba(0,0,0,0.5)',
-          justifyContent: 'center',
-          alignItems: 'center',
-          padding: 20
-        }}>
-          <View style={{
-            width: '100%',
-            maxWidth: 500,
-            maxHeight: '80%',
-            backgroundColor: 'white',
-            borderRadius: 16,
-            padding: 20,
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.25,
-            shadowRadius: 3.84,
-            elevation: 5
-          }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' }}>
-              <Text style={{ fontSize: 22, fontWeight: 'bold', color: '#2D3436' }}>Suas Metas</Text>
-              <TouchableOpacity onPress={() => setGoalsModal(false)}>
-                <Ionicons name="close" size={28} color="#2D3436" />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView style={{ flex: 1 }}>
-              {recentGoals.length > 0 ? (
-                recentGoals.map(goal => (
-                  <View 
-                    key={goal.id} 
-                    style={{
-                      padding: 16,
-                      backgroundColor: '#F9F9F9',
-                      marginBottom: 16,
-                      borderRadius: 12,
-                      shadowColor: '#000',
-                      shadowOffset: { width: 0, height: 1 },
-                      shadowOpacity: 0.1,
-                      shadowRadius: 2,
-                      elevation: 2,
-                      borderLeftWidth: 4,
-                      borderLeftColor: goal.status === 1 ? '#00B894' : goal.status === 2 ? '#FDCB6E' : goal.status === 3 ? '#E74C3C' : '#0984e3'
-                    }}
-                  >
-                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-                      {getStatusIcon(goal.status)}
-                      <Text style={{ marginLeft: 8, fontSize: 18, fontWeight: 'bold', color: '#2D3436' }}>{goal.name}</Text>
-                    </View>
-                    <Text style={{ fontSize: 16, fontWeight: '600', color: '#00B894', marginBottom: 8 }}>
-                      Valor: {formatCurrency(goal.amount)}
-                    </Text>
-                    <Text style={{ fontSize: 14, color: '#7F8C8D', marginBottom: 4 }}>
-                      Prazo: {formatDate(goal.deadline)}
-                    </Text>
-                    {goal.status_message && (
-                      <Text style={{ 
-                        fontSize: 14, 
-                        marginTop: 8, 
-                        fontStyle: 'italic',
-                        color: goal.status === 1 ? '#00B894' : goal.status === 2 ? '#E67E22' : '#E74C3C',
-                        backgroundColor: goal.status === 1 ? '#e3f9f4' : goal.status === 2 ? '#FFF3E0' : '#FFEBEE',
-                        padding: 8,
-                        borderRadius: 4
-                      }}>
-                        {goal.status_message}
-                      </Text>
-                    )}
-                  </View>
-                ))
-              ) : (
-                <View style={{ alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-                  <Ionicons name="flag-outline" size={48} color="#B2B2B2" />
-                  <Text style={{ marginTop: 16, fontSize: 16, color: '#7F8C8D', textAlign: 'center' }}>
-                    Você ainda não tem nenhuma meta cadastrada.
-                  </Text>
-                </View>
-              )}
-
-              <TouchableOpacity
-                style={{
-                  backgroundColor: '#FDCB6E',
-                  padding: 16,
-                  borderRadius: 12,
-                  alignItems: 'center',
-                  marginTop: 16,
-                  marginBottom: 8,
-                  flexDirection: 'row',
-                  justifyContent: 'center'
-                }}
-                onPress={() => {
-                  setGoalsModal(false);
-                  navigation.navigate('GoalsPage');
-                }}
-              >
-                <Ionicons name="flag" size={24} color="white" style={{ marginRight: 8 }} />
-                <Text style={{ color: 'white', fontSize: 16, fontWeight: 'bold' }}>Ver Todas as Metas</Text>
-              </TouchableOpacity>
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 };

@@ -17,32 +17,37 @@ const getStatusInfo = (status) => {
       icon: <Ionicons name="checkmark-circle" size={28} color="#00B894" />,
       title: 'Meta Alcançável',
       textColor: '#00B894',
-      backgroundColor: '#00B89420'
+      backgroundColor: '#00B89420',
+      message: 'Esta meta é alcançável com a poupança atual.'
     },
     2: {
       icon: <Ionicons name="warning" size={28} color="#FDCB6E" />,
       title: 'Meta Possível com Ajustes',
       textColor: '#FDCB6E',
-      backgroundColor: '#FDCB6E20'
+      backgroundColor: '#FDCB6E20',
+      message: 'Esta meta é possível se fizer ajustes na poupança.'
     },
     3: {
       icon: <Ionicons name="close-circle" size={28} color="#E74C3C" />,
       title: 'Meta Não Alcançável',
       textColor: '#E74C3C',
-      backgroundColor: '#E74C3C20'
+      backgroundColor: '#E74C3C20',
+      message: 'Esta meta não é alcançável com as configurações atuais.'
     },
     4: {
       icon: <Ionicons name="information-circle" size={28} color="#0984e3" />,
       title: 'Meta no Dia!',
       textColor: '#0984e3',
       backgroundColor: '#d6eaff',
+      message: 'Hoje é o dia da meta! Verifique se já atingiu o valor necessário.'
     }
   };
   return statusConfig[statusValue] || {
     icon: null,
     title: 'Status da Meta',
     textColor: '#2D3436',
-    backgroundColor: '#DFE6E920'
+    backgroundColor: '#DFE6E920',
+    message: 'Status desconhecido'
   };
 };
 
@@ -106,7 +111,7 @@ const GoalDetailsModal = ({ goal, visible, onClose, onEdit, onDelete, status, fi
               <View style={styles.detailsRow}>
                 <View style={styles.detailsItem}>
                   <Text style={styles.detailsLabel}>Progress (Financial)</Text>
-                  <ProgressBar progress={financialProgress} color="#0984e3" />
+                  <ProgressBar progress={financialProgress} color="#00B894" />
                   <Text style={styles.detailsSubtext}>
                     {formatCurrency(accumulated)} / {formatCurrency(goal.amount)}
                   </Text>
@@ -151,7 +156,7 @@ const GoalDetailsModal = ({ goal, visible, onClose, onEdit, onDelete, status, fi
                   </Text>
                 </View>
                 <Text style={[styles.statusText, { color: textColor }]}>
-                  {status.message}
+                  {status.message || getStatusInfo(status.status).message}
                 </Text>
               </View>
             )}
@@ -483,13 +488,12 @@ const GoalsPage = () => {
               : status.status;
               
             // Atualizar apenas se o status for diferente do atual
-            if (goal.status !== statusNum || goal.status_message !== status.message) {
+            if (goal.status !== statusNum) {
               updatePromises.push(
                 supabase
                   .from('goals')
                   .update({
-                    status: statusNum,
-                    status_message: status.message
+                    status: statusNum
                   })
                   .eq('id', goal.id)
               );
@@ -734,8 +738,7 @@ const GoalsPage = () => {
         deadline: formData.deadline.toISOString().split('T')[0],
         goal_saving_minimum: allocation.validation.newPercentage,
         user_id: userId,
-        status: statusValue,
-        status_message: statusResult?.message || '',
+        status: statusValue
       };
 
       let error;
@@ -857,10 +860,10 @@ const GoalsPage = () => {
     // Usar o status do item se disponível, senão usar o calculado
     const effectiveStatus = item.status || (status ? status.status : 1);
     
+    // Definir o ícone e cor com base no status real da meta
     let statusIcon = 'checkmark-circle';
     let statusColor = '#00B894';
     
-    // Definir o ícone e cor com base no status real da meta
     if (effectiveStatus === 4) {
       statusIcon = 'information-circle';
       statusColor = '#0984e3';
