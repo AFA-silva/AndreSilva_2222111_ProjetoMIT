@@ -4,8 +4,6 @@ import { Ionicons } from '@expo/vector-icons';
 import styles from '../Styles/MainPageStyles/MainMenuPageStyle';
 import { supabase } from '../../Supabase';
 
-const CARD_WIDTH = (Dimensions.get('window').width - 48) / 2; // 2 cards por linha, 24px padding de cada lado
-
 const MainMenuPage = ({ navigation }) => {
   const [okCount, setOkCount] = useState(0);
   const [warningCount, setWarningCount] = useState(0);
@@ -24,7 +22,7 @@ const MainMenuPage = ({ navigation }) => {
         // Goals status
         const { data: goals, error: goalsError } = await supabase
           .from('goals')
-          .select('id, name, amount, deadline, status, status_message, created_at')
+          .select('id, name, amount, deadline, status, created_at')
           .eq('user_id', user.id)
           .order('created_at', { ascending: false });
           
@@ -117,85 +115,109 @@ const MainMenuPage = ({ navigation }) => {
     }).format(value);
   };
 
-  const cardStyle = {
-    backgroundColor: '#FFF',
-    borderRadius: 22,
-    shadowColor: '#FFA726',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
-    elevation: 7,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 18,
-    paddingHorizontal: 10,
-    marginBottom: 18,
-    flexBasis: '48%',
-    maxWidth: '48%',
-    minWidth: 160,
-  };
-
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Dashboard</Text>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-start', marginTop: 10 }}>
-        {/* Goals Info Card */}
+
+      <View style={styles.dashboardSection}>
+        <Text style={styles.sectionTitle}>Financial Overview</Text>
+        <View style={styles.statsContainer}>
+          <View style={styles.statsCard}>
+            <Text style={styles.statsLabel}>Income</Text>
+            <Text style={[styles.statsValue, { color: '#00B894' }]}>
+              {totalIncome !== null ? formatCurrency(totalIncome) : '--'}
+            </Text>
+          </View>
+          
+          <View style={styles.statsCard}>
+            <Text style={styles.statsLabel}>Expenses</Text>
+            <Text style={[styles.statsValue, { color: '#E74C3C' }]}>
+              {totalExpenses !== null ? formatCurrency(totalExpenses) : '--'}
+            </Text>
+          </View>
+          
+          <View style={[styles.statsCard, { width: '100%' }]}>
+            <Text style={styles.statsLabel}>Available Money</Text>
+            <Text style={[styles.statsValue, { color: availableMoney >= 0 ? '#00B894' : '#E74C3C' }]}>
+              {availableMoney !== null ? formatCurrency(availableMoney) : '--'}
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      <View style={styles.dashboardSection}>
+        <Text style={styles.sectionTitle}>Goal Status</Text>
         <TouchableOpacity
-          style={{ ...cardStyle, borderColor: '#FDCB6E', borderWidth: 2 }}
+          style={{
+            backgroundColor: '#FFFFFF',
+            borderRadius: 16,
+            padding: 20,
+            marginBottom: 24,
+            shadowColor: '#1A365D',
+            shadowOffset: { width: 0, height: 3 },
+            shadowOpacity: 0.08,
+            shadowRadius: 8,
+            elevation: 4,
+          }}
           onPress={() => navigation.navigate('GoalsPage')}
           activeOpacity={0.85}
         >
-          <Text style={{ fontWeight: 'bold', color: '#2D3436', fontSize: 18, marginBottom: 12, letterSpacing: 0.5, textAlign: 'center' }}>Goals Info</Text>
+          <View style={{
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: 16,
+          }}>
+            <Text style={{ fontSize: 18, fontWeight: '700', color: '#2D3748' }}>Goals Overview</Text>
+            <Ionicons name="chevron-forward" size={22} color="#CBD5E0" />
+          </View>
           
           <View style={{
             flexDirection: 'row',
             flexWrap: 'wrap',
-            justifyContent: 'space-around',
-            width: '100%', 
-            paddingHorizontal: 10
+            justifyContent: 'space-between',
           }}>
-            <View style={{ alignItems: 'center', width: '45%', marginBottom: 10 }}>
-              <Ionicons name="checkmark-circle" size={30} color="#00B894" />
-              <Text style={{ fontSize: 18, color: '#00B894', fontWeight: 'bold', marginTop: 2 }}>{okCount}</Text>
+            <View style={{ width: '48%', marginBottom: 14, flexDirection: 'row', alignItems: 'center' }}>
+              <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(0, 184, 148, 0.1)', justifyContent: 'center', alignItems: 'center', marginRight: 10 }}>
+                <Ionicons name="checkmark-circle" size={22} color="#00B894" />
+              </View>
+              <View>
+                <Text style={{ fontSize: 14, color: '#718096', marginBottom: 2 }}>Achievable</Text>
+                <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#00B894' }}>{okCount}</Text>
+              </View>
             </View>
-            <View style={{ alignItems: 'center', width: '45%', marginBottom: 10 }}>
-              <Ionicons name="warning" size={30} color="#FDCB6E" />
-              <Text style={{ fontSize: 18, color: '#FDCB6E', fontWeight: 'bold', marginTop: 2 }}>{warningCount}</Text>
+            
+            <View style={{ width: '48%', marginBottom: 14, flexDirection: 'row', alignItems: 'center' }}>
+              <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(253, 203, 110, 0.1)', justifyContent: 'center', alignItems: 'center', marginRight: 10 }}>
+                <Ionicons name="warning" size={22} color="#FDCB6E" />
+              </View>
+              <View>
+                <Text style={{ fontSize: 14, color: '#718096', marginBottom: 2 }}>Adjustments</Text>
+                <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#FDCB6E' }}>{warningCount}</Text>
+              </View>
             </View>
-            <View style={{ alignItems: 'center', width: '45%', marginBottom: 5 }}>
-              <Ionicons name="close-circle" size={30} color="#E74C3C" />
-              <Text style={{ fontSize: 18, color: '#E74C3C', fontWeight: 'bold', marginTop: 2 }}>{problemCount}</Text>
+            
+            <View style={{ width: '48%', marginBottom: 4, flexDirection: 'row', alignItems: 'center' }}>
+              <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(231, 76, 60, 0.1)', justifyContent: 'center', alignItems: 'center', marginRight: 10 }}>
+                <Ionicons name="close-circle" size={22} color="#E74C3C" />
+              </View>
+              <View>
+                <Text style={{ fontSize: 14, color: '#718096', marginBottom: 2 }}>Impossible</Text>
+                <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#E74C3C' }}>{problemCount}</Text>
+              </View>
             </View>
-            <View style={{ alignItems: 'center', width: '45%', marginBottom: 5 }}>
-              <Ionicons name="information-circle" size={30} color="#0984e3" />
-              <Text style={{ fontSize: 18, color: '#0984e3', fontWeight: 'bold', marginTop: 2 }}>{todayCount}</Text>
+            
+            <View style={{ width: '48%', marginBottom: 4, flexDirection: 'row', alignItems: 'center' }}>
+              <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(9, 132, 227, 0.1)', justifyContent: 'center', alignItems: 'center', marginRight: 10 }}>
+                <Ionicons name="information-circle" size={22} color="#0984e3" />
+              </View>
+              <View>
+                <Text style={{ fontSize: 14, color: '#718096', marginBottom: 2 }}>Due Today</Text>
+                <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#0984e3' }}>{todayCount}</Text>
+              </View>
             </View>
           </View>
         </TouchableOpacity>
-        {/* Income Card */}
-        <View style={{ ...cardStyle, borderColor: '#00B894', borderWidth: 2 }}>
-          <Ionicons name="trending-up" size={34} color="#00B894" style={{ marginBottom: 6 }} />
-          <Text style={{ color: '#2D3436', fontWeight: 'bold', fontSize: 15, marginBottom: 2, textAlign: 'center' }}>Rendimento Mensal</Text>
-          <Text style={{ fontSize: 20, color: '#00B894', fontWeight: 'bold', textAlign: 'center' }}>
-            {totalIncome !== null ? formatCurrency(totalIncome) : '--'}
-          </Text>
-        </View>
-        {/* Expenses Card */}
-        <View style={{ ...cardStyle, borderColor: '#E74C3C', borderWidth: 2 }}>
-          <Ionicons name="trending-down" size={34} color="#E74C3C" style={{ marginBottom: 6 }} />
-          <Text style={{ color: '#2D3436', fontWeight: 'bold', fontSize: 15, marginBottom: 2, textAlign: 'center' }}>Despesas Mensais</Text>
-          <Text style={{ fontSize: 20, color: '#E74C3C', fontWeight: 'bold', textAlign: 'center' }}>
-            {totalExpenses !== null ? formatCurrency(totalExpenses) : '--'}
-          </Text>
-        </View>
-        {/* Available Money Card */}
-        <View style={{ ...cardStyle, borderColor: '#FDCB6E', borderWidth: 2 }}>
-          <Ionicons name="wallet" size={34} color="#FDCB6E" style={{ marginBottom: 6 }} />
-          <Text style={{ color: '#2D3436', fontWeight: 'bold', fontSize: 15, marginBottom: 2, textAlign: 'center' }}>Dinheiro Disponível</Text>
-          <Text style={{ fontSize: 20, color: '#00B894', fontWeight: 'bold', textAlign: 'center' }}>
-            {availableMoney !== null ? formatCurrency(availableMoney) : '--'}
-          </Text>
-        </View>
       </View>
     </View>
   );
