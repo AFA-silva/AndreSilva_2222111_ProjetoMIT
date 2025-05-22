@@ -11,12 +11,13 @@ const NavigationBar = () => {
   
   // Estado que controla qual tab está ativa
   const [activeTab, setActiveTab] = useState('MainMenuPage');
+  const [isInitialized, setIsInitialized] = useState(false);
   
-  // Animation values para cada tab
+  // Animation values para cada tab - Inicializar com valor base para garantir visibilidade
   const tabAnimations = {
-    MainMenuPage: useRef(new Animated.Value(activeTab === 'MainMenuPage' ? 1 : 0)).current,
-    ManagerPage: useRef(new Animated.Value(activeTab === 'ManagerPage' ? 1 : 0)).current,
-    SettingsPage: useRef(new Animated.Value(activeTab === 'SettingsPage' ? 1 : 0)).current
+    MainMenuPage: useRef(new Animated.Value(0.5)).current,
+    ManagerPage: useRef(new Animated.Value(0.5)).current,
+    SettingsPage: useRef(new Animated.Value(0.5)).current
   };
   
   const navbarAnim = useRef(new Animated.Value(0)).current;
@@ -43,38 +44,58 @@ const NavigationBar = () => {
     }
   };
 
-  // Efeito para atualizar as animações quando a tab muda
+  // Inicialização após a montagem do componente
   useEffect(() => {
-    // Verificar a rota atual a partir dos estados de navegação
-    const state = navigation.getState();
-    
-    // Encontrar qual stack está ativa
-    let activeRouteName = 'MainMenuPage';
-    for (const r of state.routes) {
-      if (r.name === 'MainPages' && r.state) {
-        const activeRouteIndex = r.state.index;
-        activeRouteName = r.state.routes[activeRouteIndex].name;
-        break;
-      }
-    }
-    
-    setActiveTab(activeRouteName);
-    
-    // Animar as tabs
-    const animateTab = (tab, toValue) => {
-      Animated.timing(tabAnimations[tab], {
-        toValue,
-        duration: 250,
-        useNativeDriver: Platform.OS !== 'web',
-      }).start();
-    };
-    
-    // Ativar a tab correta e desativar as outras
+    // Garantir que todos os botões sejam visíveis inicialmente
     Object.keys(tabAnimations).forEach(tab => {
-      animateTab(tab, tab === activeRouteName ? 1 : 0);
+      tabAnimations[tab].setValue(tab === 'MainMenuPage' ? 1 : 0.5);
     });
     
-  }, [navigation.getState()]);
+    // Marcar como inicializado para permitir animações futuras
+    setIsInitialized(true);
+  }, []);
+
+  // Efeito para atualizar as animações quando a tab muda
+  useEffect(() => {
+    if (!isInitialized) return;
+    
+    try {
+      // Verificar a rota atual a partir dos estados de navegação
+      const state = navigation.getState();
+      
+      // Encontrar qual stack está ativa
+      let activeRouteName = 'MainMenuPage';
+      for (const r of state.routes) {
+        if (r.name === 'MainPages' && r.state) {
+          const activeRouteIndex = r.state.index;
+          activeRouteName = r.state.routes[activeRouteIndex].name;
+          break;
+        }
+      }
+      
+      setActiveTab(activeRouteName);
+      
+      // Animar as tabs
+      const animateTab = (tab, toValue) => {
+        Animated.timing(tabAnimations[tab], {
+          toValue,
+          duration: 250,
+          useNativeDriver: Platform.OS !== 'web',
+        }).start();
+      };
+      
+      // Ativar a tab correta e desativar as outras
+      Object.keys(tabAnimations).forEach(tab => {
+        animateTab(tab, tab === activeRouteName ? 1 : 0.5);
+      });
+    } catch (error) {
+      console.log('Error updating tab animations:', error);
+      // Garantir que todos os botões permaneçam visíveis em caso de erro
+      Object.keys(tabAnimations).forEach(tab => {
+        tabAnimations[tab].setValue(tab === activeTab ? 1 : 0.5);
+      });
+    }
+  }, [navigation.getState(), isInitialized]);
 
   // Animação inicial da navbar
   useEffect(() => {
@@ -107,14 +128,14 @@ const NavigationBar = () => {
             transform: [
               { 
                 scale: animValue.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [0.9, 1]
+                  inputRange: [0, 0.5, 1],
+                  outputRange: [0.8, 0.9, 1]
                 }) 
               },
               {
                 translateY: animValue.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [0, -6]
+                  inputRange: [0, 0.5, 1],
+                  outputRange: [0, 0, -6]
                 })
               }
             ]
@@ -125,8 +146,8 @@ const NavigationBar = () => {
               styles.iconBackground,
               {
                 backgroundColor: animValue.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: ['#FFECB3', 'rgba(249, 168, 37, 0.15)']
+                  inputRange: [0, 0.5, 1],
+                  outputRange: ['#FFECB3', '#FFECB3', 'rgba(249, 168, 37, 0.15)']
                 })
               }
             ]}
@@ -144,12 +165,15 @@ const NavigationBar = () => {
             styles.navText, 
             isActive && styles.activeNavText,
             {
-              opacity: animValue,
+              opacity: animValue.interpolate({
+                inputRange: [0, 0.5, 1],
+                outputRange: [0, 0, 1]
+              }),
               transform: [
                 {
                   translateY: animValue.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [-5, 0]
+                    inputRange: [0, 0.5, 1],
+                    outputRange: [-5, 0, 0]
                   })
                 }
               ]
@@ -268,7 +292,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     position: 'absolute',
     bottom: 4,
-    opacity: 0,
   },
   activeNavItem: {
     backgroundColor: 'rgba(255, 152, 0, 0.05)',

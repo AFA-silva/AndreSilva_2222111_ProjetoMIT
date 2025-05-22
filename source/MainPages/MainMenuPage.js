@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import styles from '../Styles/MainPageStyles/MainMenuPageStyle';
 import { supabase } from '../../Supabase';
+import { FinancialStatsSkeleton, GoalOverviewSkeleton } from '../Utility/SkeletonLoading';
 
 const MainMenuPage = ({ navigation }) => {
   const [okCount, setOkCount] = useState(0);
@@ -12,12 +13,17 @@ const MainMenuPage = ({ navigation }) => {
   const [totalIncome, setTotalIncome] = useState(null);
   const [totalExpenses, setTotalExpenses] = useState(null);
   const [availableMoney, setAvailableMoney] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
+        setLoading(true);
         const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
+        if (!user) {
+          setLoading(false);
+          return;
+        }
         
         // Goals status
         const { data: goals, error: goalsError } = await supabase
@@ -28,6 +34,7 @@ const MainMenuPage = ({ navigation }) => {
           
         if (goalsError) {
           console.error('Error fetching goals:', goalsError);
+          setLoading(false);
           return;
         }
         
@@ -62,6 +69,7 @@ const MainMenuPage = ({ navigation }) => {
         
         if (incomesError) {
           console.error('Error fetching incomes:', incomesError);
+          setLoading(false);
           return;
         }
         
@@ -82,6 +90,7 @@ const MainMenuPage = ({ navigation }) => {
         
         if (expensesError) {
           console.error('Error fetching expenses:', expensesError);
+          setLoading(false);
           return;
         }
         
@@ -95,8 +104,10 @@ const MainMenuPage = ({ navigation }) => {
         
         setTotalExpenses(expenseSum);
         setAvailableMoney(incomeSum - expenseSum);
+        setLoading(false);
       } catch (error) {
         console.error('Dashboard data fetch error:', error);
+        setLoading(false);
       }
     };
     
@@ -121,103 +132,111 @@ const MainMenuPage = ({ navigation }) => {
 
       <View style={styles.dashboardSection}>
         <Text style={styles.sectionTitle}>Financial Overview</Text>
-        <View style={styles.statsContainer}>
-          <View style={styles.statsCard}>
-            <Text style={styles.statsLabel}>Income</Text>
-            <Text style={[styles.statsValue, { color: '#00B894' }]}>
-              {totalIncome !== null ? formatCurrency(totalIncome) : '--'}
-            </Text>
+        {loading ? (
+          <FinancialStatsSkeleton />
+        ) : (
+          <View style={styles.statsContainer}>
+            <View style={styles.statsCard}>
+              <Text style={styles.statsLabel}>Income</Text>
+              <Text style={[styles.statsValue, { color: '#00B894' }]}>
+                {totalIncome !== null ? formatCurrency(totalIncome) : '--'}
+              </Text>
+            </View>
+            
+            <View style={styles.statsCard}>
+              <Text style={styles.statsLabel}>Expenses</Text>
+              <Text style={[styles.statsValue, { color: '#E74C3C' }]}>
+                {totalExpenses !== null ? formatCurrency(totalExpenses) : '--'}
+              </Text>
+            </View>
+            
+            <View style={[styles.statsCard, { width: '100%' }]}>
+              <Text style={styles.statsLabel}>Available Money</Text>
+              <Text style={[styles.statsValue, { color: availableMoney >= 0 ? '#00B894' : '#E74C3C' }]}>
+                {availableMoney !== null ? formatCurrency(availableMoney) : '--'}
+              </Text>
+            </View>
           </View>
-          
-          <View style={styles.statsCard}>
-            <Text style={styles.statsLabel}>Expenses</Text>
-            <Text style={[styles.statsValue, { color: '#E74C3C' }]}>
-              {totalExpenses !== null ? formatCurrency(totalExpenses) : '--'}
-            </Text>
-          </View>
-          
-          <View style={[styles.statsCard, { width: '100%' }]}>
-            <Text style={styles.statsLabel}>Available Money</Text>
-            <Text style={[styles.statsValue, { color: availableMoney >= 0 ? '#00B894' : '#E74C3C' }]}>
-              {availableMoney !== null ? formatCurrency(availableMoney) : '--'}
-            </Text>
-          </View>
-        </View>
+        )}
       </View>
 
       <View style={styles.dashboardSection}>
         <Text style={styles.sectionTitle}>Goal Status</Text>
-        <TouchableOpacity
-          style={{
-            backgroundColor: '#FFFFFF',
-            borderRadius: 16,
-            padding: 20,
-            marginBottom: 24,
-            shadowColor: '#1A365D',
-            shadowOffset: { width: 0, height: 3 },
-            shadowOpacity: 0.1,
-            shadowRadius: 8,
-            elevation: 4,
-          }}
-          onPress={() => navigation.navigate('GoalsPage')}
-          activeOpacity={0.85}
-        >
-          <View style={{
-            flexDirection: 'row',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginBottom: 16,
-          }}>
-            <Text style={{ fontSize: 18, fontWeight: '700', color: '#2D3748' }}>Goals Overview</Text>
-            <Ionicons name="chevron-forward" size={22} color="#CBD5E0" />
-          </View>
-          
-          <View style={{
-            flexDirection: 'row',
-            flexWrap: 'wrap',
-            justifyContent: 'space-between',
-          }}>
-            <View style={{ width: '48%', marginBottom: 14, flexDirection: 'row', alignItems: 'center' }}>
-              <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(0, 184, 148, 0.1)', justifyContent: 'center', alignItems: 'center', marginRight: 10 }}>
-                <Ionicons name="checkmark-circle" size={22} color="#00B894" />
-              </View>
-              <View>
-                <Text style={{ fontSize: 14, color: '#718096', marginBottom: 2 }}>Achievable</Text>
-                <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#00B894' }}>{okCount}</Text>
-              </View>
+        {loading ? (
+          <GoalOverviewSkeleton />
+        ) : (
+          <TouchableOpacity
+            style={{
+              backgroundColor: '#FFFFFF',
+              borderRadius: 16,
+              padding: 20,
+              marginBottom: 24,
+              shadowColor: '#1A365D',
+              shadowOffset: { width: 0, height: 3 },
+              shadowOpacity: 0.1,
+              shadowRadius: 8,
+              elevation: 4,
+            }}
+            onPress={() => navigation.navigate('GoalsPage')}
+            activeOpacity={0.85}
+          >
+            <View style={{
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: 16,
+            }}>
+              <Text style={{ fontSize: 18, fontWeight: '700', color: '#2D3748' }}>Goals Overview</Text>
+              <Ionicons name="chevron-forward" size={22} color="#CBD5E0" />
             </View>
             
-            <View style={{ width: '48%', marginBottom: 14, flexDirection: 'row', alignItems: 'center' }}>
-              <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(253, 203, 110, 0.1)', justifyContent: 'center', alignItems: 'center', marginRight: 10 }}>
-                <Ionicons name="warning" size={22} color="#FDCB6E" />
+            <View style={{
+              flexDirection: 'row',
+              flexWrap: 'wrap',
+              justifyContent: 'space-between',
+            }}>
+              <View style={{ width: '48%', marginBottom: 14, flexDirection: 'row', alignItems: 'center' }}>
+                <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(0, 184, 148, 0.1)', justifyContent: 'center', alignItems: 'center', marginRight: 10 }}>
+                  <Ionicons name="checkmark-circle" size={22} color="#00B894" />
+                </View>
+                <View>
+                  <Text style={{ fontSize: 14, color: '#718096', marginBottom: 2 }}>Achievable</Text>
+                  <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#00B894' }}>{okCount}</Text>
+                </View>
               </View>
-              <View>
-                <Text style={{ fontSize: 14, color: '#718096', marginBottom: 2 }}>Adjustments</Text>
-                <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#FDCB6E' }}>{warningCount}</Text>
+              
+              <View style={{ width: '48%', marginBottom: 14, flexDirection: 'row', alignItems: 'center' }}>
+                <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(253, 203, 110, 0.1)', justifyContent: 'center', alignItems: 'center', marginRight: 10 }}>
+                  <Ionicons name="warning" size={22} color="#FDCB6E" />
+                </View>
+                <View>
+                  <Text style={{ fontSize: 14, color: '#718096', marginBottom: 2 }}>Adjustments</Text>
+                  <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#FDCB6E' }}>{warningCount}</Text>
+                </View>
+              </View>
+              
+              <View style={{ width: '48%', marginBottom: 4, flexDirection: 'row', alignItems: 'center' }}>
+                <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(231, 76, 60, 0.1)', justifyContent: 'center', alignItems: 'center', marginRight: 10 }}>
+                  <Ionicons name="close-circle" size={22} color="#E74C3C" />
+                </View>
+                <View>
+                  <Text style={{ fontSize: 14, color: '#718096', marginBottom: 2 }}>Impossible</Text>
+                  <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#E74C3C' }}>{problemCount}</Text>
+                </View>
+              </View>
+              
+              <View style={{ width: '48%', marginBottom: 4, flexDirection: 'row', alignItems: 'center' }}>
+                <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(9, 132, 227, 0.1)', justifyContent: 'center', alignItems: 'center', marginRight: 10 }}>
+                  <Ionicons name="information-circle" size={22} color="#0984e3" />
+                </View>
+                <View>
+                  <Text style={{ fontSize: 14, color: '#718096', marginBottom: 2 }}>Due Today</Text>
+                  <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#0984e3' }}>{todayCount}</Text>
+                </View>
               </View>
             </View>
-            
-            <View style={{ width: '48%', marginBottom: 4, flexDirection: 'row', alignItems: 'center' }}>
-              <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(231, 76, 60, 0.1)', justifyContent: 'center', alignItems: 'center', marginRight: 10 }}>
-                <Ionicons name="close-circle" size={22} color="#E74C3C" />
-              </View>
-              <View>
-                <Text style={{ fontSize: 14, color: '#718096', marginBottom: 2 }}>Impossible</Text>
-                <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#E74C3C' }}>{problemCount}</Text>
-              </View>
-            </View>
-            
-            <View style={{ width: '48%', marginBottom: 4, flexDirection: 'row', alignItems: 'center' }}>
-              <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(9, 132, 227, 0.1)', justifyContent: 'center', alignItems: 'center', marginRight: 10 }}>
-                <Ionicons name="information-circle" size={22} color="#0984e3" />
-              </View>
-              <View>
-                <Text style={{ fontSize: 14, color: '#718096', marginBottom: 2 }}>Due Today</Text>
-                <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#0984e3' }}>{todayCount}</Text>
-              </View>
-            </View>
-          </View>
-        </TouchableOpacity>
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );
