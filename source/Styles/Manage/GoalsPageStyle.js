@@ -7,6 +7,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F8F9FA',
     padding: 16,
+    paddingTop: 8,
   },
   header: {
     fontSize: 24,
@@ -527,6 +528,32 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#636E72',
     lineHeight: 16,
+  },
+  headerActionButton: {
+    padding: 5,
+  },
+  actionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  backIconButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 132, 0, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  addIconButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 132, 0, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 

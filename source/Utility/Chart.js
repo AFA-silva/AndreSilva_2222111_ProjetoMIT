@@ -3,6 +3,141 @@ import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-nati
 import { LineChart, BarChart, PieChart } from 'react-native-chart-kit';
 import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
+import Svg, { G, Path, Circle, Text as SvgText } from 'react-native-svg';
+
+const GaugeChart = ({ 
+  value = 0, 
+  valueMin = 0, 
+  valueMax = 100, 
+  width = 200, 
+  height = 150, 
+  startAngle = -90, 
+  endAngle = 90, 
+  innerRadius = '80%', 
+  outerRadius = '100%', 
+  cornerRadius = 0,
+  textFontSize = 16,
+  textDx = 0,
+  textDy = 0,
+  formatText,
+  gaugeColors = {
+    valueArc: '#FF9800',
+    referenceArc: '#FFE0B2',
+    valueText: '#2D3748'
+  },
+}) => {
+  const [isReady, setIsReady] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsReady(true);
+    }, 50);
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (!isReady) {
+    return (
+      <View style={[styles.gaugeContainer, { width, height }]}>
+        <Text style={styles.loadingText}>Loading gauge...</Text>
+      </View>
+    );
+  }
+
+  const normalizedValue = Math.min(Math.max(value, valueMin), valueMax);
+  const valuePercentage = (normalizedValue - valueMin) / (valueMax - valueMin);
+  
+  // Calculate coordinates and dimensions
+  const centerX = width / 2;
+  const centerY = height / 2;
+  const maxRadius = Math.min(centerX, centerY) * 0.9;
+  
+  // Parse radius values
+  const getRadiusValue = (radius, maxRadius) => {
+    if (typeof radius === 'string' && radius.endsWith('%')) {
+      return maxRadius * (parseFloat(radius) / 100);
+    }
+    return radius;
+  };
+
+  const outerRadiusValue = getRadiusValue(outerRadius, maxRadius);
+  const innerRadiusValue = getRadiusValue(innerRadius, maxRadius);
+  const cornerRadiusValue = typeof cornerRadius === 'string' && cornerRadius.endsWith('%') 
+    ? (outerRadiusValue - innerRadiusValue) * (parseFloat(cornerRadius) / 100)
+    : cornerRadius;
+
+  // Calculate angles
+  const angleRange = endAngle - startAngle;
+  const valueAngle = startAngle + (angleRange * valuePercentage);
+
+  // Create arcs
+  const createArc = (startAngle, endAngle) => {
+    // Convert angles from degrees to radians
+    const startRad = (startAngle - 90) * (Math.PI / 180);
+    const endRad = (endAngle - 90) * (Math.PI / 180);
+    
+    // Calculate start and end points
+    const startX = centerX + outerRadiusValue * Math.cos(startRad);
+    const startY = centerY + outerRadiusValue * Math.sin(startRad);
+    const endX = centerX + outerRadiusValue * Math.cos(endRad);
+    const endY = centerY + outerRadiusValue * Math.sin(endRad);
+    
+    // Calculate inner points
+    const innerStartX = centerX + innerRadiusValue * Math.cos(startRad);
+    const innerStartY = centerY + innerRadiusValue * Math.sin(startRad);
+    const innerEndX = centerX + innerRadiusValue * Math.cos(endRad);
+    const innerEndY = centerY + innerRadiusValue * Math.sin(endRad);
+    
+    // Determine if the arc is larger than 180 degrees
+    const largeArcFlag = Math.abs(endAngle - startAngle) >= 180 ? 1 : 0;
+    
+    // Create path
+    return `
+      M ${startX} ${startY}
+      A ${outerRadiusValue} ${outerRadiusValue} 0 ${largeArcFlag} 1 ${endX} ${endY}
+      L ${innerEndX} ${innerEndY}
+      A ${innerRadiusValue} ${innerRadiusValue} 0 ${largeArcFlag} 0 ${innerStartX} ${innerStartY}
+      Z
+    `;
+  };
+
+  // Format the displayed text
+  const formattedText = formatText 
+    ? formatText({ value: normalizedValue, valueMin, valueMax }) 
+    : Math.round(normalizedValue).toString();
+
+  return (
+    <View style={[styles.gaugeContainer, { width, height }]}>
+      <Svg width={width} height={height}>
+        <G>
+          {/* Reference Arc (background) */}
+          <Path
+            d={createArc(startAngle, endAngle)}
+            fill={gaugeColors.referenceArc}
+          />
+          
+          {/* Value Arc */}
+          <Path
+            d={createArc(startAngle, valueAngle)}
+            fill={gaugeColors.valueArc}
+          />
+          
+          {/* Center Text */}
+          <SvgText
+            x={centerX + textDx}
+            y={centerY + textDy}
+            textAnchor="middle"
+            alignmentBaseline="middle"
+            fill={gaugeColors.valueText}
+            fontSize={textFontSize}
+            fontWeight="bold"
+          >
+            {formattedText}
+          </SvgText>
+        </G>
+      </Svg>
+    </View>
+  );
+};
 
 const Chart = ({ incomes, categories, frequencies, processData, chartTypes = ['Bar', 'Pie', 'Line'] }) => {
   const [chartType, setChartType] = useState(chartTypes[0].toLowerCase());
@@ -511,6 +646,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
   },
+  gaugeContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
+  },
+  loadingText: {
+    color: '#666666',
+    fontSize: 14,
+    fontWeight: '500',
+  },
 });
 
+export { GaugeChart };
 export default Chart;

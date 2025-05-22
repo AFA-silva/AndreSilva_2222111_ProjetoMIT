@@ -7,6 +7,8 @@ import styles from '../../Styles/Manage/GoalsPageStyle';
 import AlertComponent from '../../Utility/Alerts';
 import { useFocusEffect } from '@react-navigation/native';
 import { formatCurrency, calculateGoalProgress, calculateGoalStatus, calculateAllocationValue } from './GoalsCalc';
+import Header from '../../Utility/Header';
+import { LinearGradient } from 'expo-linear-gradient';
 
 // Funções auxiliares
 
@@ -372,7 +374,7 @@ const ScenarioItem = ({
   </View>
 );
 
-const GoalsPage = () => {
+const GoalsPage = ({ navigation }) => {
   // Estados consolidados
   const [goalState, setGoalState] = useState({
     isModalVisible: false,
@@ -1227,14 +1229,29 @@ const GoalsPage = () => {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.header}>Financial Goals</Text>
+      <Header title="Financial Goals" />
 
-      {renderFinancialMetrics()}
+      <View style={styles.actionsRow}>
+        <TouchableOpacity 
+          style={styles.backIconButton}
+          onPress={() => navigation.goBack()}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="chevron-back" size={24} color="#FF8400" />
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={styles.addIconButton}
+          onPress={handleAddGoal}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="add-circle" size={24} color="#FF8400" />
+        </TouchableOpacity>
+      </View>
 
-      <TouchableOpacity style={styles.addButton} onPress={handleAddGoal}>
-        <Ionicons name="add-circle" size={24} color="#FFFFFF" />
-        <Text style={styles.addButtonText}>Add New Goal</Text>
-      </TouchableOpacity>
+      <View style={{ marginTop: 10 }}>
+        {renderFinancialMetrics()}
+      </View>
 
       <View style={styles.listWrapper}>
         <FlatList
