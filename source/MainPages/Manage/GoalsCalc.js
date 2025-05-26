@@ -1,11 +1,8 @@
+import { formatCurrency as formatCurrencyUtil } from '../../Utility/FetchCountries';
+
   // Função para formatar moeda
   export const formatCurrency = (value) => {
-    return new Intl.NumberFormat('pt-PT', {
-      style: 'currency',
-      currency: 'EUR',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    }).format(value);
+    return formatCurrencyUtil(value);
   };
 
   // Função para calcular progresso da meta

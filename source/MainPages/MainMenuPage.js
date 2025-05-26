@@ -8,6 +8,7 @@ import { GaugeChart } from '../Utility/Chart';
 import { formatCurrency, calculateAllocationValue } from './Manage/GoalsCalc';
 import Header from '../Utility/Header';
 import { LinearGradient } from 'expo-linear-gradient';
+import { setCurrentCurrency } from '../Utility/FetchCountries';
 
 const MainMenuPage = ({ navigation }) => {
   const [okCount, setOkCount] = useState(0);
@@ -40,6 +41,23 @@ const MainMenuPage = ({ navigation }) => {
       if (!user) {
         setLoading(false);
         return;
+      }
+
+      // Buscar a região do usuário para definir a moeda
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('region')
+        .eq('id', user.id)
+        .single();
+      
+      if (!userError && userData && userData.region) {
+        // Define a moeda com base na região do usuário
+        await setCurrentCurrency(userData.region);
+        console.log(`Moeda definida para a região: ${userData.region}`);
+      } else {
+        // Define o Euro como moeda padrão se não encontrar região
+        await setCurrentCurrency('EUR');
+        console.log('Moeda definida para o padrão: Euro');
       }
       
       // Goals status
@@ -215,140 +233,148 @@ Economias Alocadas: ${formatCurrency(savingsAmount)} (${Math.round(usagePercenta
   };
 
   return (
-    <View style={styles.container}>
+    <View style={styles.mainContainer}>
       <Header title="Dashboard" />
       
-      <View style={styles.dashboardSection}>
-        <Text style={styles.sectionTitle}>Orçamento Mensal</Text>
-        {loading ? (
-          <View style={styles.statsCard}>
-            <Text style={styles.statsLabel}>Loading...</Text>
+      <View style={styles.container}>
+        <View style={styles.dashboardSection}>
+          <View style={styles.sectionTitleContainer}>
+            <Ionicons name="wallet-outline" size={20} color="#FF9800" style={styles.sectionIcon} />
+            <Text style={styles.sectionTitle}>Net Income</Text>
           </View>
-        ) : (
-          <View style={cardStyles.card}>
-            <View style={cardStyles.moneyContainer}>
-              <View style={cardStyles.moneyTextContainer}>
-                <Text style={cardStyles.moneyLabel}>Dinheiro Disponível</Text>
-                <Text style={[
-                  cardStyles.moneyValue, 
-                  {color: availableMoney >= 0 ? statusColors.achievable : statusColors.impossible}
-                ]}>
-                  {formatCurrency(availableMoney)}
-                </Text>
-                <Text style={cardStyles.allocatedLabel}>
-                  Savings Allocated <Text style={cardStyles.allocatedValue}>{usagePercentage.toFixed(2)}%</Text>
-                  <Text style={cardStyles.allocatedAmount}>
-                    ({formatCurrency(savingsAmount)})
+          {loading ? (
+            <View style={styles.statsCard}>
+              <Text style={styles.statsLabel}>Loading...</Text>
+            </View>
+          ) : (
+            <View style={cardStyles.card}>
+              <View style={cardStyles.moneyContainer}>
+                <View style={cardStyles.moneyTextContainer}>
+                  <Text style={cardStyles.moneyLabel}>Net Income (Receita Líquida)</Text>
+                  <Text style={[
+                    cardStyles.moneyValue, 
+                    {color: availableMoney >= 0 ? statusColors.achievable : statusColors.impossible}
+                  ]}>
+                    {formatCurrency(availableMoney)}
                   </Text>
+                  <Text style={cardStyles.allocatedLabel}>
+                    Savings Allocated <Text style={cardStyles.allocatedValue}>{usagePercentage.toFixed(2)}%</Text>
+                    <Text style={cardStyles.allocatedAmount}>
+                      ({formatCurrency(savingsAmount)})
+                    </Text>
+                  </Text>
+                </View>
+              </View>
+              
+              <TouchableOpacity 
+                style={cardStyles.gaugeContainer}
+                onPress={handleGaugePress}
+                activeOpacity={0.7}
+              >
+                <GaugeChart 
+                  key={`gauge-${refreshKey}-${dominantGoalStatus}`}
+                  value={usagePercentage}
+                  width={200}
+                  height={100}
+                  startAngle={-90}
+                  endAngle={90}
+                  formatText={({ value }) => `${Math.round(value)}%`}
+                  gaugeColors={{
+                    valueArc: getGaugeColor(),
+                    referenceArc: '#F7F9FC',
+                    valueText: '#2D3748'
+                  }}
+                  textFontSize={22}
+                />
+                <Text style={cardStyles.gaugeLabel}>
+                  Savings Allocation (%)
                 </Text>
-              </View>
+              </TouchableOpacity>
             </View>
-            
-            <TouchableOpacity 
-              style={cardStyles.gaugeContainer}
-              onPress={handleGaugePress}
-              activeOpacity={0.7}
-            >
-              <GaugeChart 
-                key={`gauge-${refreshKey}-${dominantGoalStatus}`}
-                value={usagePercentage}
-                width={200}
-                height={100}
-                startAngle={-90}
-                endAngle={90}
-                formatText={({ value }) => `${Math.round(value)}%`}
-                gaugeColors={{
-                  valueArc: getGaugeColor(),
-                  referenceArc: '#F7F9FC',
-                  valueText: '#2D3748'
-                }}
-                textFontSize={22}
-              />
-              <Text style={cardStyles.gaugeLabel}>
-                Taxa de Utilização (% do Orçamento)
-              </Text>
-            </TouchableOpacity>
-          </View>
-        )}
-      </View>
+          )}
+        </View>
 
-      <View style={styles.dashboardSection}>
-        <Text style={styles.sectionTitle}>Goal Status</Text>
-        {loading ? (
-          <GoalOverviewSkeleton />
-        ) : (
-          <TouchableOpacity
-            style={{
-              backgroundColor: '#FFFFFF',
-              borderRadius: 16,
-              padding: 20,
-              marginBottom: 24,
-              shadowColor: '#1A365D',
-              shadowOffset: { width: 0, height: 3 },
-              shadowOpacity: 0.1,
-              shadowRadius: 8,
-              elevation: 4,
-            }}
-            onPress={navigateToGoals}
-            activeOpacity={0.85}
-          >
-            <View style={{
-              flexDirection: 'row',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              marginBottom: 16,
-            }}>
-              <Text style={{ fontSize: 18, fontWeight: '700', color: '#2D3748' }}>Goals Overview</Text>
-              <Ionicons name="chevron-forward" size={22} color="#CBD5E0" />
-            </View>
-            
-            <View style={{
-              flexDirection: 'row',
-              flexWrap: 'wrap',
-              justifyContent: 'space-between',
-            }}>
-              <View style={{ width: '48%', marginBottom: 14, flexDirection: 'row', alignItems: 'center' }}>
-                <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(0, 184, 148, 0.1)', justifyContent: 'center', alignItems: 'center', marginRight: 10 }}>
-                  <Ionicons name="checkmark-circle" size={22} color={statusColors.achievable} />
-                </View>
-                <View>
-                  <Text style={{ fontSize: 14, color: '#718096', marginBottom: 2 }}>Achievable</Text>
-                  <Text style={{ fontSize: 20, fontWeight: 'bold', color: statusColors.achievable }}>{okCount}</Text>
-                </View>
+        <View style={styles.dashboardSection}>
+          <View style={styles.sectionTitleContainer}>
+            <Ionicons name="flag-outline" size={20} color="#FF9800" style={styles.sectionIcon} />
+            <Text style={styles.sectionTitle}>Goal Status</Text>
+          </View>
+          {loading ? (
+            <GoalOverviewSkeleton />
+          ) : (
+            <TouchableOpacity
+              style={{
+                backgroundColor: '#FFFFFF',
+                borderRadius: 16,
+                padding: 20,
+                marginBottom: 24,
+                shadowColor: '#1A365D',
+                shadowOffset: { width: 0, height: 3 },
+                shadowOpacity: 0.1,
+                shadowRadius: 8,
+                elevation: 4,
+              }}
+              onPress={navigateToGoals}
+              activeOpacity={0.85}
+            >
+              <View style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: 16,
+              }}>
+                <Text style={{ fontSize: 18, fontWeight: '700', color: '#2D3748' }}>Goals Overview</Text>
+                <Ionicons name="chevron-forward" size={22} color="#CBD5E0" />
               </View>
               
-              <View style={{ width: '48%', marginBottom: 14, flexDirection: 'row', alignItems: 'center' }}>
-                <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(253, 203, 110, 0.1)', justifyContent: 'center', alignItems: 'center', marginRight: 10 }}>
-                  <Ionicons name="warning" size={22} color={statusColors.adjustments} />
+              <View style={{
+                flexDirection: 'row',
+                flexWrap: 'wrap',
+                justifyContent: 'space-between',
+              }}>
+                <View style={{ width: '48%', marginBottom: 14, flexDirection: 'row', alignItems: 'center' }}>
+                  <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(0, 184, 148, 0.1)', justifyContent: 'center', alignItems: 'center', marginRight: 10 }}>
+                    <Ionicons name="checkmark-circle" size={22} color={statusColors.achievable} />
+                  </View>
+                  <View>
+                    <Text style={{ fontSize: 14, color: '#718096', marginBottom: 2 }}>Achievable</Text>
+                    <Text style={{ fontSize: 20, fontWeight: 'bold', color: statusColors.achievable }}>{okCount}</Text>
+                  </View>
                 </View>
-                <View>
-                  <Text style={{ fontSize: 14, color: '#718096', marginBottom: 2 }}>Adjustments</Text>
-                  <Text style={{ fontSize: 20, fontWeight: 'bold', color: statusColors.adjustments }}>{warningCount}</Text>
+                
+                <View style={{ width: '48%', marginBottom: 14, flexDirection: 'row', alignItems: 'center' }}>
+                  <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(253, 203, 110, 0.1)', justifyContent: 'center', alignItems: 'center', marginRight: 10 }}>
+                    <Ionicons name="warning" size={22} color={statusColors.adjustments} />
+                  </View>
+                  <View>
+                    <Text style={{ fontSize: 14, color: '#718096', marginBottom: 2 }}>Adjustments</Text>
+                    <Text style={{ fontSize: 20, fontWeight: 'bold', color: statusColors.adjustments }}>{warningCount}</Text>
+                  </View>
+                </View>
+                
+                <View style={{ width: '48%', marginBottom: 4, flexDirection: 'row', alignItems: 'center' }}>
+                  <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(231, 76, 60, 0.1)', justifyContent: 'center', alignItems: 'center', marginRight: 10 }}>
+                    <Ionicons name="close-circle" size={22} color={statusColors.impossible} />
+                  </View>
+                  <View>
+                    <Text style={{ fontSize: 14, color: '#718096', marginBottom: 2 }}>Impossible</Text>
+                    <Text style={{ fontSize: 20, fontWeight: 'bold', color: statusColors.impossible }}>{problemCount}</Text>
+                  </View>
+                </View>
+                
+                <View style={{ width: '48%', marginBottom: 4, flexDirection: 'row', alignItems: 'center' }}>
+                  <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(9, 132, 227, 0.1)', justifyContent: 'center', alignItems: 'center', marginRight: 10 }}>
+                    <Ionicons name="information-circle" size={22} color={statusColors.dueToday} />
+                  </View>
+                  <View>
+                    <Text style={{ fontSize: 14, color: '#718096', marginBottom: 2 }}>Due Today</Text>
+                    <Text style={{ fontSize: 20, fontWeight: 'bold', color: statusColors.dueToday }}>{todayCount}</Text>
+                  </View>
                 </View>
               </View>
-              
-              <View style={{ width: '48%', marginBottom: 4, flexDirection: 'row', alignItems: 'center' }}>
-                <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(231, 76, 60, 0.1)', justifyContent: 'center', alignItems: 'center', marginRight: 10 }}>
-                  <Ionicons name="close-circle" size={22} color={statusColors.impossible} />
-                </View>
-                <View>
-                  <Text style={{ fontSize: 14, color: '#718096', marginBottom: 2 }}>Impossible</Text>
-                  <Text style={{ fontSize: 20, fontWeight: 'bold', color: statusColors.impossible }}>{problemCount}</Text>
-                </View>
-              </View>
-              
-              <View style={{ width: '48%', marginBottom: 4, flexDirection: 'row', alignItems: 'center' }}>
-                <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(9, 132, 227, 0.1)', justifyContent: 'center', alignItems: 'center', marginRight: 10 }}>
-                  <Ionicons name="information-circle" size={22} color={statusColors.dueToday} />
-                </View>
-                <View>
-                  <Text style={{ fontSize: 14, color: '#718096', marginBottom: 2 }}>Due Today</Text>
-                  <Text style={{ fontSize: 20, fontWeight: 'bold', color: statusColors.dueToday }}>{todayCount}</Text>
-                </View>
-              </View>
-            </View>
-          </TouchableOpacity>
-        )}
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
     </View>
   );
@@ -357,60 +383,74 @@ Economias Alocadas: ${formatCurrency(savingsAmount)} (${Math.round(usagePercenta
 const cardStyles = StyleSheet.create({
   card: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    borderRadius: 20,
     overflow: 'hidden',
     marginBottom: 20,
     shadowColor: '#1A365D',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    elevation: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.03)',
   },
   moneyContainer: {
-    padding: 16,
+    padding: 20,
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
+    backgroundColor: '#FCFCFD',
   },
   moneyTextContainer: {
     alignItems: 'center',
   },
   moneyLabel: {
-    fontSize: 14,
-    color: '#718096',
-    marginBottom: 4,
-    fontWeight: '500',
+    fontSize: 15,
+    color: '#4A5568',
+    marginBottom: 8,
+    fontWeight: '600',
+    letterSpacing: 0.2,
   },
   moneyValue: {
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: 'bold',
-    marginBottom: 4,
+    marginBottom: 8,
+    letterSpacing: 0.5,
   },
   allocatedLabel: {
     fontSize: 14,
-    color: '#718096',
+    color: '#4A5568',
     textAlign: 'center',
+    marginTop: 4,
+    fontWeight: '500',
   },
   allocatedValue: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: 'bold',
     color: '#00B894',
+    backgroundColor: 'rgba(0, 184, 148, 0.1)',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
   },
   allocatedAmount: {
-    fontSize: 13,
-    color: '#718096',
+    fontSize: 14,
+    color: '#4A5568',
     fontWeight: 'normal',
   },
   gaugeContainer: {
     alignItems: 'center',
-    paddingTop: 12,
-    paddingBottom: 14,
-    paddingHorizontal: 10,
+    paddingTop: 16,
+    paddingBottom: 18,
+    paddingHorizontal: 20,
+    backgroundColor: '#FFFFFF',
   },
   gaugeLabel: {
-    marginTop: 4,
-    fontSize: 12,
-    color: '#718096',
+    marginTop: 8,
+    fontSize: 13,
+    color: '#4A5568',
     textAlign: 'center',
+    fontWeight: '500',
+    letterSpacing: 0.2,
   },
 });
 

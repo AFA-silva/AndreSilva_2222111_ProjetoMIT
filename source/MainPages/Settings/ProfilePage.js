@@ -20,7 +20,7 @@ import { isEmailValid, isPhoneValid, isFieldNotEmpty } from '../../Utility/Valid
 import Alert from '../../Utility/Alerts';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Picker } from '@react-native-picker/picker';
-import { fetchCountries } from '../../Utility/FetchCountries';
+import { fetchCountries, getCurrencyByCountryCode, setCurrentCurrency } from '../../Utility/FetchCountries';
 
 const ProfilePage = ({ navigation }) => {
   // User data states
@@ -309,6 +309,11 @@ const ProfilePage = ({ navigation }) => {
           setDarkModeEnabled(true);
         }
         
+        // Definir moeda padrão se não houver região
+        if (!userData.region) {
+          await setCurrentCurrency('EUR'); // Euro como padrão
+        }
+        
         return;
       }
       
@@ -339,6 +344,30 @@ const ProfilePage = ({ navigation }) => {
       // Configurar a imagem de perfil
       if (profileData.image) {
         setProfileImage(profileData.image);
+      }
+      
+      // Obter e mostrar a moeda do país selecionado
+      if (userData.region) {
+        const currencyInfo = await getCurrencyByCountryCode(userData.region);
+        if (currencyInfo) {
+          // Define a moeda atual para toda a aplicação
+          await setCurrentCurrency(userData.region);
+          
+          console.log('=== Informação da Moeda do País ===');
+          console.log(`País: ${userData.region}`);
+          console.log(`Código da Moeda: ${currencyInfo.code}`);
+          console.log(`Nome da Moeda: ${currencyInfo.name}`);
+          console.log(`Símbolo: ${currencyInfo.symbol}`);
+          console.log('================================');
+        } else {
+          console.log(`Não foi possível encontrar informações de moeda para o país: ${userData.region}`);
+          // Define o Euro como moeda padrão se não encontrar informações
+          await setCurrentCurrency('EUR');
+        }
+      } else {
+        console.log('O usuário não tem um país selecionado no perfil');
+        // Define o Euro como moeda padrão se não houver região
+        await setCurrentCurrency('EUR');
       }
       
     } catch (error) {

@@ -49,6 +49,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     position: 'relative',
     overflow: 'hidden',
+    borderBottomLeftRadius: 15,
+    borderBottomRightRadius: 15,
   },
   titleContainer: {
     alignItems: 'center',

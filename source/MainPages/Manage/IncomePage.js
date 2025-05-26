@@ -8,6 +8,7 @@ import IncomeChart from '../../Utility/Chart';
 import AlertComponent from '../../Utility/Alerts';
 import { useFocusEffect } from '@react-navigation/native';
 import Chart from '../../Utility/Chart';
+import { formatCurrency } from '../../Utility/FetchCountries';
 
 const IncomePage = ({ navigation }) => {
   const [incomes, setIncomes] = useState([]);
@@ -271,10 +272,7 @@ const IncomePage = ({ navigation }) => {
             <Text style={styles.incomeTitle}>{item.name}</Text>
           </View>
           <Text style={styles.incomeDetails}>
-            {new Intl.NumberFormat('pt-PT', {
-              style: 'currency',
-              currency: 'EUR',
-            }).format(item.amount)}
+            {formatCurrency(item.amount)}
           </Text>
         </View>
 

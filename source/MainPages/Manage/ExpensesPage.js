@@ -7,6 +7,7 @@ import { supabase } from '../../../Supabase';
 import AlertComponent from '../../Utility/Alerts';
 import { useFocusEffect } from '@react-navigation/native';
 import Chart from '../../Utility/Chart';
+import { formatCurrency } from '../../Utility/FetchCountries';
 
 const ExpensesPage = () => {
   const [expenses, setExpenses] = useState([]);
@@ -250,10 +251,7 @@ const ExpensesPage = () => {
   };
 
   const formatAmount = (amount) => {
-    return new Intl.NumberFormat('pt-PT', {
-      style: 'currency',
-      currency: 'EUR',
-    }).format(amount);
+    return formatCurrency(amount);
   };
 
   const handleEditCategory = (category) => {

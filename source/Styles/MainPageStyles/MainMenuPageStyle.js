@@ -8,6 +8,10 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
     backgroundColor: '#F7F9FC',
   },
+  mainContainer: {
+    flex: 1,
+    backgroundColor: '#F7F9FC',
+  },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
@@ -113,12 +117,19 @@ const styles = StyleSheet.create({
   dashboardSection: {
     marginBottom: 20,
   },
+  sectionTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingHorizontal: 4,
+  },
+  sectionIcon: {
+    marginRight: 8,
+  },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
     color: '#2D3748',
-    marginBottom: 16,
-    paddingHorizontal: 4,
   },
 });
 
