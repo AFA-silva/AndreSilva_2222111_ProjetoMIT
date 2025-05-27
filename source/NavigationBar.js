@@ -48,11 +48,18 @@ const NavigationBar = () => {
   useEffect(() => {
     // Garantir que todos os botões sejam visíveis inicialmente
     Object.keys(tabAnimations).forEach(tab => {
-      tabAnimations[tab].setValue(tab === 'MainMenuPage' ? 1 : 0.5);
+      tabAnimations[tab].setValue(1); // Alterado de 0.5 para 1 para todos os botões
     });
     
     // Marcar como inicializado para permitir animações futuras
     setIsInitialized(true);
+
+    // Animar a entrada da navbar
+    Animated.timing(navbarAnim, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: Platform.OS !== 'web',
+    }).start();
   }, []);
 
   // Efeito para atualizar as animações quando a tab muda
@@ -84,27 +91,18 @@ const NavigationBar = () => {
         }).start();
       };
       
-      // Ativar a tab correta e desativar as outras
+      // Ativar a tab correta e definir as outras para semifaded
       Object.keys(tabAnimations).forEach(tab => {
-        animateTab(tab, tab === activeRouteName ? 1 : 0.5);
+        animateTab(tab, tab === activeRouteName ? 1 : 0.8);
       });
     } catch (error) {
       console.log('Error updating tab animations:', error);
       // Garantir que todos os botões permaneçam visíveis em caso de erro
       Object.keys(tabAnimations).forEach(tab => {
-        tabAnimations[tab].setValue(tab === activeTab ? 1 : 0.5);
+        tabAnimations[tab].setValue(tab === activeTab ? 1 : 0.8);
       });
     }
   }, [navigation.getState(), isInitialized]);
-
-  // Animação inicial da navbar
-  useEffect(() => {
-    Animated.timing(navbarAnim, {
-      toValue: 1,
-      duration: 300,
-      useNativeDriver: Platform.OS !== 'web',
-    }).start();
-  }, []);
 
   // Função para navegar para uma tab
   const navigateToTab = (tabName) => {
@@ -167,7 +165,7 @@ const NavigationBar = () => {
             {
               opacity: animValue.interpolate({
                 inputRange: [0, 0.5, 1],
-                outputRange: [0, 0, 1]
+                outputRange: [0.7, 0.7, 1]
               }),
               transform: [
                 {

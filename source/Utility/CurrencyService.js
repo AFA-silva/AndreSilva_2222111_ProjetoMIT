@@ -68,10 +68,21 @@ export const getSupportedCurrencies = async () => {
     
     if (data.result === 'success') {
       // Format the data into a more usable structure
-      const currencies = data.supported_codes.map(code => ({
-        code: code[0],
-        name: code[1]
-      }));
+      const currencies = data.supported_codes.map(code => {
+        const currencyCode = code[0];
+        const currencyInfo = {
+          code: currencyCode,
+          name: code[1],
+          countries: []
+        };
+        
+        // Add country information if available
+        if (countryCurrencyMap[currencyCode]) {
+          currencyInfo.countries = countryCurrencyMap[currencyCode].countries;
+        }
+        
+        return currencyInfo;
+      });
       
       // Store the new data in cache
       const cacheData = {

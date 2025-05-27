@@ -245,9 +245,10 @@ const CurrencyMarketPage = ({ navigation }) => {
       const exchangeRates = await fetchLatestRates(baseCurrency);
       setRates(exchangeRates);
       
-      // Buscar lista de moedas suportadas
+      // Buscar lista de moedas suportadas (limitado a 50 moedas)
       const supportedCurrencies = await getSupportedCurrencies();
-      setCurrencies(supportedCurrencies);
+      // Limitar para 50 moedas para melhor performance
+      setCurrencies(supportedCurrencies.slice(0, 50));
       
       // Encontrar o nome da moeda atual do usuário
       const currencyDetails = supportedCurrencies.find(c => c.code === baseCurrency);
@@ -448,10 +449,35 @@ const CurrencyMarketPage = ({ navigation }) => {
     if (!searchQuery) return true;
     
     const query = searchQuery.toLowerCase();
-    return (
+    
+    // Check if the currency code or name matches
+    const basicMatch = (
       currency.code.toLowerCase().includes(query) ||
       currency.name.toLowerCase().includes(query)
     );
+    
+    if (basicMatch) return true;
+    
+    // Check if any country matches (if countries array exists)
+    if (currency.countries && currency.countries.length > 0) {
+      return currency.countries.some(country => 
+        country.toLowerCase().includes(query)
+      );
+    }
+    
+    return false;
+  })
+  .sort((a, b) => {
+    // Colocar a moeda do usuário no topo
+    if (a.code === userPreferredCurrency) return -1;
+    if (b.code === userPreferredCurrency) return 1;
+    
+    // Colocar a moeda selecionada em seguida
+    if (a.code === baseCurrency) return -1;
+    if (b.code === baseCurrency) return 1;
+    
+    // Depois ordenar pelo nome
+    return a.name.localeCompare(b.name);
   });
 
   // Obter símbolo da moeda
@@ -500,6 +526,9 @@ const CurrencyMarketPage = ({ navigation }) => {
     const isBaseCurrency = baseCurrency === item.code;
     const isUserPreferred = userPreferredCurrency === item.code;
     
+    // Get the primary country if available
+    const primaryCountry = item.countries && item.countries.length > 0 ? item.countries[0] : null;
+    
     // Calcular animação de deslocamento para cada item
     const itemDelayOffset = Math.min(index, 10) * 50; // Limitar a 10 itens para evitar atrasos muito longos
     
@@ -536,16 +565,19 @@ const CurrencyMarketPage = ({ navigation }) => {
             </View>
             <View style={styles.currencyDetails}>
               <Text style={styles.currencyCode}>{item.code}</Text>
-              <Text style={styles.currencyName} numberOfLines={1}>{item.name}</Text>
+              <Text style={styles.currencyName} numberOfLines={1}>
+                {item.name}
+                {primaryCountry ? ` • ${primaryCountry}` : ''}
+              </Text>
             </View>
             {isBaseCurrency && (
               <View style={styles.primaryBadge}>
-                <Text style={styles.primaryText}>Primary</Text>
+                <Text style={styles.primaryText}>Selected</Text>
               </View>
             )}
             {!isBaseCurrency && isUserPreferred && (
               <View style={[styles.primaryBadge, {backgroundColor: '#4CAF50'}]}>
-                <Text style={styles.primaryText}>Preferred</Text>
+                <Text style={styles.primaryText}>Default</Text>
               </View>
             )}
           </View>
@@ -570,21 +602,37 @@ const CurrencyMarketPage = ({ navigation }) => {
     return convertedValue ? convertedValue.toFixed(2) : '0.00';
   };
 
-  const renderModalItem = ({ item }) => (
-    <TouchableOpacity
-      style={styles.modalCurrencyItem}
-      onPress={() => selectCurrencyFromModal(item)}
-    >
-      <Text style={styles.modalCurrencySymbol}>{getCurrencySymbol(item.code)}</Text>
-      <View style={styles.modalCurrencyInfo}>
-        <Text style={styles.modalCurrencyCode}>{item.code}</Text>
-        <Text style={styles.modalCurrencyName}>{item.name}</Text>
-      </View>
-      {(item.code === baseCurrency || item.code === targetCurrency) && (
-        <Ionicons name="checkmark-circle" size={22} color="#4CAF50" style={styles.modalSelectedIcon} />
-      )}
-    </TouchableOpacity>
-  );
+  const renderModalItem = ({ item }) => {
+    const isSelected = item.code === (currencySelectionType === 'base' ? baseCurrency : targetCurrency);
+    const isUserPreferred = item.code === userPreferredCurrency;
+    const primaryCountry = item.countries && item.countries.length > 0 ? item.countries[0] : null;
+    
+    return (
+      <TouchableOpacity
+        style={[
+          styles.modalCurrencyItem,
+          isSelected && styles.modalSelectedItem,
+          isUserPreferred && styles.modalUserPreferredItem
+        ]}
+        onPress={() => selectCurrencyFromModal(item)}
+      >
+        <Text style={styles.modalCurrencySymbol}>{getCurrencySymbol(item.code)}</Text>
+        <View style={styles.modalCurrencyInfo}>
+          <Text style={styles.modalCurrencyCode}>{item.code}</Text>
+          <Text style={styles.modalCurrencyName}>
+            {item.name}
+            {primaryCountry ? ` • ${primaryCountry}` : ''}
+          </Text>
+        </View>
+        {isSelected && (
+          <Ionicons name="checkmark-circle" size={22} color="#4CAF50" style={styles.modalSelectedIcon} />
+        )}
+        {!isSelected && isUserPreferred && (
+          <Ionicons name="star" size={18} color="#FF9800" style={styles.modalSelectedIcon} />
+        )}
+      </TouchableOpacity>
+    );
+  };
 
   const lastUpdated = rates 
     ? new Date().toLocaleDateString(undefined, { 
@@ -758,7 +806,7 @@ const CurrencyMarketPage = ({ navigation }) => {
                       style={styles.searchInput}
                       value={searchQuery}
                       onChangeText={setSearchQuery}
-                      placeholder="Search currencies..."
+                      placeholder="Search by currency or country..."
                       placeholderTextColor="#A0AEC0"
                       autoFocus
                     />
@@ -859,7 +907,7 @@ const CurrencyMarketPage = ({ navigation }) => {
               <Ionicons name="search" size={20} color="#A0AEC0" style={styles.modalSearchIcon} />
               <TextInput
                 style={styles.modalSearchInput}
-                placeholder="Search currencies..."
+                placeholder="Search by currency or country..."
                 placeholderTextColor="#A0AEC0"
                 value={searchQuery}
                 onChangeText={setSearchQuery}

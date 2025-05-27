@@ -604,7 +604,15 @@ const styles = StyleSheet.create({
   },
   modalSelectedIcon: {
     marginLeft: 8,
-  }
+  },
+  modalSelectedItem: {
+    backgroundColor: 'rgba(76, 175, 80, 0.05)',
+    borderLeftWidth: 3,
+    borderLeftColor: '#4CAF50',
+  },
+  modalUserPreferredItem: {
+    backgroundColor: 'rgba(255, 152, 0, 0.05)',
+  },
 });
 
 export default styles; 
