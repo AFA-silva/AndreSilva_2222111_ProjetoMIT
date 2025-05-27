@@ -3,12 +3,13 @@ import { View, Text, TouchableOpacity, Dimensions, StyleSheet } from 'react-nati
 import { Ionicons } from '@expo/vector-icons';
 import styles from '../Styles/MainPageStyles/MainMenuPageStyle';
 import { supabase } from '../../Supabase';
-import { GoalOverviewSkeleton } from '../Utility/SkeletonLoading';
+import { GoalOverviewSkeleton, NetIncomeSkeleton } from '../Utility/SkeletonLoading';
 import { GaugeChart } from '../Utility/Chart';
 import { formatCurrency, calculateAllocationValue } from './Manage/GoalsCalc';
 import Header from '../Utility/Header';
 import { LinearGradient } from 'expo-linear-gradient';
-import { setCurrentCurrency } from '../Utility/FetchCountries';
+import { setCurrentCurrency, loadSavedCurrency, addCurrencyChangeListener, removeCurrencyChangeListener } from '../Utility/FetchCountries';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const MainMenuPage = ({ navigation }) => {
   const [okCount, setOkCount] = useState(0);
@@ -24,6 +25,7 @@ const MainMenuPage = ({ navigation }) => {
   const [dominantGoalStatus, setDominantGoalStatus] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0); // Chave para forçar re-render
   const [goals, setGoals] = useState([]);
+  const [currentCurrency, setCurrentCurrency] = useState(null);
 
   // Define cores com base nos status dos goals
   const statusColors = {
@@ -43,21 +45,39 @@ const MainMenuPage = ({ navigation }) => {
         return;
       }
 
-      // Buscar a região do usuário para definir a moeda
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('region')
-        .eq('id', user.id)
-        .single();
-      
-      if (!userError && userData && userData.region) {
-        // Define a moeda com base na região do usuário
-        await setCurrentCurrency(userData.region);
-        console.log(`Moeda definida para a região: ${userData.region}`);
-      } else {
-        // Define o Euro como moeda padrão se não encontrar região
-        await setCurrentCurrency('EUR');
-        console.log('Moeda definida para o padrão: Euro');
+      // Carregar a moeda global salva
+      try {
+        // Primeiro, tentar carregar da configuração global
+        const savedCurrency = await loadSavedCurrency();
+        
+        if (!savedCurrency) {
+          // Se não encontrar na configuração global, buscar do AsyncStorage diretamente
+          const storedCurrency = await AsyncStorage.getItem('user_preferred_currency');
+          
+          if (storedCurrency) {
+            // Buscar a região do usuário para definir a moeda
+            const { data: userData, error: userError } = await supabase
+              .from('users')
+              .select('region')
+              .eq('id', user.id)
+              .single();
+            
+            if (!userError && userData && userData.region) {
+              // Define a moeda com base na região do usuário
+              await setCurrentCurrency(userData.region);
+              console.log(`Moeda definida para a região: ${userData.region}`);
+            } else {
+              // Define o Euro como moeda padrão se não encontrar região
+              await setCurrentCurrency('EUR');
+              console.log('Moeda definida para o padrão: Euro');
+            }
+          }
+        } else {
+          // Usar a moeda global carregada
+          console.log(`Usando moeda global: ${savedCurrency.code}`);
+        }
+      } catch (currencyError) {
+        console.error('Erro ao carregar moeda:', currencyError);
       }
       
       // Goals status
@@ -180,13 +200,25 @@ const MainMenuPage = ({ navigation }) => {
     }
   };
 
+  // Listener para alterações na moeda
+  const handleCurrencyChange = (currency) => {
+    console.log('Moeda global alterada:', currency);
+    setCurrentCurrency(currency);
+    // Não chame fetchDashboardData aqui, pois isso cria um loop infinito
+    // Em vez disso, apenas atualizar o estado
+  };
+
   useEffect(() => {
     // Initial fetch
     fetchDashboardData();
     
-    // Atualizar os dados a cada 30 segundos
-    const interval = setInterval(fetchDashboardData, 30000);
-    return () => clearInterval(interval);
+    // Adicionar listener para alterações na moeda global
+    addCurrencyChangeListener(handleCurrencyChange);
+    
+    // Limpar listener quando o componente for desmontado
+    return () => {
+      removeCurrencyChangeListener(handleCurrencyChange);
+    };
   }, []);
 
   // Adicionar um listener de foco para atualizar quando a tela receber foco
@@ -197,6 +229,14 @@ const MainMenuPage = ({ navigation }) => {
     
     return unsubscribe;
   }, [navigation]);
+
+  // Reagir apenas quando a moeda for alterada
+  useEffect(() => {
+    if (currentCurrency) {
+      // Atualizar a tela quando a moeda for alterada
+      fetchDashboardData();
+    }
+  }, [currentCurrency]);
 
   // Determinar a cor do gauge com base no status dominante dos goals
   const getGaugeColor = () => {
@@ -232,6 +272,11 @@ Economias Alocadas: ${formatCurrency(savingsAmount)} (${Math.round(usagePercenta
     navigation.navigate('GoalsPage');
   };
 
+  // Navegar para o mercado de moedas
+  const navigateToCurrencyMarket = () => {
+    navigation.navigate('CurrencyMarketPage');
+  };
+
   return (
     <View style={styles.mainContainer}>
       <Header title="Dashboard" />
@@ -241,11 +286,18 @@ Economias Alocadas: ${formatCurrency(savingsAmount)} (${Math.round(usagePercenta
           <View style={styles.sectionTitleContainer}>
             <Ionicons name="wallet-outline" size={20} color="#FF9800" style={styles.sectionIcon} />
             <Text style={styles.sectionTitle}>Net Income</Text>
+            
+            {/* Botão para navegação rápida ao Currency Market */}
+            <TouchableOpacity 
+              style={styles.currencyButton}
+              onPress={navigateToCurrencyMarket}
+            >
+              <Ionicons name="globe-outline" size={16} color="#FF9800" />
+              <Text style={styles.currencyButtonText}>Change Currency</Text>
+            </TouchableOpacity>
           </View>
           {loading ? (
-            <View style={styles.statsCard}>
-              <Text style={styles.statsLabel}>Loading...</Text>
-            </View>
+            <NetIncomeSkeleton />
           ) : (
             <View style={cardStyles.card}>
               <View style={cardStyles.moneyContainer}>

@@ -216,6 +216,31 @@ export const GoalOverviewSkeleton = () => (
   </View>
 );
 
+export const NetIncomeSkeleton = () => (
+  <View style={styles.netIncomeContainer}>
+    <View style={styles.moneyCard}>
+      <TextRowSkeleton lines={1} style={{ width: '70%', alignSelf: 'center' }} />
+      <SkeletonLoading 
+        variant="text"
+        width="60%"
+        height={32}
+        style={{ alignSelf: 'center', marginVertical: 12 }}
+      />
+      <TextRowSkeleton lines={1} style={{ width: '80%', alignSelf: 'center' }} />
+    </View>
+    <View style={styles.gaugeContainer}>
+      <SkeletonLoading
+        variant="rounded"
+        width={200}
+        height={100}
+        borderRadius={100}
+        style={{ marginBottom: 8 }}
+      />
+      <TextRowSkeleton lines={1} style={{ width: '60%', alignSelf: 'center' }} />
+    </View>
+  </View>
+);
+
 const styles = StyleSheet.create({
   skeleton: {
     backgroundColor: 'rgba(200, 200, 200, 0.5)',
@@ -274,7 +299,31 @@ const styles = StyleSheet.create({
   goalTextContainer: {
     width: '30%',
     justifyContent: 'center',
-  }
+  },
+  netIncomeContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    overflow: 'hidden',
+    marginBottom: 20,
+    shadowColor: '#1A365D',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    elevation: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.03)',
+  },
+  moneyCard: {
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+    backgroundColor: '#FCFCFD',
+  },
+  gaugeContainer: {
+    alignItems: 'center',
+    paddingVertical: 20,
+    backgroundColor: '#FFFFFF',
+  },
 });
 
 export default SkeletonLoading; 

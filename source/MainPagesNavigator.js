@@ -10,6 +10,7 @@ import NavigationBar from './NavigationBar';
 import ExpensesPage from './MainPages/Manage/ExpensesPage';
 import IncomePage from './MainPages/Manage/IncomePage';
 import GoalsPage from './MainPages/Manage/GoalsPage';
+import CurrencyMarketPage from './MainPages/Manage/CurrencyMarketPage';
 
 const Stack = createStackNavigator();
 
@@ -30,6 +31,7 @@ const MainPagesNavigator = () => {
         <Stack.Screen name="ExpensesPage" component={ExpensesPage} />
         <Stack.Screen name="ManagerPage" component={ManagerPage} />
         <Stack.Screen name="GoalsPage" component={GoalsPage} />
+        <Stack.Screen name="CurrencyMarketPage" component={CurrencyMarketPage} />
         <Stack.Screen name="ProfilePage" component={ProfilePage} /> 
         <Stack.Screen name="SupportPage" component={SupportPage} /> 
         <Stack.Screen name="SecurityPage" component={SecurityPage} /> 

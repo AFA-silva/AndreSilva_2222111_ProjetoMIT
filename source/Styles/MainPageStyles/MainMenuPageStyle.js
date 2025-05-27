@@ -1,4 +1,4 @@
-import { StyleSheet } from 'react-native';
+import { StyleSheet, Platform } from 'react-native';
 
 const styles = StyleSheet.create({
   container: {
@@ -19,9 +19,13 @@ const styles = StyleSheet.create({
     marginBottom: 30,
     textAlign: 'center',
     letterSpacing: 0.5,
-    textShadowColor: 'rgba(255, 152, 0, 0.15)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
+    ...(Platform.OS === 'web' ? {
+      textShadow: '0 1px 3px rgba(255, 152, 0, 0.15)'
+    } : {
+      textShadowColor: 'rgba(255, 152, 0, 0.15)',
+      textShadowOffset: { width: 0, height: 1 },
+      textShadowRadius: 3,
+    }),
   },
   menuGrid: {
     flexDirection: 'row',
@@ -37,11 +41,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 24,
-    shadowColor: '#1A365D',
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 6,
+    ...(Platform.OS === 'web' ? {
+      boxShadow: '0 5px 12px rgba(26, 54, 93, 0.1)'
+    } : {
+      shadowColor: '#1A365D',
+      shadowOffset: { width: 0, height: 5 },
+      shadowOpacity: 0.1,
+      shadowRadius: 12,
+      elevation: 6,
+    }),
     borderWidth: 0,
     padding: 16,
     position: 'relative',
@@ -69,9 +77,13 @@ const styles = StyleSheet.create({
   menuIcon: {
     fontSize: 34,
     color: '#FF9800',
-    textShadowColor: 'rgba(255, 152, 0, 0.2)',
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 3,
+    ...(Platform.OS === 'web' ? {
+      textShadow: '0 2px 3px rgba(255, 152, 0, 0.2)'
+    } : {
+      textShadowColor: 'rgba(255, 152, 0, 0.2)',
+      textShadowOffset: { width: 0, height: 2 },
+      textShadowRadius: 3,
+    }),
   },
   menuText: {
     fontSize: 17,
@@ -97,11 +109,15 @@ const styles = StyleSheet.create({
     padding: 16,
     backgroundColor: 'white',
     borderRadius: 16,
-    shadowColor: '#1A365D',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 4,
+    ...(Platform.OS === 'web' ? {
+      boxShadow: '0 3px 8px rgba(26, 54, 93, 0.08)'
+    } : {
+      shadowColor: '#1A365D',
+      shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.08,
+      shadowRadius: 8,
+      elevation: 4,
+    }),
     marginBottom: 16,
   },
   statsLabel: {
@@ -115,21 +131,36 @@ const styles = StyleSheet.create({
     color: '#2D3748',
   },
   dashboardSection: {
-    marginBottom: 20,
+    marginBottom: 24,
   },
   sectionTitleContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
-    paddingHorizontal: 4,
-  },
-  sectionIcon: {
-    marginRight: 8,
+    marginBottom: 12,
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: 'bold',
     color: '#2D3748',
+    marginLeft: 8,
+  },
+  sectionIcon: {
+    opacity: 0.9,
+  },
+  currencyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 152, 0, 0.1)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+    marginLeft: 'auto',
+  },
+  currencyButtonText: {
+    fontSize: 12,
+    color: '#FF9800',
+    fontWeight: '500',
+    marginLeft: 5,
   },
 });
 

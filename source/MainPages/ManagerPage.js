@@ -60,19 +60,18 @@ const ManagerPage = ({ navigation }) => {
           </TouchableOpacity>
 
           <TouchableOpacity 
-            style={[styles.managerButton, styles.disabledButton]}
+            style={styles.managerButton}
+            onPress={() => navigation.navigate('CurrencyMarketPage')}
           >
-            <View style={styles.comingSoonBadge}>
-              <Text style={styles.comingSoonText}>SOON</Text>
-            </View>
             <View style={styles.buttonRow}>
-              <View style={[styles.iconContainer, { backgroundColor: 'rgba(113, 128, 150, 0.1)' }]}>
-                <Ionicons name="earth-outline" size={24} color="#718096" />
+              <View style={styles.iconContainer}>
+                <Ionicons name="earth-outline" size={24} color="#FF9800" />
               </View>
               <View>
-                <Text style={[styles.buttonText, { color: '#718096' }]}>Mercado de Moedas</Text>
-                <Text style={styles.categoryLabel}>Coming soon...</Text>
+                <Text style={styles.buttonText}>Mercado de Moedas</Text>
+                <Text style={styles.categoryLabel}>Manage and convert currencies</Text>
               </View>
+              <Ionicons name="chevron-forward" size={22} color="#CBD5E0" style={{ marginLeft: 'auto' }} />
             </View>
           </TouchableOpacity>
 

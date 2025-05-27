@@ -40,13 +40,100 @@ export const getCurrencyByCountryCode = async (countryCodeOrName) => {
 // Armazenar em cache a moeda atual para evitar múltiplas chamadas à API
 let currentCurrencyInfo = null;
 
+// Array de callbacks para notificar componentes quando a moeda for alterada
+const currencyChangeListeners = [];
+
+// Registrar um componente para receber notificações de alteração de moeda
+export const addCurrencyChangeListener = (callback) => {
+  if (typeof callback === 'function' && !currencyChangeListeners.includes(callback)) {
+    currencyChangeListeners.push(callback);
+    return true;
+  }
+  return false;
+};
+
+// Remover um listener quando o componente for desmontado
+export const removeCurrencyChangeListener = (callback) => {
+  const index = currencyChangeListeners.indexOf(callback);
+  if (index !== -1) {
+    currencyChangeListeners.splice(index, 1);
+    return true;
+  }
+  return false;
+};
+
+// Notificar todos os componentes registrados sobre alteração de moeda
+const notifyCurrencyChange = () => {
+  currencyChangeListeners.forEach(callback => {
+    try {
+      callback(currentCurrencyInfo);
+    } catch (error) {
+      console.error('Error in currency change listener:', error);
+    }
+  });
+};
+
 // Definir a moeda atual para uso em toda a aplicação
 export const setCurrentCurrency = async (countryCodeOrName) => {
   try {
-    currentCurrencyInfo = await getCurrencyByCountryCode(countryCodeOrName);
+    // Se é uma string, assumimos que é um código ou nome de país
+    if (typeof countryCodeOrName === 'string') {
+      currentCurrencyInfo = await getCurrencyByCountryCode(countryCodeOrName);
+    } 
+    // Se é um objeto, assumimos que já é um objeto de moeda
+    else if (typeof countryCodeOrName === 'object' && countryCodeOrName !== null) {
+      currentCurrencyInfo = countryCodeOrName;
+    }
+    
+    // Salvar a moeda atual no AsyncStorage para persistência
+    if (currentCurrencyInfo) {
+      try {
+        const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+        await AsyncStorage.setItem('app_currency', JSON.stringify(currentCurrencyInfo));
+      } catch (storageError) {
+        console.error('Error saving currency to storage:', storageError);
+      }
+      
+      // Notificar todos os componentes registrados
+      notifyCurrencyChange();
+    }
+    
     return currentCurrencyInfo;
   } catch (error) {
     console.error('Error setting current currency:', error);
+    return null;
+  }
+};
+
+// Função para carregar a moeda salva no início do aplicativo
+export const loadSavedCurrency = async () => {
+  try {
+    const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+    const savedCurrency = await AsyncStorage.getItem('app_currency');
+    
+    if (savedCurrency) {
+      const parsedCurrency = JSON.parse(savedCurrency);
+      
+      // Verificar se a moeda já está definida e é a mesma
+      // Isso evita notificações desnecessárias que podem causar loops
+      const isSameCurrency = currentCurrencyInfo && 
+        currentCurrencyInfo.code === parsedCurrency.code;
+      
+      if (!isSameCurrency) {
+        currentCurrencyInfo = parsedCurrency;
+        // Só notificar se realmente houve mudança
+        notifyCurrencyChange();
+      } else {
+        // Apenas atualizar a referência sem notificar
+        currentCurrencyInfo = parsedCurrency;
+      }
+      
+      return currentCurrencyInfo;
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Error loading saved currency:', error);
     return null;
   }
 };
