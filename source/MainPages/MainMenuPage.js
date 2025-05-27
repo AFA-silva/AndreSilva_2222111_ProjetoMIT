@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, Dimensions, StyleSheet } from 'react-native';
+import React, { useEffect, useState, useRef } from 'react';
+import { View, Text, TouchableOpacity, Dimensions, StyleSheet, Modal, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import styles from '../Styles/MainPageStyles/MainMenuPageStyle';
 import { supabase } from '../../Supabase';
@@ -26,6 +26,7 @@ const MainMenuPage = ({ navigation }) => {
   const [refreshKey, setRefreshKey] = useState(0); // Chave para forçar re-render
   const [goals, setGoals] = useState([]);
   const [currentCurrency, setCurrentCurrency] = useState(null);
+  const [modalVisible, setModalVisible] = useState(false);
 
   // Define cores com base nos status dos goals
   const statusColors = {
@@ -259,12 +260,8 @@ const MainMenuPage = ({ navigation }) => {
 
   // Mostrar detalhes financeiros ao clicar no gauge
   const handleGaugePress = () => {
-    // Mostrar um popup ou alerta com detalhes financeiros
-    alert(`Detalhes Financeiros:
-Receita Mensal: ${formatCurrency(totalIncome)}
-Despesas Mensais: ${formatCurrency(totalExpenses)}
-Disponível: ${formatCurrency(availableMoney)}
-Economias Alocadas: ${formatCurrency(savingsAmount)} (${Math.round(usagePercentage)}%)`);
+    // Replace alert with modal
+    setModalVisible(true);
   };
 
   // Navegar para a página de goals ao clicar na seção de goals
@@ -428,6 +425,112 @@ Economias Alocadas: ${formatCurrency(savingsAmount)} (${Math.round(usagePercenta
           )}
         </View>
       </View>
+
+      {/* Financial Details Modal */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={modalVisible}
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.financialModal.centeredView}>
+          <Animated.View style={styles.financialModal.modalView}>
+            <LinearGradient
+              colors={['#FF9800', '#F57C00']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.financialModal.headerGradient}
+            >
+              <View style={styles.financialModal.header}>
+                <Text style={styles.financialModal.headerTitle}>Detalhes Financeiros</Text>
+                <TouchableOpacity 
+                  style={styles.financialModal.closeButton}
+                  onPress={() => setModalVisible(false)}
+                >
+                  <Ionicons name="close-circle" size={28} color="#FFFFFF" />
+                </TouchableOpacity>
+              </View>
+            </LinearGradient>
+            
+            <View style={styles.financialModal.summaryBox}>
+              <View style={styles.financialModal.summaryItem}>
+                <Ionicons name="arrow-down-circle" size={20} color="#00B894" style={styles.financialModal.icon} />
+                <Text style={styles.financialModal.summaryLabel}>Receitas</Text>
+                <Text style={styles.financialModal.summaryValue}>{formatCurrency(totalIncome)}</Text>
+              </View>
+              
+              <View style={styles.financialModal.summaryDivider} />
+              
+              <View style={styles.financialModal.summaryItem}>
+                <Ionicons name="arrow-up-circle" size={20} color="#E74C3C" style={styles.financialModal.icon} />
+                <Text style={styles.financialModal.summaryLabel}>Despesas</Text>
+                <Text style={styles.financialModal.summaryValue}>{formatCurrency(totalExpenses)}</Text>
+              </View>
+            </View>
+            
+            <View style={styles.financialModal.contentContainer}>
+              <View style={styles.financialModal.balanceSection}>
+                <Text style={styles.financialModal.sectionTitle}>Balanço Mensal</Text>
+                
+                <View style={styles.financialModal.balanceCard}>
+                  <Text style={styles.financialModal.balanceLabel}>Disponível</Text>
+                  <Text style={[
+                    styles.financialModal.balanceValue, 
+                    { color: availableMoney >= 0 ? '#00B894' : '#E74C3C' }
+                  ]}>{formatCurrency(availableMoney)}</Text>
+                </View>
+              </View>
+              
+              <View style={styles.financialModal.allocationSection}>
+                <Text style={styles.financialModal.sectionTitle}>Alocação de Economias</Text>
+                
+                <View style={styles.financialModal.allocationCard}>
+                  <View style={styles.financialModal.allocationHeader}>
+                    <Text style={styles.financialModal.allocationAmount}>{formatCurrency(savingsAmount)}</Text>
+                    <View style={styles.financialModal.percentageBadge}>
+                      <Text style={styles.financialModal.percentageText}>{Math.round(usagePercentage)}%</Text>
+                    </View>
+                  </View>
+                  
+                  <View style={styles.financialModal.progressBarContainer}>
+                    <View style={[
+                      styles.financialModal.progressBar, 
+                      { 
+                        width: `${Math.min(100, usagePercentage)}%`,
+                        backgroundColor: getGaugeColor()
+                      }
+                    ]} />
+                  </View>
+                  
+                  <Text style={styles.financialModal.allocationDescription}>
+                    {usagePercentage <= 50 ? 
+                      'Excelente! Você está economizando de forma sustentável.' : 
+                      usagePercentage <= 80 ? 
+                      'Bom! Sua taxa de economia está adequada.' : 
+                      usagePercentage <= 100 ? 
+                      'Atenção! Você está economizando todo o seu disponível.' : 
+                      'Cuidado! Suas metas de economia excedem seu disponível.'}
+                  </Text>
+                </View>
+              </View>
+            </View>
+            
+            <TouchableOpacity
+              style={styles.financialModal.okButton}
+              onPress={() => setModalVisible(false)}
+            >
+              <LinearGradient
+                colors={['#FF9800', '#F57C00']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.financialModal.buttonGradient}
+              >
+                <Text style={styles.financialModal.okButtonText}>Fechar</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          </Animated.View>
+        </View>
+      </Modal>
     </View>
   );
 };

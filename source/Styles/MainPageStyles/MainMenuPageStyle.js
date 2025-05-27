@@ -162,6 +162,183 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginLeft: 5,
   },
+  
+  // Financial Modal Styles
+  financialModal: {
+    centeredView: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: 'rgba(0,0,0,0.5)',
+    },
+    modalView: {
+      width: '85%',
+      backgroundColor: 'white',
+      borderRadius: 20,
+      padding: 0,
+      shadowColor: '#000',
+      shadowOffset: {
+        width: 0,
+        height: 5,
+      },
+      shadowOpacity: 0.3,
+      shadowRadius: 8,
+      elevation: 8,
+      overflow: 'hidden',
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      padding: 16,
+    },
+    headerTitle: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      color: '#FFFFFF',
+    },
+    closeButton: {
+      padding: 4,
+    },
+    headerGradient: {
+      borderTopLeftRadius: 20,
+      borderTopRightRadius: 20,
+    },
+    summaryBox: {
+      padding: 20,
+      backgroundColor: '#F9FAFB',
+      borderBottomWidth: 1,
+      borderBottomColor: '#E2E8F0',
+    },
+    summaryItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 12,
+    },
+    summaryLabel: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: '#4A5568',
+      flex: 1,
+      marginLeft: 8,
+    },
+    summaryValue: {
+      fontSize: 16,
+      fontWeight: '700',
+      color: '#2D3748',
+    },
+    summaryDivider: {
+      height: 1,
+      backgroundColor: '#E2E8F0',
+      marginBottom: 16,
+    },
+    contentContainer: {
+      padding: 20,
+    },
+    balanceSection: {
+      marginBottom: 20,
+    },
+    sectionTitle: {
+      fontSize: 16,
+      fontWeight: 'bold',
+      color: '#4A5568',
+      marginBottom: 12,
+    },
+    balanceCard: {
+      backgroundColor: '#F7FAFC',
+      borderRadius: 12,
+      padding: 16,
+      borderWidth: 1,
+      borderColor: 'rgba(0,0,0,0.05)',
+      shadowColor: '#1A365D',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.08,
+      shadowRadius: 4,
+      elevation: 3,
+    },
+    balanceLabel: {
+      fontSize: 14,
+      color: '#718096',
+      marginBottom: 8,
+      fontWeight: '500',
+    },
+    balanceValue: {
+      fontSize: 24,
+      fontWeight: 'bold',
+    },
+    allocationSection: {
+      marginBottom: 10,
+    },
+    allocationCard: {
+      backgroundColor: '#F7FAFC',
+      borderRadius: 12,
+      padding: 16,
+      borderWidth: 1,
+      borderColor: 'rgba(0,0,0,0.05)',
+      shadowColor: '#1A365D',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.08,
+      shadowRadius: 4,
+      elevation: 3,
+    },
+    allocationHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 12,
+    },
+    allocationAmount: {
+      fontSize: 20,
+      fontWeight: 'bold',
+      color: '#2D3748',
+    },
+    percentageBadge: {
+      backgroundColor: '#FF9800',
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 12,
+    },
+    percentageText: {
+      color: '#FFFFFF',
+      fontSize: 12,
+      fontWeight: 'bold',
+    },
+    progressBarContainer: {
+      height: 12,
+      backgroundColor: '#EDF2F7',
+      borderRadius: 6,
+      marginBottom: 16,
+      overflow: 'hidden',
+    },
+    progressBar: {
+      height: '100%',
+      borderRadius: 6,
+    },
+    allocationDescription: {
+      fontSize: 14,
+      color: '#718096',
+      textAlign: 'center',
+      lineHeight: 20,
+    },
+    icon: {
+      width: 24,
+    },
+    okButton: {
+      margin: 20,
+      marginTop: 10,
+      borderRadius: 12,
+      overflow: 'hidden',
+    },
+    buttonGradient: {
+      padding: 14,
+      alignItems: 'center',
+    },
+    okButtonText: {
+      color: '#FFFFFF',
+      fontWeight: 'bold',
+      fontSize: 16,
+    },
+  }
 });
 
 export default styles;
