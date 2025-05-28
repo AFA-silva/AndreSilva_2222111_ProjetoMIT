@@ -8,7 +8,8 @@ import { GaugeChart } from '../Utility/Chart';
 import { formatCurrency, calculateAllocationValue } from './Manage/GoalsCalc';
 import Header from '../Utility/Header';
 import { LinearGradient } from 'expo-linear-gradient';
-import { setCurrentCurrency, loadSavedCurrency, addCurrencyChangeListener, removeCurrencyChangeListener } from '../Utility/FetchCountries';
+import { setCurrentCurrency, loadSavedCurrency, addCurrencyChangeListener, removeCurrencyChangeListener, shouldConvertCurrencyValues } from '../Utility/FetchCountries';
+import { convertValueToCurrentCurrency } from '../Utility/CurrencyConverter';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const MainMenuPage = ({ navigation }) => {
@@ -27,6 +28,35 @@ const MainMenuPage = ({ navigation }) => {
   const [goals, setGoals] = useState([]);
   const [currentCurrency, setCurrentCurrency] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
+  const [originalCurrency, setOriginalCurrency] = useState('EUR'); // Moeda original do sistema
+  const [originalIncome, setOriginalIncome] = useState(0); // Valores originais
+  const [originalExpenses, setOriginalExpenses] = useState(0);
+  const [originalSavings, setOriginalSavings] = useState(0);
+
+  // Carregar a moeda original salva do usuário
+  const loadOriginalCurrency = async () => {
+    try {
+      const savedCurrency = await AsyncStorage.getItem('original_app_currency');
+      if (savedCurrency) {
+        console.log('[MainMenuPage] Moeda original carregada:', savedCurrency);
+        setOriginalCurrency(savedCurrency);
+        return savedCurrency;
+      } else {
+        // Se não tiver sido salva ainda, salvar a moeda atual como original
+        const currentCurrency = await loadSavedCurrency();
+        const currencyCode = currentCurrency?.code || 'EUR';
+        console.log('[MainMenuPage] Definindo moeda original:', currencyCode);
+        await AsyncStorage.setItem('original_app_currency', currencyCode);
+        setOriginalCurrency(currencyCode);
+        return currencyCode;
+      }
+    } catch (error) {
+      console.error('[MainMenuPage] Erro ao carregar moeda original:', error);
+      // Usar EUR como fallback se houver erro
+      setOriginalCurrency('EUR');
+      return 'EUR';
+    }
+  };
 
   // Define cores com base nos status dos goals
   const statusColors = {
@@ -34,6 +64,51 @@ const MainMenuPage = ({ navigation }) => {
     adjustments: '#FDCB6E', // Amarelo
     impossible: '#E74C3C',  // Vermelho
     dueToday: '#0984e3'     // Azul
+  };
+
+  // Função para converter valores financeiros quando a moeda mudar
+  const convertFinancialValues = async (income, expenses, savings, origCurrency) => {
+    try {
+      const sourceCurrency = origCurrency || originalCurrency || 'EUR';
+      console.log(`[MainMenuPage] Convertendo valores financeiros de ${sourceCurrency}`);
+      
+      // Verificar se devemos converter ou apenas exibir na nova moeda
+      const shouldConvert = shouldConvertCurrencyValues();
+      console.log(`[MainMenuPage] Converter valores? ${shouldConvert ? 'SIM' : 'NÃO'}`);
+      
+      if (shouldConvert) {
+        // Converter os valores
+        console.log(`[MainMenuPage] Convertendo: Income=${income}, Expenses=${expenses}, Savings=${savings}`);
+        
+        const convertedIncome = await convertValueToCurrentCurrency(income, sourceCurrency);
+        const convertedExpenses = await convertValueToCurrentCurrency(expenses, sourceCurrency);
+        const convertedSavings = await convertValueToCurrentCurrency(savings, sourceCurrency);
+        
+        console.log(`[MainMenuPage] Valores convertidos: Income=${convertedIncome}, Expenses=${convertedExpenses}, Savings=${convertedSavings}`);
+        
+        // Atualizar os estados com os valores convertidos
+        setTotalIncome(convertedIncome);
+        setTotalExpenses(convertedExpenses);
+        setSavingsAmount(convertedSavings);
+        setAvailableMoney(convertedSavings);
+      }
+      
+      // Forçar atualização da interface
+      setRefreshKey(prev => prev + 1);
+    } catch (error) {
+      console.error('[MainMenuPage] Erro ao converter valores financeiros:', error);
+      // Manter os valores originais em caso de erro
+    }
+  };
+
+  // Ouvinte para mudanças na moeda
+  const handleCurrencyChange = async (newCurrency) => {
+    try {
+      console.log('[MainMenuPage] Moeda alterada:', newCurrency);
+      await convertFinancialValues(originalIncome, originalExpenses, originalSavings, originalCurrency);
+    } catch (error) {
+      console.error('[MainMenuPage] Erro ao lidar com mudança de moeda:', error);
+    }
   };
 
   // Função para buscar dados do dashboard
@@ -45,6 +120,9 @@ const MainMenuPage = ({ navigation }) => {
         setLoading(false);
         return;
       }
+
+      // Carregar a moeda original
+      const origCurrency = await loadOriginalCurrency();
 
       // Carregar a moeda global salva
       try {
@@ -164,7 +242,6 @@ const MainMenuPage = ({ navigation }) => {
           return sum + (income.amount * 30) / days;
         }, 0);
       }
-      setTotalIncome(incomeSum);
       
       // Calculate monthly expenses
       let expenseSum = 0;
@@ -174,12 +251,23 @@ const MainMenuPage = ({ navigation }) => {
           return sum + (expense.amount * 30) / days;
         }, 0);
       }
-      setTotalExpenses(expenseSum);
       
       // Calculate available money and savings
       const savings = incomeSum - expenseSum;
+      
+      // Armazenar os valores originais
+      setOriginalIncome(incomeSum);
+      setOriginalExpenses(expenseSum);
+      setOriginalSavings(savings > 0 ? savings : 0);
+      
+      // Atualizar os valores da UI (possivelmente convertendo)
+      setTotalIncome(incomeSum);
+      setTotalExpenses(expenseSum);
       setAvailableMoney(savings);
       setSavingsAmount(savings > 0 ? savings : 0);
+      
+      // Converter valores para a moeda atual, se necessário
+      await convertFinancialValues(incomeSum, expenseSum, savings > 0 ? savings : 0, origCurrency);
       
       // Calcular a porcentagem baseada nos goals
       if (goals && goals.length > 0 && incomeSum > 0) {
@@ -199,14 +287,6 @@ const MainMenuPage = ({ navigation }) => {
       console.error('Dashboard data fetch error:', error);
       setLoading(false);
     }
-  };
-
-  // Listener para alterações na moeda
-  const handleCurrencyChange = (currency) => {
-    console.log('Moeda global alterada:', currency);
-    setCurrentCurrency(currency);
-    // Não chame fetchDashboardData aqui, pois isso cria um loop infinito
-    // Em vez disso, apenas atualizar o estado
   };
 
   useEffect(() => {
@@ -305,12 +385,6 @@ const MainMenuPage = ({ navigation }) => {
                     {color: availableMoney >= 0 ? statusColors.achievable : statusColors.impossible}
                   ]}>
                     {formatCurrency(availableMoney)}
-                  </Text>
-                  <Text style={cardStyles.allocatedLabel}>
-                    Savings Allocated <Text style={cardStyles.allocatedValue}>{usagePercentage.toFixed(2)}%</Text>
-                    <Text style={cardStyles.allocatedAmount}>
-                      ({formatCurrency(savingsAmount)})
-                    </Text>
                   </Text>
                 </View>
               </View>

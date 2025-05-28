@@ -40,6 +40,9 @@ export const getCurrencyByCountryCode = async (countryCodeOrName) => {
 // Armazenar em cache a moeda atual para evitar múltiplas chamadas à API
 let currentCurrencyInfo = null;
 
+// Flag para indicar se os valores devem ser convertidos
+let shouldConvertValues = true;
+
 // Array de callbacks para notificar componentes quando a moeda for alterada
 const currencyChangeListeners = [];
 
@@ -111,8 +114,26 @@ export const loadSavedCurrency = async () => {
     const AsyncStorage = require('@react-native-async-storage/async-storage').default;
     const savedCurrency = await AsyncStorage.getItem('app_currency');
     
+    // Carregar a preferência de conversão
+    try {
+      const convertValues = await AsyncStorage.getItem('convert_currency_values');
+      if (convertValues !== null) {
+        shouldConvertValues = convertValues === 'true';
+        console.log('Preferência de conversão carregada:', shouldConvertValues);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar preferência de conversão:', error);
+    }
+    
     if (savedCurrency) {
       const parsedCurrency = JSON.parse(savedCurrency);
+      console.log('Moeda carregada do AsyncStorage:', parsedCurrency);
+      
+      // Se a moeda global tem uma configuração de conversão, usá-la
+      if (parsedCurrency.hasOwnProperty('convertValues')) {
+        shouldConvertValues = parsedCurrency.convertValues;
+        console.log('Usando preferência de conversão da moeda:', shouldConvertValues);
+      }
       
       // Verificar se a moeda já está definida e é a mesma
       // Isso evita notificações desnecessárias que podem causar loops
@@ -142,6 +163,7 @@ export const loadSavedCurrency = async () => {
 export const getCurrentCurrency = () => {
   // Valor padrão caso não tenha sido definido
   if (!currentCurrencyInfo) {
+    console.log('Moeda não definida, usando EUR padrão');
     return { code: 'EUR', name: 'Euro', symbol: '€' };
   }
   return currentCurrencyInfo;
@@ -155,14 +177,14 @@ export const formatCurrency = (value) => {
   const numValue = parseFloat(value);
   
   if (isNaN(numValue)) {
-    return `${symbol}0.00`;
+    return `${symbol} 0.00`;
   }
   
   // Formatar o número com 2 casas decimais
   const formattedValue = numValue.toFixed(2);
   
-  // Retornar o valor formatado com o símbolo da moeda
-  return `${symbol}${formattedValue}`;
+  // Retornar o valor formatado com o símbolo da moeda e um espaço
+  return `${symbol} ${formattedValue}`;
 };
 
 // Armazenar em cache as taxas de câmbio para evitar múltiplas chamadas à API
@@ -173,12 +195,22 @@ let exchangeRatesCache = {
 };
 
 // Configurações da API - substitua pela sua chave de API
-const EXCHANGE_API_KEY = 'YOUR_API_KEY'; // Substitua pela sua chave real
+const EXCHANGE_API_KEY = 'de3d3cc388a2679655798ec7'; // Adicionada chave pública
 const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 horas em milissegundos
+
+// Taxas fixas para uso quando a API falhar
+const FIXED_RATES = {
+  'EUR': { 'USD': 1.09, 'GBP': 0.85, 'BRL': 6.13 },
+  'USD': { 'EUR': 0.92, 'GBP': 0.78, 'BRL': 5.63 },
+  'GBP': { 'EUR': 1.17, 'USD': 1.28, 'BRL': 7.18 },
+  'BRL': { 'EUR': 0.16, 'USD': 0.18, 'GBP': 0.14 }
+};
 
 // Função para buscar taxas de câmbio atualizadas
 export const fetchExchangeRates = async (baseCurrency = 'EUR') => {
   try {
+    console.log(`Buscando taxas para ${baseCurrency}...`);
+    
     // Verificar cache primeiro
     const now = new Date();
     if (
@@ -191,25 +223,53 @@ export const fetchExchangeRates = async (baseCurrency = 'EUR') => {
     }
 
     // Se não houver cache válido, buscar da API
-    console.log('Buscando taxas de câmbio atualizadas da API');
-    const response = await fetch(`https://v6.exchangerate-api.com/v6/${EXCHANGE_API_KEY}/latest/${baseCurrency}`);
-    const data = await response.json();
-    
-    if (data.result === 'success') {
-      // Atualizar cache
-      exchangeRatesCache = {
-        rates: data.conversion_rates,
-        lastUpdated: now,
-        baseCurrency
-      };
-      return data.conversion_rates;
-    } else {
-      throw new Error(`Erro na API: ${data.error_type}`);
+    console.log(`Buscando taxas de câmbio da API para ${baseCurrency}`);
+    try {
+      const response = await fetch(`https://v6.exchangerate-api.com/v6/${EXCHANGE_API_KEY}/latest/${baseCurrency}`);
+      const data = await response.json();
+      
+      if (data.result === 'success') {
+        // Atualizar cache
+        exchangeRatesCache = {
+          rates: data.conversion_rates,
+          lastUpdated: now,
+          baseCurrency
+        };
+        console.log(`Taxas recebidas da API: ${Object.keys(data.conversion_rates).length} moedas`);
+        console.log(`Exemplos: 1 ${baseCurrency} = ${data.conversion_rates.USD} USD, ${data.conversion_rates.GBP} GBP`);
+        return data.conversion_rates;
+      } else {
+        console.error(`Erro na API: ${data.error_type}`);
+        throw new Error(`Erro na API: ${data.error_type}`);
+      }
+    } catch (apiError) {
+      console.error('Erro ao buscar taxas de câmbio da API:', apiError);
+      
+      // Se a API falhar, usar taxas fixas de emergência
+      if (FIXED_RATES[baseCurrency]) {
+        console.log(`Usando taxas fixas para ${baseCurrency}`, FIXED_RATES[baseCurrency]);
+        return FIXED_RATES[baseCurrency];
+      }
+      
+      throw apiError;
     }
   } catch (error) {
-    console.error('Erro ao buscar taxas de câmbio:', error);
-    // Retornar cache expirado se disponível, ou objeto vazio
-    return exchangeRatesCache.rates || {};
+    console.error('Erro geral ao buscar taxas de câmbio:', error);
+    
+    // Retornar cache expirado se disponível
+    if (exchangeRatesCache.rates && exchangeRatesCache.baseCurrency === baseCurrency) {
+      console.log('Usando cache expirado como fallback');
+      return exchangeRatesCache.rates;
+    }
+    
+    // Ou retornar taxas fixas como último recurso
+    if (FIXED_RATES[baseCurrency]) {
+      console.log('Usando taxas fixas de emergência');
+      return FIXED_RATES[baseCurrency];
+    }
+    
+    // Se tudo falhar, retornar objeto vazio
+    return {};
   }
 };
 
@@ -261,10 +321,15 @@ export const formatCurrencyWithCode = async (value, currencyCode = null) => {
       return `${currencyCode} ${parseFloat(value).toFixed(2)}`;
     }
     
-    // Formatar com o símbolo da moeda específica
-    return `${country.currencySymbol}${parseFloat(value).toFixed(2)}`;
+    // Formatar com o símbolo da moeda específica e um espaço
+    return `${country.currencySymbol} ${parseFloat(value).toFixed(2)}`;
   } catch (error) {
     console.error('Erro ao formatar com código de moeda:', error);
     return `${value}`;
   }
+};
+
+// Função para verificar se os valores devem ser convertidos
+export const shouldConvertCurrencyValues = () => {
+  return shouldConvertValues;
 };

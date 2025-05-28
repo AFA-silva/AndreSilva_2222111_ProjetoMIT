@@ -16,11 +16,12 @@ import {
   StatusBar,
   Platform,
   KeyboardAvoidingView,
-  Modal
+  Modal,
+  Switch
 } from 'react-native';
 import { Ionicons, FontAwesome } from '@expo/vector-icons';
 import { fetchLatestRates, getSupportedCurrencies, convertCurrency } from '../../Utility/CurrencyService';
-import { setCurrentCurrency } from '../../Utility/FetchCountries';
+import { setCurrentCurrency, getCurrentCurrency } from '../../Utility/FetchCountries';
 import Header from '../../Utility/Header';
 import { LinearGradient } from 'expo-linear-gradient';
 import styles from '../../Styles/MainPageStyles/CurrencyMarketPageStyle';
@@ -48,6 +49,11 @@ const CurrencyMarketPage = ({ navigation }) => {
   const [currencySelectionType, setCurrencySelectionType] = useState('base'); // 'base' ou 'target'
   const [convertedResult, setConvertedResult] = useState(null);
   const [userPreferredCurrency, setUserPreferredCurrency] = useState(null);
+  
+  // Novos estados para o modal de confirmação de moeda
+  const [confirmModalVisible, setConfirmModalVisible] = useState(false);
+  const [convertValues, setConvertValues] = useState(true);
+  const [pendingCurrencyChange, setPendingCurrencyChange] = useState(null);
   
   // Refs para animações
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -323,80 +329,122 @@ const CurrencyMarketPage = ({ navigation }) => {
   const handleSetAsPrimary = async () => {
     if (selectedCurrency) {
       try {
-        setIsUpdatingGlobal(true);
-        // Salvar no AsyncStorage
-        await AsyncStorage.setItem('user_preferred_currency', selectedCurrency.code);
-        setUserPreferredCurrency(selectedCurrency.code);
-        
-        // Tentar salvar no Supabase
-        try {
-          const { data: { user } } = await supabase.auth.getUser();
-          
-          if (user) {
-            // Primeiro tente obter dados existentes usando filtro correto
-            const { data: existingPrefs } = await supabase
-              .from('user_currency_preferences')
-              .select('id')
-              .eq('user_id', user.id)
-              .maybeSingle(); // Usar maybeSingle em vez de single para evitar erros
-              
-            if (existingPrefs) {
-              // Atualizar registro existente
-              await supabase
-                .from('user_currency_preferences')
-                .update({ preferred_currency: selectedCurrency.code })
-                .eq('id', existingPrefs.id);
-            } else {
-              // Inserir novo registro
-              await supabase
-                .from('user_currency_preferences')
-                .insert({
-                  user_id: user.id,
-                  preferred_currency: selectedCurrency.code
-                });
-            }
-          }
-        } catch (supabaseError) {
-          console.log('Erro ao salvar no Supabase, mas continuando com localStorage:', supabaseError);
-          // Não interromper o fluxo se falhar no Supabase
-        }
-        
-        // Atualizar a moeda global do aplicativo
-        const currencyDetails = currencies.find(c => c.code === selectedCurrency.code);
-        if (currencyDetails) {
-          const globalCurrency = {
-            code: selectedCurrency.code,
-            name: currencyDetails.name,
-            symbol: getCurrencySymbol(selectedCurrency.code)
-          };
-          
-          // Atualizar a moeda global
-          await setCurrentCurrency(globalCurrency);
-          setUserCurrencyName(currencyDetails.name);
-        }
-        
-        // Atualizar a UI
-        setBaseCurrency(selectedCurrency.code);
-        setSelectedCurrency(null);
-        
-        // Mostrar animação de sucesso
-        startSuccessAnimation();
-        setIsUpdatingGlobal(false);
-        
-        // Mostrar feedback ao usuário
-        Alert.alert(
-          'Currency Updated', 
-          `${selectedCurrency.code} is now your primary currency for the entire app.`,
-          [{ text: 'OK' }]
-        );
-
-        // Atualizar as moedas populares para mostrar a nova moeda do usuário
-        updatePopularCurrencies();
+        // Em vez de atualizar imediatamente, mostrar o modal de confirmação
+        setPendingCurrencyChange(selectedCurrency);
+        setConfirmModalVisible(true);
       } catch (error) {
-        setIsUpdatingGlobal(false);
-        Alert.alert('Error', 'Failed to set primary currency.');
-        console.error(error);
+        console.error('Erro ao preparar mudança de moeda:', error);
+        Alert.alert('Error', 'Failed to prepare currency change.');
       }
+    }
+  };
+
+  // Nova função para confirmar a mudança de moeda
+  const confirmCurrencyChange = async () => {
+    if (!pendingCurrencyChange) return;
+    
+    try {
+      setIsUpdatingGlobal(true);
+      setConfirmModalVisible(false);
+      
+      // Salvar a moeda anterior como moeda original para conversões
+      const currentCurrency = getCurrentCurrency();
+      console.log(`---------------------------------------`);
+      console.log(`MUDANDO MOEDA: ${currentCurrency.code} → ${pendingCurrencyChange.code}`);
+      console.log(`Converter valores? ${convertValues ? 'SIM' : 'NÃO'}`);
+      
+      // IMPORTANTE: Sempre salvar a moeda atual como original para referência futura
+      await AsyncStorage.setItem('original_app_currency', currentCurrency.code);
+      console.log(`Moeda original salva: ${currentCurrency.code}`);
+      
+      // Salvar no AsyncStorage
+      await AsyncStorage.setItem('user_preferred_currency', pendingCurrencyChange.code);
+      
+      // Salvar a opção de conversão explicitamente
+      await AsyncStorage.setItem('convert_currency_values', convertValues.toString());
+      console.log(`Preferência de conversão salva: ${convertValues}`);
+      
+      setUserPreferredCurrency(pendingCurrencyChange.code);
+      
+      // Tentar salvar no Supabase
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        if (user) {
+          // Primeiro tente obter dados existentes usando filtro correto
+          const { data: existingPrefs } = await supabase
+            .from('user_currency_preferences')
+            .select('id')
+            .eq('user_id', user.id)
+            .maybeSingle(); // Usar maybeSingle em vez de single para evitar erros
+            
+          if (existingPrefs) {
+            // Atualizar registro existente
+            await supabase
+              .from('user_currency_preferences')
+              .update({ 
+                preferred_currency: pendingCurrencyChange.code,
+                convert_values: convertValues,
+                original_currency: currentCurrency.code // Salvar a moeda original no Supabase também
+              })
+              .eq('id', existingPrefs.id);
+          } else {
+            // Inserir novo registro
+            await supabase
+              .from('user_currency_preferences')
+              .insert({
+                user_id: user.id,
+                preferred_currency: pendingCurrencyChange.code,
+                convert_values: convertValues,
+                original_currency: currentCurrency.code // Salvar a moeda original no Supabase também
+              });
+          }
+        }
+      } catch (supabaseError) {
+        console.log('Erro ao salvar no Supabase, mas continuando com localStorage:', supabaseError);
+        // Não interromper o fluxo se falhar no Supabase
+      }
+      
+      // Atualizar a moeda global do aplicativo com todas as informações necessárias
+      const currencyDetails = currencies.find(c => c.code === pendingCurrencyChange.code);
+      if (currencyDetails) {
+        const globalCurrency = {
+          code: pendingCurrencyChange.code,
+          name: currencyDetails.name,
+          symbol: getCurrencySymbol(pendingCurrencyChange.code),
+          convertValues: convertValues,
+          originalCurrency: currentCurrency.code
+        };
+        
+        // Atualizar a moeda global
+        console.log('Atualizando moeda global:', globalCurrency);
+        await setCurrentCurrency(globalCurrency);
+        setUserCurrencyName(currencyDetails.name);
+      }
+      
+      // Atualizar a UI
+      setBaseCurrency(pendingCurrencyChange.code);
+      setSelectedCurrency(null);
+      setPendingCurrencyChange(null);
+      
+      // Mostrar animação de sucesso
+      startSuccessAnimation();
+      setIsUpdatingGlobal(false);
+      
+      // Mostrar feedback ao usuário
+      Alert.alert(
+        'Currency Updated', 
+        `${pendingCurrencyChange.code} is now your primary currency${convertValues ? ' and values will be converted' : ' (keeping original values)'}`,
+        [{ text: 'OK' }]
+      );
+
+      // Atualizar as moedas populares para mostrar a nova moeda do usuário
+      updatePopularCurrencies();
+    } catch (error) {
+      setIsUpdatingGlobal(false);
+      setConfirmModalVisible(false);
+      Alert.alert('Error', 'Failed to set primary currency.');
+      console.error(error);
     }
   };
 
@@ -921,6 +969,84 @@ const CurrencyMarketPage = ({ navigation }) => {
               style={styles.modalList}
               showsVerticalScrollIndicator={false}
             />
+          </View>
+        </View>
+      </Modal>
+      
+      {/* Modal de confirmação de moeda */}
+      <Modal
+        visible={confirmModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setConfirmModalVisible(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={[styles.modalContent, { height: 'auto', paddingVertical: 24 }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { fontSize: 18 }]}>
+                Change Currency
+              </Text>
+              <TouchableOpacity 
+                style={styles.modalCloseButton}
+                onPress={() => setConfirmModalVisible(false)}
+              >
+                <Ionicons name="close" size={24} color="#718096" />
+              </TouchableOpacity>
+            </View>
+            
+            <Text style={{ fontSize: 16, color: '#4A5568', marginTop: 12, lineHeight: 22 }}>
+              You are about to change your primary currency from{' '}
+              <Text style={{ fontWeight: 'bold' }}>{getCurrentCurrency().code}</Text> to{' '}
+              <Text style={{ fontWeight: 'bold' }}>{pendingCurrencyChange?.code}</Text>.
+            </Text>
+            
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 24, marginBottom: 12 }}>
+              <Switch
+                value={convertValues}
+                onValueChange={setConvertValues}
+                trackColor={{ false: '#E2E8F0', true: '#FEEBC8' }}
+                thumbColor={convertValues ? '#FF9800' : '#CBD5E0'}
+              />
+              <View style={{ marginLeft: 12, flex: 1 }}>
+                <Text style={{ fontSize: 16, fontWeight: '600', color: '#2D3748' }}>
+                  Convert all values
+                </Text>
+                <Text style={{ fontSize: 14, color: '#718096', marginTop: 4 }}>
+                  {convertValues ? 
+                    'Values will be converted to equivalent amounts (e.g., €10 → £8.50)' : 
+                    'Keep numeric values the same (e.g., €10 → £10)'
+                  }
+                </Text>
+              </View>
+            </View>
+            
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 24 }}>
+              <TouchableOpacity
+                style={{
+                  flex: 1,
+                  padding: 14,
+                  borderRadius: 12,
+                  backgroundColor: '#EDF2F7',
+                  alignItems: 'center',
+                  marginRight: 8
+                }}
+                onPress={() => setConfirmModalVisible(false)}
+              >
+                <Text style={{ color: '#4A5568', fontWeight: 'bold', fontSize: 16 }}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{
+                  flex: 1,
+                  padding: 14,
+                  borderRadius: 12,
+                  backgroundColor: '#FF9800',
+                  alignItems: 'center'
+                }}
+                onPress={confirmCurrencyChange}
+              >
+                <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 16 }}>Confirm</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>

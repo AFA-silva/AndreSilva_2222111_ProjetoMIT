@@ -7,10 +7,13 @@ import { supabase } from '../../../Supabase';
 import AlertComponent from '../../Utility/Alerts';
 import { useFocusEffect } from '@react-navigation/native';
 import Chart from '../../Utility/Chart';
-import { formatCurrency } from '../../Utility/FetchCountries';
+import { formatCurrency, getCurrentCurrency, addCurrencyChangeListener, removeCurrencyChangeListener, shouldConvertCurrencyValues } from '../../Utility/FetchCountries';
+import { convertValueToCurrentCurrency } from '../../Utility/CurrencyConverter';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const ExpensesPage = () => {
   const [expenses, setExpenses] = useState([]);
+  const [originalExpenses, setOriginalExpenses] = useState([]); // Armazenar valores originais
   const [modalVisible, setModalVisible] = useState(false);
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [categories, setCategories] = useState([]);
@@ -25,6 +28,8 @@ const ExpensesPage = () => {
     frequency_id: '',
     priority: 3, // Default to média priority
   });
+  const [originalCurrency, setOriginalCurrency] = useState('EUR'); // Moeda original do sistema
+  const [chartRenderKey, setChartRenderKey] = useState(Date.now());
 
   // Alert states
   const [alertMessage, setAlertMessage] = useState('');
@@ -41,6 +46,30 @@ const ExpensesPage = () => {
 
   const expensesWithAddButton = [...expenses, { isAddButton: true }];
 
+  // Carregar a moeda original salva do usuário
+  const loadOriginalCurrency = async () => {
+    try {
+      const savedCurrency = await AsyncStorage.getItem('original_app_currency');
+      if (savedCurrency) {
+        console.log('[ExpensesPage] Moeda original carregada:', savedCurrency);
+        setOriginalCurrency(savedCurrency);
+        return savedCurrency;
+      } else {
+        // Se não tiver sido salva ainda, salvar a moeda atual como original
+        const currentCurrency = getCurrentCurrency();
+        console.log('[ExpensesPage] Definindo moeda original:', currentCurrency.code);
+        await AsyncStorage.setItem('original_app_currency', currentCurrency.code);
+        setOriginalCurrency(currentCurrency.code);
+        return currentCurrency.code;
+      }
+    } catch (error) {
+      console.error('[ExpensesPage] Erro ao carregar moeda original:', error);
+      // Usar EUR como fallback se houver erro
+      setOriginalCurrency('EUR');
+      return 'EUR';
+    }
+  };
+
   useEffect(() => {
     const fetchUserData = async () => {
       const { data: { user }, error } = await supabase.auth.getUser();
@@ -49,10 +78,19 @@ const ExpensesPage = () => {
         return;
       }
       setUserId(user.id);
+      await loadOriginalCurrency(); // Carregar a moeda original
       fetchExpenses(user.id);
       fetchCategoriesAndFrequencies(user.id);
     };
     fetchUserData();
+    
+    // Adicionar listener para mudanças de moeda
+    addCurrencyChangeListener(handleCurrencyChange);
+    
+    // Limpar listener ao desmontar
+    return () => {
+      removeCurrencyChangeListener(handleCurrencyChange);
+    };
   }, []);
 
   useFocusEffect(
@@ -63,6 +101,67 @@ const ExpensesPage = () => {
       }
     }, [userId])
   );
+
+  // Função para converter os valores para a moeda atual
+  const convertExpensesToCurrentCurrency = async (data, origCurrency) => {
+    try {
+      if (!data || data.length === 0) {
+        return;
+      }
+      
+      const sourceCurrency = origCurrency || originalCurrency || 'EUR';
+      console.log(`[ExpensesPage] Convertendo ${data.length} despesas de ${sourceCurrency}`);
+      
+      // Forçar atualização de valor no AsyncStorage para debugging
+      await AsyncStorage.setItem('original_app_currency', sourceCurrency);
+      
+      const convertedExpenses = await Promise.all(data.map(async (expense, index) => {
+        try {
+          console.log(`[Expense ${index+1}] Convertendo ${expense.amount} ${sourceCurrency}`);
+          const convertedAmount = await convertValueToCurrentCurrency(expense.amount, sourceCurrency);
+          console.log(`[Expense ${index+1}] Resultado: ${convertedAmount}`);
+          
+          return {
+            ...expense,
+            amount: convertedAmount
+          };
+        } catch (error) {
+          console.error('[ExpensesPage] Erro ao converter valor individual:', error);
+          return expense; // Manter o valor original em caso de erro
+        }
+      }));
+      
+      console.log('[ExpensesPage] Despesas convertidas com sucesso');
+      setExpenses(convertedExpenses);
+    } catch (error) {
+      console.error('[ExpensesPage] Erro ao converter valores:', error);
+      setExpenses(data); // Em caso de erro, usar os valores originais
+    }
+  };
+
+  // Ouvinte para mudanças na moeda
+  const handleCurrencyChange = async (newCurrency) => {
+    try {
+      console.log('Moeda alterada para:', newCurrency?.code);
+      
+      // Verificar se devemos converter os valores
+      const shouldConvert = shouldConvertCurrencyValues();
+      console.log('Converter valores?', shouldConvert);
+      
+      if (shouldConvert) {
+        // Converter valores usando a moeda original
+        await convertExpensesToCurrentCurrency(originalExpenses, originalCurrency);
+      } else {
+        // Apenas atualizar o símbolo da moeda, sem converter os valores
+        setExpenses([...originalExpenses]);
+      }
+      
+      // Forçar re-renderização do gráfico
+      setChartRenderKey(Date.now());
+    } catch (error) {
+      console.error('Erro ao lidar com mudança de moeda:', error);
+    }
+  };
 
   const fetchExpenses = async (userId) => {
     try {
@@ -77,7 +176,15 @@ const ExpensesPage = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setExpenses(data || []);
+      
+      // Armazenar valores originais
+      setOriginalExpenses(data || []);
+      
+      // Obter a moeda original para usar na conversão
+      const origCurrency = await loadOriginalCurrency();
+      
+      // Converter para a moeda atual
+      await convertExpensesToCurrentCurrency(data || [], origCurrency);
     } catch (error) {
       console.error('Error fetching expenses:', error);
       setAlertMessage('Failed to fetch expenses');

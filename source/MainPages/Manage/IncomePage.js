@@ -8,10 +8,13 @@ import IncomeChart from '../../Utility/Chart';
 import AlertComponent from '../../Utility/Alerts';
 import { useFocusEffect } from '@react-navigation/native';
 import Chart from '../../Utility/Chart';
-import { formatCurrency } from '../../Utility/FetchCountries';
+import { formatCurrency, getCurrentCurrency, addCurrencyChangeListener, removeCurrencyChangeListener, shouldConvertCurrencyValues } from '../../Utility/FetchCountries';
+import { convertValueToCurrentCurrency } from '../../Utility/CurrencyConverter';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const IncomePage = ({ navigation }) => {
   const [incomes, setIncomes] = useState([]);
+  const [originalIncomes, setOriginalIncomes] = useState([]); // Armazenar os valores originais
   const [chartRenderKey, setChartRenderKey] = useState(Date.now());
   const [frequencies, setFrequencies] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -27,12 +30,37 @@ const IncomePage = ({ navigation }) => {
     frequency_id: '',
     category_id: '',
   });
+  const [originalCurrency, setOriginalCurrency] = useState('EUR'); // Moeda original do sistema
 
   const [alertMessage, setAlertMessage] = useState('');
   const [alertType, setAlertType] = useState('');
   const [showAlert, setShowAlert] = useState(false);
 
   const incomesWithAddButton = [...incomes, { isAddButton: true }];
+
+  // Carregar a moeda original salva do usuário
+  const loadOriginalCurrency = async () => {
+    try {
+      const savedCurrency = await AsyncStorage.getItem('original_app_currency');
+      if (savedCurrency) {
+        console.log('[IncomePage] Moeda original carregada:', savedCurrency);
+        setOriginalCurrency(savedCurrency);
+        return savedCurrency;
+      } else {
+        // Se não tiver sido salva ainda, salvar a moeda atual como original
+        const currentCurrency = getCurrentCurrency();
+        console.log('[IncomePage] Definindo moeda original:', currentCurrency.code);
+        await AsyncStorage.setItem('original_app_currency', currentCurrency.code);
+        setOriginalCurrency(currentCurrency.code);
+        return currentCurrency.code;
+      }
+    } catch (error) {
+      console.error('[IncomePage] Erro ao carregar moeda original:', error);
+      // Usar EUR como fallback se houver erro
+      setOriginalCurrency('EUR');
+      return 'EUR';
+    }
+  };
 
   const fetchUserIncomes = async (userId) => {
     try {
@@ -45,10 +73,80 @@ const IncomePage = ({ navigation }) => {
         setIncomes([]);
         return;
       }
-      setIncomes(data || []);
-      processChartData(data); // Processar os dados para o gráfico
+      
+      // Armazenar os valores originais
+      setOriginalIncomes(data || []);
+      
+      // Obter a moeda original para usar na conversão
+      const origCurrency = await loadOriginalCurrency();
+      
+      // Converter valores para a moeda atual
+      await convertIncomesToCurrentCurrency(data || [], origCurrency);
+      
+      processChartData(data || []); // Processar os dados para o gráfico
     } catch (error) {
       console.error('Unexpected error fetching incomes:', error);
+    }
+  };
+
+  // Função para converter os valores para a moeda atual
+  const convertIncomesToCurrentCurrency = async (data, origCurrency) => {
+    try {
+      if (!data || data.length === 0) {
+        return;
+      }
+      
+      const sourceCurrency = origCurrency || originalCurrency || 'EUR';
+      console.log(`[IncomePage] Convertendo ${data.length} receitas de ${sourceCurrency}`);
+      
+      // Forçar atualização de valor no AsyncStorage para debugging
+      await AsyncStorage.setItem('original_app_currency', sourceCurrency);
+      
+      const convertedIncomes = await Promise.all(data.map(async (income, index) => {
+        try {
+          console.log(`[Income ${index+1}] Convertendo ${income.amount} ${sourceCurrency}`);
+          const convertedAmount = await convertValueToCurrentCurrency(income.amount, sourceCurrency);
+          console.log(`[Income ${index+1}] Resultado: ${convertedAmount}`);
+          
+          return {
+            ...income,
+            amount: convertedAmount
+          };
+        } catch (error) {
+          console.error('[IncomePage] Erro ao converter valor individual:', error);
+          return income; // Manter o valor original em caso de erro
+        }
+      }));
+      
+      console.log('[IncomePage] Receitas convertidas com sucesso');
+      setIncomes(convertedIncomes);
+    } catch (error) {
+      console.error('[IncomePage] Erro ao converter valores:', error);
+      setIncomes(data); // Em caso de erro, usar os valores originais
+    }
+  };
+
+  // Ouvinte para mudanças na moeda
+  const handleCurrencyChange = async (newCurrency) => {
+    try {
+      console.log('Moeda alterada para:', newCurrency?.code);
+      
+      // Verificar se devemos converter os valores
+      const shouldConvert = shouldConvertCurrencyValues();
+      console.log('Converter valores?', shouldConvert);
+      
+      if (shouldConvert) {
+        // Converter valores usando a moeda original
+        await convertIncomesToCurrentCurrency(originalIncomes, originalCurrency);
+      } else {
+        // Apenas atualizar o símbolo da moeda, sem converter os valores
+        setIncomes([...originalIncomes]);
+      }
+      
+      // Forçar re-renderização do gráfico
+      setChartRenderKey(Date.now());
+    } catch (error) {
+      console.error('Erro ao lidar com mudança de moeda:', error);
     }
   };
 
@@ -120,10 +218,19 @@ const IncomePage = ({ navigation }) => {
         return;
       }
       setUserId(user.id);
+      await loadOriginalCurrency(); // Carregar a moeda original
       fetchUserIncomes(user.id);
       fetchUserCategoriesAndFrequencies(user.id);
     };
     fetchUserData();
+    
+    // Adicionar listener para mudanças de moeda
+    addCurrencyChangeListener(handleCurrencyChange);
+    
+    // Limpar listener ao desmontar
+    return () => {
+      removeCurrencyChangeListener(handleCurrencyChange);
+    };
   }, []);
 
   // Adicionada lógica para recarregar dados ao reentrar na página

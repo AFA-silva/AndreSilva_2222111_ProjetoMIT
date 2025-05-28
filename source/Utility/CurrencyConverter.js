@@ -1,7 +1,107 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Modal, StyleSheet, FlatList } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { fetchExchangeRates, getCurrentCurrency, formatCurrency, formatCurrencyWithCode } from './FetchCountries';
+import { fetchExchangeRates, getCurrentCurrency, formatCurrency, formatCurrencyWithCode, shouldConvertCurrencyValues } from './FetchCountries';
+
+// Armazenar em cache as taxas de câmbio para evitar múltiplas chamadas à API
+let exchangeRatesCache = {
+  rates: {},
+  lastUpdated: null,
+  baseCurrency: null
+};
+
+// Função para converter valores automaticamente com base na moeda atual
+export const convertValueToCurrentCurrency = async (value, originalCurrency) => {
+  try {
+    // Se não há valor, retornar o valor original
+    if (!value) return value;
+    
+    // Garantir que o valor seja um número
+    const numValue = parseFloat(value);
+    if (isNaN(numValue)) return value;
+    
+    // Verificar se a conversão deve ser realizada
+    const shouldConvert = shouldConvertCurrencyValues();
+    console.log(`Deve converter? ${shouldConvert ? 'SIM' : 'NÃO'}`);
+    
+    if (!shouldConvert) {
+      console.log('Conversão desativada por configuração do usuário. Mantendo valor original:', numValue);
+      return numValue;
+    }
+    
+    const currentCurrency = getCurrentCurrency();
+    console.log('Moeda atual:', currentCurrency);
+    
+    // Se originalCurrency não for definida, usar EUR como padrão
+    const fromCurrency = originalCurrency || 'EUR';
+    console.log(`Moeda original: ${fromCurrency}`);
+    
+    // Se já está na moeda atual, retornar o valor sem conversão
+    if (fromCurrency === currentCurrency.code) {
+      console.log(`Moedas iguais (${fromCurrency}), não precisa converter`);
+      return numValue;
+    }
+
+    console.log(`** CONVERTENDO ${numValue} de ${fromCurrency} para ${currentCurrency.code}`);
+    
+    // Buscar taxas de câmbio diretamente, ignorando o cache para este teste
+    try {
+      const rates = await fetchExchangeRates(fromCurrency);
+      
+      if (!rates || !rates[currentCurrency.code]) {
+        console.error(`Taxa não encontrada para conversão de ${fromCurrency} para ${currentCurrency.code}`);
+        // Utilizar uma taxa fixa para teste se a API não retornar
+        const fixedRate = fromCurrency === 'GBP' && currentCurrency.code === 'EUR' ? 1.17 : 
+                        (fromCurrency === 'EUR' && currentCurrency.code === 'GBP' ? 0.85 : 1);
+        
+        console.log(`Usando taxa fixa: ${fixedRate}`);
+        const result = numValue * fixedRate;
+        console.log(`Resultado com taxa fixa: ${numValue} * ${fixedRate} = ${result}`);
+        return result;
+      }
+      
+      // Usar a taxa da API
+      const rate = rates[currentCurrency.code];
+      console.log(`Taxa obtida: ${rate}`);
+      
+      // Converter e retornar o valor
+      const convertedValue = numValue * rate;
+      console.log(`RESULTADO: ${numValue} * ${rate} = ${convertedValue}`);
+      
+      // Atualizar cache
+      exchangeRatesCache = {
+        rates,
+        lastUpdated: new Date(),
+        baseCurrency: fromCurrency
+      };
+      
+      return convertedValue;
+    } catch (apiError) {
+      console.error('Erro ao buscar taxas de câmbio:', apiError);
+      
+      // Tentar usar cache como fallback
+      if (
+        exchangeRatesCache.rates && 
+        exchangeRatesCache.baseCurrency === fromCurrency &&
+        exchangeRatesCache.rates[currentCurrency.code]
+      ) {
+        const cachedRate = exchangeRatesCache.rates[currentCurrency.code];
+        console.log(`Usando taxa do cache como fallback: ${cachedRate}`);
+        return numValue * cachedRate;
+      }
+      
+      // Se tudo falhar, usar uma taxa fixa para não quebrar a aplicação
+      const emergencyRate = fromCurrency === 'GBP' && currentCurrency.code === 'EUR' ? 1.17 : 
+                          (fromCurrency === 'EUR' && currentCurrency.code === 'GBP' ? 0.85 : 1);
+      
+      console.log(`Usando taxa de emergência: ${emergencyRate}`);
+      return numValue * emergencyRate;
+    }
+  } catch (error) {
+    console.error('Erro geral ao converter para moeda atual:', error);
+    return value; // Em caso de erro, retorna o valor original
+  }
+};
 
 export const CurrencyConverterField = ({ value, onValueChange, style = {} }) => {
   const [amount, setAmount] = useState(value ? value.toString() : '');
