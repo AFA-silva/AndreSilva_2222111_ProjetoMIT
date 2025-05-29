@@ -87,150 +87,6 @@ const GoalDetailsModal = ({ goal, visible, onClose, onEdit, onDelete, status, fi
     setScenariosExpanded(!scenariosExpanded);
   };
 
-  // Dados para a FlatList
-  const modalSections = [
-    { key: 'details', type: 'details' },
-    { key: 'status', type: 'status' },
-    ...(hasScenarios ? [{ key: 'scenarios', type: 'scenarios' }] : [])
-  ];
-
-  // Renderizar os diferentes componentes do modal
-  const renderModalItem = ({ item }) => {
-    switch (item.type) {
-      case 'details':
-        return (
-          <View style={styles.detailsGrid}>
-            <View style={styles.detailsRow}>
-              <View style={styles.detailsItem}>
-                <Text style={styles.detailsLabel}>Progress (Time)</Text>
-                <ProgressBar progress={progress} />
-              </View>
-            </View>
-            <View style={styles.detailsRow}>
-              <View style={styles.detailsItem}>
-                <Text style={styles.detailsLabel}>Progress (Financial)</Text>
-                <ProgressBar progress={financialProgress} color="#00B894" />
-                <Text style={styles.detailsSubtext}>
-                  {formatCurrency(accumulated)} / {formatCurrency(goal.amount)}
-                </Text>
-              </View>
-            </View>
-            <View style={styles.detailsRow}>
-              <View style={styles.detailsItem}>
-                <Text style={styles.detailsLabel}>Savings (%)</Text>
-                <Text style={styles.detailsValue}>
-                  {Number(goal.goal_saving_minimum).toFixed(2)}%
-                </Text>
-              </View>
-              <View style={styles.detailsItem}>
-                <Text style={styles.detailsLabel}>Fixed Value (€)</Text>
-                <Text style={styles.detailsValue}>
-                  {formatCurrency(fixedValue)}
-                </Text>
-              </View>
-            </View>
-            <View style={styles.detailsRow}>
-              <View style={styles.detailsItem}>
-                <Text style={styles.detailsLabel}>Deadline</Text>
-                <Text style={styles.detailsValue}>
-                  {new Date(goal.deadline).toLocaleDateString()}
-                </Text>
-              </View>
-              <View style={styles.detailsItem}>
-                <Text style={styles.detailsLabel}>Target Amount</Text>
-                <Text style={styles.detailsValue}>
-                  {formatCurrency(goal.amount)}
-                </Text>
-              </View>
-            </View>
-          </View>
-        );
-      case 'status':
-        return status ? (
-          <View style={[styles.statusContainer, { backgroundColor }]}>
-            <View style={styles.statusHeader}>
-              <View style={styles.statusIcon}>{icon}</View>
-              <Text style={[styles.statusTitle, { color: textColor }]}>
-                {title}
-              </Text>
-            </View>
-            <Text style={[styles.statusText, { color: textColor }]}>
-              {status.message || getStatusInfo(status.status).message}
-            </Text>
-          </View>
-        ) : null;
-      case 'scenarios':
-        return hasScenarios ? (
-          <View style={styles.scenariosContainer}>
-            <TouchableOpacity 
-              style={styles.scenariosHeader}
-              onPress={toggleScenarios}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.sectionTitle}>Análise de Cenários</Text>
-              <Ionicons 
-                name={scenariosExpanded ? "chevron-up" : "chevron-down"} 
-                size={24} 
-                color="#2D3436" 
-              />
-            </TouchableOpacity>
-            
-            {scenariosExpanded && (
-              <View style={styles.scenariosContent}>
-                {/* Mostrar o cenário recomendado no topo, se disponível */}
-                {status.scenarios.recommendedScenario && (
-                  <View style={styles.recommendedScenarioContainer}>
-                    <Text style={styles.recommendedScenarioTitle}>Cenário Recomendado</Text>
-                    <ScenarioItem
-                      key="recommended"
-                      title={status.scenarios.recommendedScenario.type === 'multiPriority' ? 
-                        `Remover Prioridades ${status.scenarios.recommendedScenario.priorities?.join(', ')}` :
-                        status.scenarios.recommendedScenario.type === 'expense' ?
-                        `Remover Prioridade ${status.scenarios.recommendedScenario.priority}` :
-                        status.scenarios.recommendedScenario.type === 'percentage' ?
-                        `Ajustar Porcentagem` :
-                        status.scenarios.recommendedScenario.type === 'combined' ?
-                        `Ajustar Porcentagem + Prioridade ${status.scenarios.recommendedScenario.priority}` :
-                        `Cenário Recomendado`
-                      }
-                      possible={status.scenarios.recommendedScenario.possible}
-                      description={status.scenarios.recommendedScenario.description}
-                      subDescription={status.scenarios.recommendedScenario.subDescription}
-                      expenseDetails={status.scenarios.recommendedScenario.expenseDetails}
-                      remaining={status.scenarios.recommendedScenario.remaining}
-                      highlighted={true}
-                    />
-                  </View>
-                )}
-
-                {/* Mostrar todos os outros cenários */}
-                {status.scenarios.items?.map((scenario, index) => (
-                  <ScenarioItem
-                    key={index}
-                    title={scenario.title || 'Cenário ' + (index + 1)}
-                    possible={scenario.possible}
-                    description={scenario.description}
-                    subDescription={scenario.subDescription}
-                    expenseDetails={scenario.expenseDetails}
-                    remaining={scenario.remaining}
-                  />
-                ))}
-
-                {/* Se não houver cenários disponíveis */}
-                {(!status.scenarios.recommendedScenario && (!status.scenarios.items || status.scenarios.items.length === 0)) && (
-                  <Text style={styles.scenariosNoData}>
-                    Não há cenários disponíveis para análise.
-                  </Text>
-                )}
-              </View>
-            )}
-          </View>
-        ) : null;
-      default:
-        return null;
-    }
-  };
-
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.modalOverlay}>
@@ -242,34 +98,217 @@ const GoalDetailsModal = ({ goal, visible, onClose, onEdit, onDelete, status, fi
             </TouchableOpacity>
           </View>
 
-          <FlatList
-            data={modalSections}
-            renderItem={renderModalItem}
-            keyExtractor={item => item.key}
+          <ScrollView 
             style={styles.modalContent}
             showsVerticalScrollIndicator={true}
-          />
+            nestedScrollEnabled={true}
+          >
+            <View style={styles.detailsGrid}>
+              <View style={styles.detailsRow}>
+                <View style={styles.detailsItem}>
+                  <Text style={styles.detailsLabel}>Progress (Time)</Text>
+                  <ProgressBar progress={progress} />
+                </View>
+              </View>
+              <View style={styles.detailsRow}>
+                <View style={styles.detailsItem}>
+                  <Text style={styles.detailsLabel}>Progress (Financial)</Text>
+                  <ProgressBar progress={financialProgress} color="#00B894" />
+                  <Text style={styles.detailsSubtext}>
+                    {formatCurrency(accumulated)} / {formatCurrency(goal.amount)}
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.detailsRow}>
+                <View style={styles.detailsItem}>
+                  <Text style={styles.detailsLabel}>Savings (%)</Text>
+                  <Text style={styles.detailsValue}>
+                    {Number(goal.goal_saving_minimum).toFixed(2)}%
+                  </Text>
+                </View>
+                <View style={styles.detailsItem}>
+                  <Text style={styles.detailsLabel}>Fixed Value (€)</Text>
+                  <Text style={styles.detailsValue}>
+                    {formatCurrency(fixedValue)}
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.detailsRow}>
+                <View style={styles.detailsItem}>
+                  <Text style={styles.detailsLabel}>Deadline</Text>
+                  <Text style={styles.detailsValue}>
+                    {new Date(goal.deadline).toLocaleDateString()}
+                  </Text>
+                </View>
+                <View style={styles.detailsItem}>
+                  <Text style={styles.detailsLabel}>Target Amount</Text>
+                  <Text style={styles.detailsValue}>
+                    {formatCurrency(goal.amount)}
+                  </Text>
+                </View>
+              </View>
+            </View>
 
-          <View style={styles.modalActions}>
-            <TouchableOpacity 
-              style={[styles.actionButton, styles.editButton]} 
-              onPress={() => {
-                onClose();
-                onEdit(goal);
-              }}
-            >
-              <Text style={styles.actionButtonText}>Editar</Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={[styles.actionButton, styles.deleteButton]} 
-              onPress={() => {
-                onClose();
-                onDelete(goal);
-              }}
-            >
-              <Text style={styles.actionButtonText}>Deletar</Text>
-            </TouchableOpacity>
-          </View>
+            {status && (
+              <View style={[styles.statusContainer, { backgroundColor }]}>
+                <View style={styles.statusHeader}>
+                  <View style={styles.statusIcon}>{icon}</View>
+                  <Text style={[styles.statusTitle, { color: textColor }]}>
+                    {title}
+                  </Text>
+                </View>
+                <Text style={[styles.statusText, { color: textColor }]}>
+                  {status.message || getStatusInfo(status.status).message}
+                </Text>
+              </View>
+            )}
+
+            {/* Nova seção para mostrar cenários com botão de expansão */}
+            {hasScenarios && (
+              <View style={styles.scenariosContainer}>
+                <TouchableOpacity 
+                  style={styles.scenariosHeader}
+                  onPress={toggleScenarios}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.sectionTitle}>Análise de Cenários</Text>
+                  <Ionicons 
+                    name={scenariosExpanded ? "chevron-up" : "chevron-down"} 
+                    size={24} 
+                    color="#2D3436" 
+                  />
+                </TouchableOpacity>
+                
+                {scenariosExpanded && (
+                  <View style={styles.scenariosContent}>
+                    {/* Mostrar o cenário recomendado no topo, se disponível */}
+                    {status.scenarios.recommendedScenario && (
+                      <View style={styles.recommendedScenarioContainer}>
+                        <Text style={styles.recommendedScenarioTitle}>Cenário Recomendado</Text>
+                        <ScenarioItem
+                          key="recommended"
+                          title={status.scenarios.recommendedScenario.type === 'multiPriority' ? 
+                            `Remover Prioridades ${status.scenarios.recommendedScenario.priorities?.join(', ')}` :
+                            status.scenarios.recommendedScenario.type === 'expense' ?
+                            `Remover Prioridade ${status.scenarios.recommendedScenario.priority}` :
+                            status.scenarios.recommendedScenario.type === 'percentage' ?
+                            `Ajustar Porcentagem` :
+                            status.scenarios.recommendedScenario.type === 'combined' ?
+                            `Ajustar Porcentagem + Prioridade ${status.scenarios.recommendedScenario.priority}` :
+                            `Cenário Recomendado`
+                          }
+                          possible={status.scenarios.recommendedScenario.possible}
+                          description={status.scenarios.recommendedScenario.message}
+                          subDescription={status.scenarios.recommendedScenario.monthlySavings ? 
+                            `Economia: ${formatCurrency(status.scenarios.recommendedScenario.monthlySavings)}/mês` : undefined}
+                          expenseDetails={status.scenarios.recommendedScenario.expenseDetails}
+                          highlighted={true}
+                        />
+                      </View>
+                    )}
+
+                    {/* Cenário Atual */}
+                    <ScenarioItem 
+                      title="Cenário Atual"
+                      possible={status.scenarios.baseScenario.possible}
+                      description={`Poupança atual: ${goal.goal_saving_minimum}% (${formatCurrency(status.scenarios.baseScenario.monthlyAmount)}/mês)`}
+                      remaining={status.scenarios.baseScenario.remaining}
+                    />
+
+                    {/* Cenário de Ajuste de Porcentagem - só mostrar se não for o recomendado */}
+                    {status.scenarios.percentageScenario && 
+                     (!status.scenarios.recommendedScenario || 
+                      status.scenarios.recommendedScenario.type !== 'percentage') && (
+                      <ScenarioItem
+                        title="Ajuste de Porcentagem"
+                        possible={status.scenarios.percentageScenario.possible}
+                        description={`Necessário: ${status.scenarios.percentageScenario.newPercentage.toFixed(2)}% (${formatCurrency(status.scenarios.percentageScenario.monthlyChange)} a mais/mês)`}
+                      />
+                    )}
+
+                    {/* Cenários de Despesas Individuais - apenas mostrar os que não são o recomendado */}
+                    {status.scenarios.expenseScenarios.map((scenario, index) => {
+                      if (scenario.removedExpenses > 0 && 
+                          (!status.scenarios.recommendedScenario || 
+                           status.scenarios.recommendedScenario.type !== 'expense' || 
+                           status.scenarios.recommendedScenario.priority !== scenario.priority)) {
+                        return (
+                          <ScenarioItem
+                            key={`expense-${index}`}
+                            title={`Remover Prioridade ${scenario.priority}`}
+                            possible={scenario.possible}
+                            description={`Despesas: ${formatCurrency(scenario.monthlySavings)}`}
+                            subDescription={`Economia: ${formatCurrency(scenario.monthlySavings)}/mês`}
+                            expenseDetails={scenario.expenseDetails}
+                          />
+                        );
+                      }
+                      return null;
+                    })}
+
+                    {/* Cenários Combinados - apenas mostrar os que não são o recomendado */}
+                    {status.scenarios.combinedScenarios.map((scenario, index) => {
+                      if (scenario.removedExpenses > 0 && 
+                          (!status.scenarios.recommendedScenario || 
+                           status.scenarios.recommendedScenario.type !== 'combined' || 
+                           status.scenarios.recommendedScenario.priority !== scenario.priority)) {
+                        return (
+                          <ScenarioItem
+                            key={`combined-${index}`}
+                            title={`Porcentagem + Prioridade ${scenario.priority}`}
+                            possible={scenario.possible}
+                            description={`${scenario.newPercentage.toFixed(2)}% + remover despesas`}
+                            subDescription={`Economia: ${formatCurrency(scenario.monthlySavings)}/mês`}
+                            expenseDetails={scenario.expenseDetails}
+                          />
+                        );
+                      }
+                      return null;
+                    })}
+                    
+                    {/* Cenários de Múltiplas Prioridades - apenas mostrar os que não são o recomendado */}
+                    {status.scenarios.multiPriorityScenarios && status.scenarios.multiPriorityScenarios.map((scenario, index) => {
+                      if (scenario.priorities && scenario.priorities.length > 1 && 
+                          (!status.scenarios.recommendedScenario || 
+                           status.scenarios.recommendedScenario.type !== 'multiPriority' || 
+                           JSON.stringify(status.scenarios.recommendedScenario.priorities) !== JSON.stringify(scenario.priorities))) {
+                        return (
+                          <ScenarioItem
+                            key={`multi-${index}`}
+                            title={`Remover Prioridades ${scenario.priorities.join(', ')}`}
+                            possible={scenario.possible}
+                            description={`Economia total: ${formatCurrency(scenario.monthlySavings)}/mês`}
+                            subDescription={`Total poupado: ${formatCurrency(scenario.newTotalSaved)}`}
+                            expenseDetails={scenario.expenseDetails}
+                          />
+                        );
+                      }
+                      return null;
+                    })}
+                  </View>
+                )}
+              </View>
+            )}
+
+            <View style={styles.detailsActions}>
+              <TouchableOpacity
+                style={[styles.actionButton, styles.editButton]}
+                onPress={onEdit}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="pencil" size={20} color="#FFFFFF" />
+                <Text style={styles.actionButtonText}>Edit</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.actionButton, styles.deleteButton]}
+                onPress={onDelete}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="trash" size={20} color="#FFFFFF" />
+                <Text style={styles.actionButtonText}>Delete</Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
         </View>
       </View>
     </Modal>
