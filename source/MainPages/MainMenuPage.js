@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, TouchableOpacity, Dimensions, StyleSheet, Modal, Animated } from 'react-native';
+import { View, Text, TouchableOpacity, Dimensions, StyleSheet, Modal, Animated, FlatList } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import styles from '../Styles/MainPageStyles/MainMenuPageStyle';
 import { supabase } from '../../Supabase';
@@ -32,6 +32,12 @@ const MainMenuPage = ({ navigation }) => {
   const [originalIncome, setOriginalIncome] = useState(0); // Valores originais
   const [originalExpenses, setOriginalExpenses] = useState(0);
   const [originalSavings, setOriginalSavings] = useState(0);
+
+  // Layout sections para renderizar na FlatList
+  const sections = [
+    { key: 'netIncome', type: 'netIncome' },
+    { key: 'goalStatus', type: 'goalStatus' }
+  ];
 
   // Carregar a moeda original salva do usuário
   const loadOriginalCurrency = async () => {
@@ -354,151 +360,170 @@ const MainMenuPage = ({ navigation }) => {
     navigation.navigate('CurrencyMarketPage');
   };
 
+  // Função para renderizar os itens na FlatList
+  const renderItem = ({ item }) => {
+    switch (item.type) {
+      case 'netIncome':
+        return (
+          <View style={styles.dashboardSection}>
+            <View style={styles.sectionTitleContainer}>
+              <Ionicons name="wallet-outline" size={20} color="#FF9800" style={styles.sectionIcon} />
+              <Text style={styles.sectionTitle}>Net Income</Text>
+              
+              {/* Botão para navegação rápida ao Currency Market */}
+              <TouchableOpacity 
+                style={styles.currencyButton}
+                onPress={navigateToCurrencyMarket}
+              >
+                <Ionicons name="globe-outline" size={16} color="#FF9800" />
+                <Text style={styles.currencyButtonText}>Change Currency</Text>
+              </TouchableOpacity>
+            </View>
+            {loading ? (
+              <NetIncomeSkeleton />
+            ) : (
+              <View style={cardStyles.card}>
+                <View style={cardStyles.moneyContainer}>
+                  <View style={cardStyles.moneyTextContainer}>
+                    <Text style={cardStyles.moneyLabel}>Net Income (Receita Líquida)</Text>
+                    <Text style={[
+                      cardStyles.moneyValue, 
+                      {color: availableMoney >= 0 ? statusColors.achievable : statusColors.impossible}
+                    ]}>
+                      {formatCurrency(availableMoney)}
+                    </Text>
+                  </View>
+                </View>
+                
+                <TouchableOpacity 
+                  style={cardStyles.gaugeContainer}
+                  onPress={handleGaugePress}
+                  activeOpacity={0.7}
+                >
+                  <GaugeChart 
+                    key={`gauge-${refreshKey}-${dominantGoalStatus}`}
+                    value={usagePercentage}
+                    width={200}
+                    height={100}
+                    startAngle={-90}
+                    endAngle={90}
+                    formatText={({ value }) => `${Math.round(value)}%`}
+                    gaugeColors={{
+                      valueArc: getGaugeColor(),
+                      referenceArc: '#F7F9FC',
+                      valueText: '#2D3748'
+                    }}
+                    textFontSize={22}
+                  />
+                  <Text style={cardStyles.gaugeLabel}>
+                    Savings Allocation (%)
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        );
+      case 'goalStatus':
+        return (
+          <View style={styles.dashboardSection}>
+            <View style={styles.sectionTitleContainer}>
+              <Ionicons name="flag-outline" size={20} color="#FF9800" style={styles.sectionIcon} />
+              <Text style={styles.sectionTitle}>Goal Status</Text>
+            </View>
+            {loading ? (
+              <GoalOverviewSkeleton />
+            ) : (
+              <TouchableOpacity
+                style={{
+                  backgroundColor: '#FFFFFF',
+                  borderRadius: 16,
+                  padding: 20,
+                  marginBottom: 24,
+                  shadowColor: '#1A365D',
+                  shadowOffset: { width: 0, height: 3 },
+                  shadowOpacity: 0.1,
+                  shadowRadius: 8,
+                  elevation: 4,
+                }}
+                onPress={navigateToGoals}
+                activeOpacity={0.85}
+              >
+                <View style={{
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: 16,
+                }}>
+                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#2D3748' }}>Goals Overview</Text>
+                  <Ionicons name="chevron-forward" size={22} color="#CBD5E0" />
+                </View>
+                
+                <View style={{
+                  flexDirection: 'row',
+                  flexWrap: 'wrap',
+                  justifyContent: 'space-between',
+                }}>
+                  <View style={{ width: '48%', marginBottom: 14, flexDirection: 'row', alignItems: 'center' }}>
+                    <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(0, 184, 148, 0.1)', justifyContent: 'center', alignItems: 'center', marginRight: 10 }}>
+                      <Ionicons name="checkmark-circle" size={22} color={statusColors.achievable} />
+                    </View>
+                    <View>
+                      <Text style={{ fontSize: 14, color: '#718096', marginBottom: 2 }}>Achievable</Text>
+                      <Text style={{ fontSize: 20, fontWeight: 'bold', color: statusColors.achievable }}>{okCount}</Text>
+                    </View>
+                  </View>
+                  
+                  <View style={{ width: '48%', marginBottom: 14, flexDirection: 'row', alignItems: 'center' }}>
+                    <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(253, 203, 110, 0.1)', justifyContent: 'center', alignItems: 'center', marginRight: 10 }}>
+                      <Ionicons name="warning" size={22} color={statusColors.adjustments} />
+                    </View>
+                    <View>
+                      <Text style={{ fontSize: 14, color: '#718096', marginBottom: 2 }}>Adjustments</Text>
+                      <Text style={{ fontSize: 20, fontWeight: 'bold', color: statusColors.adjustments }}>{warningCount}</Text>
+                    </View>
+                  </View>
+                  
+                  <View style={{ width: '48%', marginBottom: 4, flexDirection: 'row', alignItems: 'center' }}>
+                    <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(231, 76, 60, 0.1)', justifyContent: 'center', alignItems: 'center', marginRight: 10 }}>
+                      <Ionicons name="close-circle" size={22} color={statusColors.impossible} />
+                    </View>
+                    <View>
+                      <Text style={{ fontSize: 14, color: '#718096', marginBottom: 2 }}>Impossible</Text>
+                      <Text style={{ fontSize: 20, fontWeight: 'bold', color: statusColors.impossible }}>{problemCount}</Text>
+                    </View>
+                  </View>
+                  
+                  <View style={{ width: '48%', marginBottom: 4, flexDirection: 'row', alignItems: 'center' }}>
+                    <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(9, 132, 227, 0.1)', justifyContent: 'center', alignItems: 'center', marginRight: 10 }}>
+                      <Ionicons name="information-circle" size={22} color={statusColors.dueToday} />
+                    </View>
+                    <View>
+                      <Text style={{ fontSize: 14, color: '#718096', marginBottom: 2 }}>Due Today</Text>
+                      <Text style={{ fontSize: 20, fontWeight: 'bold', color: statusColors.dueToday }}>{todayCount}</Text>
+                    </View>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            )}
+          </View>
+        );
+      default:
+        return null;
+    }
+  };
+
   return (
     <View style={styles.mainContainer}>
       <Header title="Dashboard" />
       
-      <View style={styles.container}>
-        <View style={styles.dashboardSection}>
-          <View style={styles.sectionTitleContainer}>
-            <Ionicons name="wallet-outline" size={20} color="#FF9800" style={styles.sectionIcon} />
-            <Text style={styles.sectionTitle}>Net Income</Text>
-            
-            {/* Botão para navegação rápida ao Currency Market */}
-            <TouchableOpacity 
-              style={styles.currencyButton}
-              onPress={navigateToCurrencyMarket}
-            >
-              <Ionicons name="globe-outline" size={16} color="#FF9800" />
-              <Text style={styles.currencyButtonText}>Change Currency</Text>
-            </TouchableOpacity>
-          </View>
-          {loading ? (
-            <NetIncomeSkeleton />
-          ) : (
-            <View style={cardStyles.card}>
-              <View style={cardStyles.moneyContainer}>
-                <View style={cardStyles.moneyTextContainer}>
-                  <Text style={cardStyles.moneyLabel}>Net Income (Receita Líquida)</Text>
-                  <Text style={[
-                    cardStyles.moneyValue, 
-                    {color: availableMoney >= 0 ? statusColors.achievable : statusColors.impossible}
-                  ]}>
-                    {formatCurrency(availableMoney)}
-                  </Text>
-                </View>
-              </View>
-              
-              <TouchableOpacity 
-                style={cardStyles.gaugeContainer}
-                onPress={handleGaugePress}
-                activeOpacity={0.7}
-              >
-                <GaugeChart 
-                  key={`gauge-${refreshKey}-${dominantGoalStatus}`}
-                  value={usagePercentage}
-                  width={200}
-                  height={100}
-                  startAngle={-90}
-                  endAngle={90}
-                  formatText={({ value }) => `${Math.round(value)}%`}
-                  gaugeColors={{
-                    valueArc: getGaugeColor(),
-                    referenceArc: '#F7F9FC',
-                    valueText: '#2D3748'
-                  }}
-                  textFontSize={22}
-                />
-                <Text style={cardStyles.gaugeLabel}>
-                  Savings Allocation (%)
-                </Text>
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
-
-        <View style={styles.dashboardSection}>
-          <View style={styles.sectionTitleContainer}>
-            <Ionicons name="flag-outline" size={20} color="#FF9800" style={styles.sectionIcon} />
-            <Text style={styles.sectionTitle}>Goal Status</Text>
-          </View>
-          {loading ? (
-            <GoalOverviewSkeleton />
-          ) : (
-            <TouchableOpacity
-              style={{
-                backgroundColor: '#FFFFFF',
-                borderRadius: 16,
-                padding: 20,
-                marginBottom: 24,
-                shadowColor: '#1A365D',
-                shadowOffset: { width: 0, height: 3 },
-                shadowOpacity: 0.1,
-                shadowRadius: 8,
-                elevation: 4,
-              }}
-              onPress={navigateToGoals}
-              activeOpacity={0.85}
-            >
-              <View style={{
-                flexDirection: 'row',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginBottom: 16,
-              }}>
-                <Text style={{ fontSize: 18, fontWeight: '700', color: '#2D3748' }}>Goals Overview</Text>
-                <Ionicons name="chevron-forward" size={22} color="#CBD5E0" />
-              </View>
-              
-              <View style={{
-                flexDirection: 'row',
-                flexWrap: 'wrap',
-                justifyContent: 'space-between',
-              }}>
-                <View style={{ width: '48%', marginBottom: 14, flexDirection: 'row', alignItems: 'center' }}>
-                  <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(0, 184, 148, 0.1)', justifyContent: 'center', alignItems: 'center', marginRight: 10 }}>
-                    <Ionicons name="checkmark-circle" size={22} color={statusColors.achievable} />
-                  </View>
-                  <View>
-                    <Text style={{ fontSize: 14, color: '#718096', marginBottom: 2 }}>Achievable</Text>
-                    <Text style={{ fontSize: 20, fontWeight: 'bold', color: statusColors.achievable }}>{okCount}</Text>
-                  </View>
-                </View>
-                
-                <View style={{ width: '48%', marginBottom: 14, flexDirection: 'row', alignItems: 'center' }}>
-                  <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(253, 203, 110, 0.1)', justifyContent: 'center', alignItems: 'center', marginRight: 10 }}>
-                    <Ionicons name="warning" size={22} color={statusColors.adjustments} />
-                  </View>
-                  <View>
-                    <Text style={{ fontSize: 14, color: '#718096', marginBottom: 2 }}>Adjustments</Text>
-                    <Text style={{ fontSize: 20, fontWeight: 'bold', color: statusColors.adjustments }}>{warningCount}</Text>
-                  </View>
-                </View>
-                
-                <View style={{ width: '48%', marginBottom: 4, flexDirection: 'row', alignItems: 'center' }}>
-                  <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(231, 76, 60, 0.1)', justifyContent: 'center', alignItems: 'center', marginRight: 10 }}>
-                    <Ionicons name="close-circle" size={22} color={statusColors.impossible} />
-                  </View>
-                  <View>
-                    <Text style={{ fontSize: 14, color: '#718096', marginBottom: 2 }}>Impossible</Text>
-                    <Text style={{ fontSize: 20, fontWeight: 'bold', color: statusColors.impossible }}>{problemCount}</Text>
-                  </View>
-                </View>
-                
-                <View style={{ width: '48%', marginBottom: 4, flexDirection: 'row', alignItems: 'center' }}>
-                  <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(9, 132, 227, 0.1)', justifyContent: 'center', alignItems: 'center', marginRight: 10 }}>
-                    <Ionicons name="information-circle" size={22} color={statusColors.dueToday} />
-                  </View>
-                  <View>
-                    <Text style={{ fontSize: 14, color: '#718096', marginBottom: 2 }}>Due Today</Text>
-                    <Text style={{ fontSize: 20, fontWeight: 'bold', color: statusColors.dueToday }}>{todayCount}</Text>
-                  </View>
-                </View>
-              </View>
-            </TouchableOpacity>
-          )}
-        </View>
-      </View>
+      <FlatList
+        style={styles.container}
+        data={sections}
+        renderItem={renderItem}
+        keyExtractor={item => item.key}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{paddingBottom: 24}}
+      />
 
       {/* Financial Details Modal */}
       <Modal

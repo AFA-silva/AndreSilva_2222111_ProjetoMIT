@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Animated, Dimensions, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Animated, Dimensions, Platform, AppState } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 
@@ -8,19 +8,25 @@ const { width } = Dimensions.get('window');
 const NavigationBar = () => {
   const navigation = useNavigation();
   const route = useRoute();
+  const appState = useRef(AppState.currentState);
   
   // Estado que controla qual tab está ativa
   const [activeTab, setActiveTab] = useState('MainMenuPage');
   const [isInitialized, setIsInitialized] = useState(false);
+  // Estado de loading para skeleton effect
+  const [isLoading, setIsLoading] = useState(true);
+  // Estado para forçar re-renderização
+  const [forceRender, setForceRender] = useState(0);
   
-  // Animation values para cada tab - Inicializar com valor base para garantir visibilidade
+  // Animation values para cada tab - Inicializar com valores fixos
   const tabAnimations = {
-    MainMenuPage: useRef(new Animated.Value(0.5)).current,
-    ManagerPage: useRef(new Animated.Value(0.5)).current,
-    SettingsPage: useRef(new Animated.Value(0.5)).current
+    MainMenuPage: useRef(new Animated.Value(1)).current,
+    ManagerPage: useRef(new Animated.Value(0.8)).current,
+    SettingsPage: useRef(new Animated.Value(0.8)).current
   };
   
-  const navbarAnim = useRef(new Animated.Value(0)).current;
+  const navbarAnim = useRef(new Animated.Value(1)).current;
+  const loadingAnim = useRef(new Animated.Value(0)).current;
 
   // Função para determinar qual rota está ativa
   const getCurrentRouteName = () => {
@@ -44,22 +50,81 @@ const NavigationBar = () => {
     }
   };
 
-  // Inicialização após a montagem do componente
-  useEffect(() => {
-    // Garantir que todos os botões sejam visíveis inicialmente
+  // Função para fazer refresh da navbar
+  const refreshNavbar = () => {
+    setIsLoading(true);
+    
+    // Reset das animações mas mantendo valores visíveis
+    navbarAnim.setValue(1);
+    loadingAnim.setValue(0);
+    
+    // Garantir que os valores iniciais sejam visíveis
+    const currentActiveTab = getCurrentRouteName() || 'MainMenuPage';
+    setActiveTab(currentActiveTab);
+    
     Object.keys(tabAnimations).forEach(tab => {
-      tabAnimations[tab].setValue(1); // Alterado de 0.5 para 1 para todos os botões
+      tabAnimations[tab].setValue(tab === currentActiveTab ? 1 : 0.8);
     });
     
-    // Marcar como inicializado para permitir animações futuras
-    setIsInitialized(true);
+    // Reiniciar as animações após um pequeno delay
+    setTimeout(() => {
+      initializeNavbar();
+    }, 100);
+  };
+  
+  // Função para inicializar a navbar
+  const initializeNavbar = () => {
+    // Reduzir o tempo de loading para melhorar a experiência do usuário
+    setTimeout(() => {
+      // Garantir que todos os botões estejam visíveis, independentemente do estado de loading
+      const currentActiveTab = getCurrentRouteName() || 'MainMenuPage';
+      setActiveTab(currentActiveTab);
+      
+      Object.keys(tabAnimations).forEach(tab => {
+        tabAnimations[tab].setValue(tab === currentActiveTab ? 1 : 0.8);
+      });
+      
+      setIsLoading(false);
+      setIsInitialized(true);
+      
+      // Forçar uma re-renderização para garantir que os estilos sejam aplicados corretamente
+      setForceRender(prev => prev + 1);
+    }, 300);
+  };
 
-    // Animar a entrada da navbar
-    Animated.timing(navbarAnim, {
-      toValue: 1,
-      duration: 300,
-      useNativeDriver: Platform.OS !== 'web',
-    }).start();
+  // Monitora mudanças no estado do aplicativo (foreground, background)
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', nextAppState => {
+      if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
+        // App voltou para o primeiro plano, forçar refresh
+        refreshNavbar();
+      }
+      appState.current = nextAppState;
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
+
+  // Inicialização após a montagem do componente
+  useEffect(() => {
+    // Forçar seleção do Home
+    setActiveTab('MainMenuPage');
+    // Garantir que todos os botões sejam visíveis inicialmente - sem animação de entrada
+    Object.keys(tabAnimations).forEach(tab => {
+      tabAnimations[tab].setValue(tab === 'MainMenuPage' ? 1 : 0.8);
+    });
+    // Iniciar com a navbar visível imediatamente
+    navbarAnim.setValue(1);
+    // Timeout curto para permitir que o layout seja calculado corretamente
+    setTimeout(initializeNavbar, 50);
+    // Adicionar um segundo timeout mais longo como fallback para garantir carregamento completo
+    setTimeout(() => {
+      if (isLoading) {
+        refreshNavbar();
+      }
+    }, 1000);
   }, []);
 
   // Efeito para atualizar as animações quando a tab muda
@@ -69,15 +134,22 @@ const NavigationBar = () => {
     try {
       // Verificar a rota atual a partir dos estados de navegação
       const state = navigation.getState();
+      let foundActiveRoute = false;
       
       // Encontrar qual stack está ativa
-      let activeRouteName = 'MainMenuPage';
+      let activeRouteName = activeTab; // Manter o valor atual como fallback
       for (const r of state.routes) {
         if (r.name === 'MainPages' && r.state) {
           const activeRouteIndex = r.state.index;
           activeRouteName = r.state.routes[activeRouteIndex].name;
+          foundActiveRoute = true;
           break;
         }
+      }
+      
+      // Se não encontrou rota nas stacks, usar o estado atual
+      if (!foundActiveRoute) {
+        activeRouteName = getCurrentRouteName() || activeTab;
       }
       
       setActiveTab(activeRouteName);
@@ -102,7 +174,7 @@ const NavigationBar = () => {
         tabAnimations[tab].setValue(tab === activeTab ? 1 : 0.8);
       });
     }
-  }, [navigation.getState(), isInitialized]);
+  }, [navigation.getState(), isInitialized, forceRender]);
 
   // Função para navegar para uma tab
   const navigateToTab = (tabName) => {
@@ -115,96 +187,80 @@ const NavigationBar = () => {
     const isActive = activeTab === tabName;
     const animValue = tabAnimations[tabName];
     
+    // Renderizar sempre com valores de estilo completos para evitar problemas de formatação
+    const baseIconScale = 1;
+    const baseIconTranslate = isActive ? -6 : 0;
+    const baseTextOpacity = isActive ? 1 : 0;
+    const baseTextTranslate = isActive ? 0 : 10;
+    
     return (
       <TouchableOpacity 
         style={[styles.navItem, isActive && styles.activeNavItem]} 
         onPress={() => navigateToTab(tabName)}
         activeOpacity={0.7}
+        disabled={isLoading}
       >
-        <Animated.View 
-          style={{
-            transform: [
-              { 
-                scale: animValue.interpolate({
-                  inputRange: [0, 0.5, 1],
-                  outputRange: [0.8, 0.9, 1]
-                }) 
-              },
-              {
-                translateY: animValue.interpolate({
-                  inputRange: [0, 0.5, 1],
-                  outputRange: [0, 0, -6]
-                })
-              }
-            ]
-          }}
-        >
-          <Animated.View 
-            style={[
-              styles.iconBackground,
-              {
-                backgroundColor: animValue.interpolate({
-                  inputRange: [0, 0.5, 1],
-                  outputRange: ['#FFECB3', '#FFECB3', 'rgba(249, 168, 37, 0.15)']
-                })
-              }
-            ]}
-          >
-            <Ionicons 
-              name={isActive ? iconName : `${iconName}-outline`} 
-              size={22} 
-              color={isActive ? "#F9A825" : "#6B5B3D"} 
-            />
-          </Animated.View>
-        </Animated.View>
-        
-        <Animated.Text 
-          style={[
-            styles.navText, 
-            isActive && styles.activeNavText,
-            {
-              opacity: animValue.interpolate({
-                inputRange: [0, 0.5, 1],
-                outputRange: [0.7, 0.7, 1]
-              }),
-              transform: [
-                {
-                  translateY: animValue.interpolate({
-                    inputRange: [0, 0.5, 1],
-                    outputRange: [-5, 0, 0]
-                  })
-                }
-              ]
-            }
-          ]}
-        >
-          {label}
-        </Animated.Text>
-        
-        {isActive && (
-          <View style={styles.activeIndicator} />
+        {isLoading ? (
+          // Skeleton loading do botão
+          <View style={styles.skeletonContainer}>
+            <View style={styles.skeletonCircle} />
+            <View style={styles.skeletonText} />
+          </View>
+        ) : (
+          <>
+            <Animated.View 
+              style={{
+                transform: [
+                  { scale: baseIconScale },
+                  { translateY: baseIconTranslate }
+                ]
+              }}
+            >
+              <Animated.View 
+                style={[
+                  styles.iconBackground,
+                  {
+                    backgroundColor: isActive ? 'rgba(249, 168, 37, 0.15)' : '#FFECB3'
+                  }
+                ]}
+              >
+                <Ionicons 
+                  name={isActive ? iconName : `${iconName}-outline`} 
+                  size={22} 
+                  color={isActive ? "#F9A825" : "#6B5B3D"} 
+                />
+              </Animated.View>
+            </Animated.View>
+            
+            {isActive && (
+              <Text 
+                style={[
+                  styles.navText, 
+                  styles.activeNavText,
+                  {
+                    opacity: baseTextOpacity,
+                    transform: [
+                      { translateY: baseTextTranslate }
+                    ]
+                  }
+                ]}
+                numberOfLines={1}
+              >
+                {label}
+              </Text>
+            )}
+            
+            {isActive && (
+              <View style={styles.activeIndicator} />
+            )}
+          </>
         )}
       </TouchableOpacity>
     );
   };
 
   return (
-    <Animated.View 
-      style={[
-        styles.navbarContainer,
-        {
-          transform: [
-            { 
-              translateY: navbarAnim.interpolate({
-                inputRange: [0, 1],
-                outputRange: [50, 0]
-              }) 
-            }
-          ],
-          opacity: navbarAnim
-        }
-      ]}
-    >
+    <View style={styles.navbarContainer}>
       <View style={styles.navbarBackground}>
         <View style={styles.navbarGlow} />
       </View>
@@ -214,7 +270,7 @@ const NavigationBar = () => {
         {renderTabButton('ManagerPage', 'briefcase', 'Manager')}
         {renderTabButton('SettingsPage', 'settings', 'Settings')}
       </View>
-    </Animated.View>
+    </View>
   );
 };
 
@@ -232,6 +288,7 @@ const styles = StyleSheet.create({
     elevation: 16,
     position: 'relative',
     zIndex: 10,
+    width: '100%',
   },
   navbarBackground: {
     position: 'absolute',
@@ -256,7 +313,10 @@ const styles = StyleSheet.create({
   navbar: {
     flexDirection: 'row',
     justifyContent: 'space-around',
+    alignItems: 'center',
     paddingHorizontal: 10,
+    height: 70,
+    width: '100%',
   },
   navItem: {
     alignItems: 'center',
@@ -265,7 +325,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 16,
     position: 'relative',
-    minWidth: width / 5,
+    minWidth: width / 4,
     height: 64,
   },
   iconBackground: {
@@ -290,6 +350,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     position: 'absolute',
     bottom: 4,
+    width: '100%',
+    paddingHorizontal: 2,
   },
   activeNavItem: {
     backgroundColor: 'rgba(255, 152, 0, 0.05)',
@@ -306,6 +368,27 @@ const styles = StyleSheet.create({
     bottom: 0,
     borderRadius: 2,
   },
+  skeletonContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    height: '100%',
+  },
+  skeletonCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#EEEEEE',
+    marginBottom: 8,
+  },
+  skeletonText: {
+    width: 30,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#EEEEEE',
+    position: 'absolute',
+    bottom: 4,
+  }
 });
 
 export default NavigationBar;

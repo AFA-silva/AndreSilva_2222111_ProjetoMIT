@@ -872,10 +872,13 @@ const CurrencyMarketPage = ({ navigation }) => {
           </View>
           
           <FlatList
+            style={{ flex: 1 }}
+            contentContainerStyle={[styles.container, { paddingBottom: 24, flexGrow: 1 }]}
             data={filteredCurrencies}
             renderItem={renderCurrencyItem}
             keyExtractor={item => item.code}
-            showsVerticalScrollIndicator={false}
+            showsVerticalScrollIndicator={true}
+            bounces={true}
             ListEmptyComponent={
               <View style={styles.emptyContainer}>
                 <Ionicons name="alert-circle-outline" size={48} color="#CBD5E0" />
@@ -884,10 +887,6 @@ const CurrencyMarketPage = ({ navigation }) => {
                 </Text>
               </View>
             }
-            contentContainerStyle={[
-              styles.listContentContainer,
-              { paddingBottom: selectedCurrency ? 140 : 60 }
-            ]}
           />
         </Animated.View>
       </Animated.ScrollView>
