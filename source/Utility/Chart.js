@@ -14,6 +14,13 @@ import Svg, {
   Stop,
   Defs 
 } from 'react-native-svg';
+import Animated, { 
+  useSharedValue, 
+  useAnimatedProps, 
+  useAnimatedStyle,
+  withTiming,
+  Easing 
+} from 'react-native-reanimated';
 
 const GaugeChart = ({ 
   value = 0, 
@@ -134,7 +141,14 @@ const GaugeChart = ({
   );
 };
 
-const renderCustomBar3D = ({
+// Crie um AnimatedRect para animar a altura da barra
+const AnimatedRect = Animated.createAnimatedComponent(Rect);
+
+const AnimatedPath = Animated.createAnimatedComponent(Path);
+
+const AnimatedText = Animated.createAnimatedComponent(SvgText);
+
+const AnimatedBar3D = ({
   x,
   y,
   width,
@@ -142,76 +156,127 @@ const renderCustomBar3D = ({
   colors,
   value,
   label,
-  index
+  index,
+  depthEffect = 8,
+  topEffect = 4,
+  delay = 0,
+  isTextOnly = false,
 }) => {
-  const depthEffect = 8;
-  const topEffect = 4;
-  
-  const gradientId = `gradient-${index}`;
-  const topGradientId = `gradient-top-${index}`;
-  const sideGradientId = `gradient-side-${index}`;
+  const animatedHeight = useSharedValue(0);
+
+  useEffect(() => {
+    animatedHeight.value = 0;
+
+    const timeout = setTimeout(() => {
+      animatedHeight.value = withTiming(height, { 
+        duration: 1000,
+        easing: Easing.bezier(0.25, 0.1, 0.25, 1)
+      });
+    }, delay);
+
+    return () => {
+      clearTimeout(timeout);
+      animatedHeight.value = 0;
+    };
+  }, [height, delay]);
+
+  // Estilo animado para o texto
+  const animatedTextStyle = useAnimatedStyle(() => {
+    const currentY = y + (height - animatedHeight.value) - 25;
+    return {
+      position: 'absolute',
+      left: x + width / 2 - 15,
+      top: currentY,
+      width: 30,
+      alignItems: 'center',
+      backgroundColor: 'transparent',
+    };
+  });
+
+  const sideAnimatedProps = useAnimatedProps(() => {
+    const currentY = y + (height - animatedHeight.value);
+    return {
+      d: `
+        M ${x + width} ${currentY + animatedHeight.value}
+        l ${depthEffect} ${-depthEffect}
+        l 0 ${-animatedHeight.value + topEffect}
+        l ${-depthEffect} ${depthEffect}
+        Z
+      `,
+    };
+  });
+
+  const frontAnimatedProps = useAnimatedProps(() => ({
+    height: animatedHeight.value,
+    y: y + (height - animatedHeight.value),
+  }));
+
+  const topAnimatedProps = useAnimatedProps(() => {
+    const currentY = y + (height - animatedHeight.value);
+    return {
+      d: `
+        M ${x} ${currentY}
+        l ${width} 0
+        l ${depthEffect} ${-depthEffect}
+        l ${-width} 0
+        Z
+      `,
+    };
+  });
+
+  if (isTextOnly) {
+    return (
+      <Animated.View style={animatedTextStyle}>
+        <Text
+          style={{
+            fontSize: 12,
+            fontWeight: 'bold',
+            color: '#333',
+            textAlign: 'center',
+            backgroundColor: 'transparent',
+          }}
+        >
+          {Math.round(value)}
+        </Text>
+      </Animated.View>
+    );
+  }
 
   return (
     <G key={index}>
       <Defs>
-        <SvgGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+        <SvgGradient id={`gradient-${index}`} x1="0" y1="0" x2="0" y2="1">
           <Stop offset="0" stopColor={colors[0]} stopOpacity="1" />
           <Stop offset="1" stopColor={colors[1]} stopOpacity="0.8" />
         </SvgGradient>
-        
-        <SvgGradient id={topGradientId} x1="0" y1="0" x2="1" y2="0">
+        <SvgGradient id={`gradient-top-${index}`} x1="0" y1="0" x2="1" y2="0">
           <Stop offset="0" stopColor={colors[0]} stopOpacity="1" />
           <Stop offset="1" stopColor={colors[1]} stopOpacity="0.9" />
         </SvgGradient>
-        
-        <SvgGradient id={sideGradientId} x1="0" y1="0" x2="1" y2="0">
+        <SvgGradient id={`gradient-side-${index}`} x1="0" y1="0" x2="1" y2="0">
           <Stop offset="0" stopColor={colors[1]} stopOpacity="0.4" />
           <Stop offset="1" stopColor={colors[1]} stopOpacity="0.1" />
         </SvgGradient>
       </Defs>
 
-      <Path
-        d={`
-          M ${x + width} ${y + height}
-          l ${depthEffect} ${-depthEffect}
-          l 0 ${-height + topEffect}
-          l ${-depthEffect} ${depthEffect}
-          Z
-        `}
-        fill={`url(#${sideGradientId})`}
+      <AnimatedPath
+        animatedProps={sideAnimatedProps}
+        fill={`url(#gradient-side-${index})`}
       />
 
-      <Rect
+      <AnimatedRect
         x={x}
-        y={y}
         width={width}
-        height={height}
-        fill={`url(#${gradientId})`}
         rx={4}
         ry={4}
+        fill={`url(#gradient-${index})`}
+        animatedProps={frontAnimatedProps}
       />
 
-      <Path
-        d={`
-          M ${x} ${y}
-          l ${width} 0
-          l ${depthEffect} ${-depthEffect}
-          l ${-width} 0
-          Z
-        `}
-        fill={`url(#${topGradientId})`}
+      <AnimatedPath
+        animatedProps={topAnimatedProps}
+        fill={`url(#gradient-top-${index})`}
       />
-
-      <SvgText
-        x={x + width / 2}
-        y={y - depthEffect - 8}
-        fontSize="12"
-        fontWeight="bold"
-        fill="#333"
-        textAnchor="middle"
-      >
-        {value}
-      </SvgText>
 
       <SvgText
         x={x + width / 2}
@@ -248,43 +313,83 @@ const renderCustomBarChart = ({
 
   return (
     <View style={[styles.customBarChartWrapper, style]}>
-      <Svg width={width} height={height}>
-        {[...Array(5)].map((_, i) => {
-          const y = chartHeight - (chartHeight * (i / 4));
-          return (
-            <Line
-              key={i}
-              x1="40"
-              y1={y}
-              x2={width - 20}
-              y2={y}
-              stroke="#E0E0E0"
-              strokeWidth="1"
-              strokeDasharray="5,5"
-            />
-          );
-        })}
+      <View style={{ position: 'relative', height: height + 30 }}>
+        <View style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          pointerEvents: 'none',
+          zIndex: 1000,
+        }}>
+          {data.map((value, i) => {
+            const barHeight = (value / maxValue) * (chartHeight - 40);
+            const x = 50 + i * (barWidth * 1.5);
+            const y = chartHeight - barHeight;
+            
+            return (
+              <AnimatedBar3D
+                key={`text-${i}`}
+                x={x}
+                y={y}
+                width={barWidth}
+                height={barHeight}
+                colors={barColors[i % barColors.length]}
+                value={Math.round(value)}
+                label={labels[i]}
+                index={i}
+                isTextOnly={true}
+              />
+            );
+          })}
+        </View>
 
-        {data.map((value, i) => {
-          const barHeight = (value / maxValue) * (chartHeight - 40);
-          const x = 50 + i * (barWidth * 1.5);
-          const y = chartHeight - barHeight;
-          
-          return renderCustomBar3D({
-            x,
-            y,
-            width: barWidth,
-            height: barHeight,
-            colors: barColors[i % barColors.length],
-            value,
-            label: labels[i],
-            index: i
-          });
-        })}
-      </Svg>
+        <Svg width={width} height={height}>
+          {[...Array(5)].map((_, i) => {
+            const y = chartHeight - (chartHeight * (i / 4));
+            return (
+              <Line
+                key={i}
+                x1="40"
+                y1={y}
+                x2={width - 20}
+                y2={y}
+                stroke="#E0E0E0"
+                strokeWidth="1"
+                strokeDasharray="5,5"
+              />
+            );
+          })}
+
+          {data.map((value, i) => {
+            const barHeight = (value / maxValue) * (chartHeight - 40);
+            const x = 50 + i * (barWidth * 1.5);
+            const y = chartHeight - barHeight;
+            
+            return (
+              <G key={i}>
+                {renderCustomBar3D({
+                  x,
+                  y,
+                  width: barWidth,
+                  height: barHeight,
+                  colors: barColors[i % barColors.length],
+                  value: Math.round(value),
+                  label: labels[i],
+                  index: i,
+                  isTextOnly: false
+                })}
+              </G>
+            );
+          })}
+        </Svg>
+      </View>
     </View>
   );
 };
+
+const renderCustomBar3D = (props) => <AnimatedBar3D {...props} delay={props.index * 120} />;
 
 const Chart = ({ incomes, categories, frequencies, processData, chartTypes = ['Bar', 'Pie', 'Line'] }) => {
   const [chartType, setChartType] = useState(chartTypes[0].toLowerCase());
