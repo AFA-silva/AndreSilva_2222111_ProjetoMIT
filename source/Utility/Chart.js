@@ -3,7 +3,17 @@ import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-nati
 import { LineChart, BarChart, PieChart } from 'react-native-chart-kit';
 import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
-import Svg, { G, Path, Circle, Text as SvgText } from 'react-native-svg';
+import Svg, { 
+  G, 
+  Path, 
+  Circle, 
+  Text as SvgText,
+  Rect,
+  Line,
+  LinearGradient as SvgGradient,
+  Stop,
+  Defs 
+} from 'react-native-svg';
 
 const GaugeChart = ({ 
   value = 0, 
@@ -46,12 +56,10 @@ const GaugeChart = ({
   const normalizedValue = Math.min(Math.max(value, valueMin), valueMax);
   const valuePercentage = (normalizedValue - valueMin) / (valueMax - valueMin);
   
-  // Calculate coordinates and dimensions
   const centerX = width / 2;
   const centerY = height / 2;
   const maxRadius = Math.min(centerX, centerY) * 0.9;
   
-  // Parse radius values
   const getRadiusValue = (radius, maxRadius) => {
     if (typeof radius === 'string' && radius.endsWith('%')) {
       return maxRadius * (parseFloat(radius) / 100);
@@ -65,32 +73,25 @@ const GaugeChart = ({
     ? (outerRadiusValue - innerRadiusValue) * (parseFloat(cornerRadius) / 100)
     : cornerRadius;
 
-  // Calculate angles
   const angleRange = endAngle - startAngle;
   const valueAngle = startAngle + (angleRange * valuePercentage);
 
-  // Create arcs
   const createArc = (startAngle, endAngle) => {
-    // Convert angles from degrees to radians
     const startRad = (startAngle - 90) * (Math.PI / 180);
     const endRad = (endAngle - 90) * (Math.PI / 180);
     
-    // Calculate start and end points
     const startX = centerX + outerRadiusValue * Math.cos(startRad);
     const startY = centerY + outerRadiusValue * Math.sin(startRad);
     const endX = centerX + outerRadiusValue * Math.cos(endRad);
     const endY = centerY + outerRadiusValue * Math.sin(endRad);
     
-    // Calculate inner points
     const innerStartX = centerX + innerRadiusValue * Math.cos(startRad);
     const innerStartY = centerY + innerRadiusValue * Math.sin(startRad);
     const innerEndX = centerX + innerRadiusValue * Math.cos(endRad);
     const innerEndY = centerY + innerRadiusValue * Math.sin(endRad);
     
-    // Determine if the arc is larger than 180 degrees
     const largeArcFlag = Math.abs(endAngle - startAngle) >= 180 ? 1 : 0;
     
-    // Create path
     return `
       M ${startX} ${startY}
       A ${outerRadiusValue} ${outerRadiusValue} 0 ${largeArcFlag} 1 ${endX} ${endY}
@@ -100,7 +101,6 @@ const GaugeChart = ({
     `;
   };
 
-  // Format the displayed text
   const formattedText = formatText 
     ? formatText({ value: normalizedValue, valueMin, valueMax }) 
     : Math.round(normalizedValue).toString();
@@ -109,19 +109,14 @@ const GaugeChart = ({
     <View style={[styles.gaugeContainer, { width, height }]}>
       <Svg width={width} height={height}>
         <G>
-          {/* Reference Arc (background) */}
           <Path
             d={createArc(startAngle, endAngle)}
             fill={gaugeColors.referenceArc}
           />
-          
-          {/* Value Arc */}
           <Path
             d={createArc(startAngle, valueAngle)}
             fill={gaugeColors.valueArc}
           />
-          
-          {/* Center Text */}
           <SvgText
             x={centerX + textDx}
             y={centerY + textDy}
@@ -139,14 +134,165 @@ const GaugeChart = ({
   );
 };
 
+const renderCustomBar3D = ({
+  x,
+  y,
+  width,
+  height,
+  colors,
+  value,
+  label,
+  index
+}) => {
+  const depthEffect = 8;
+  const topEffect = 4;
+  
+  const gradientId = `gradient-${index}`;
+  const topGradientId = `gradient-top-${index}`;
+  const sideGradientId = `gradient-side-${index}`;
+
+  return (
+    <G key={index}>
+      <Defs>
+        <SvgGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+          <Stop offset="0" stopColor={colors[0]} stopOpacity="1" />
+          <Stop offset="1" stopColor={colors[1]} stopOpacity="0.8" />
+        </SvgGradient>
+        
+        <SvgGradient id={topGradientId} x1="0" y1="0" x2="1" y2="0">
+          <Stop offset="0" stopColor={colors[0]} stopOpacity="1" />
+          <Stop offset="1" stopColor={colors[1]} stopOpacity="0.9" />
+        </SvgGradient>
+        
+        <SvgGradient id={sideGradientId} x1="0" y1="0" x2="1" y2="0">
+          <Stop offset="0" stopColor={colors[1]} stopOpacity="0.4" />
+          <Stop offset="1" stopColor={colors[1]} stopOpacity="0.1" />
+        </SvgGradient>
+      </Defs>
+
+      <Path
+        d={`
+          M ${x + width} ${y + height}
+          l ${depthEffect} ${-depthEffect}
+          l 0 ${-height + topEffect}
+          l ${-depthEffect} ${depthEffect}
+          Z
+        `}
+        fill={`url(#${sideGradientId})`}
+      />
+
+      <Rect
+        x={x}
+        y={y}
+        width={width}
+        height={height}
+        fill={`url(#${gradientId})`}
+        rx={4}
+        ry={4}
+      />
+
+      <Path
+        d={`
+          M ${x} ${y}
+          l ${width} 0
+          l ${depthEffect} ${-depthEffect}
+          l ${-width} 0
+          Z
+        `}
+        fill={`url(#${topGradientId})`}
+      />
+
+      <SvgText
+        x={x + width / 2}
+        y={y - depthEffect - 8}
+        fontSize="12"
+        fontWeight="bold"
+        fill="#333"
+        textAnchor="middle"
+      >
+        {value}
+      </SvgText>
+
+      <SvgText
+        x={x + width / 2}
+        y={y + height + 16}
+        fontSize="11"
+        fill="#666"
+        textAnchor="middle"
+      >
+        {label}
+      </SvgText>
+    </G>
+  );
+};
+
+const renderCustomBarChart = ({
+  labels,
+  data,
+  width,
+  height,
+  style,
+}) => {
+  const barCount = data.length;
+  const maxValue = Math.max(...data, 1);
+  const barWidth = Math.max((width - 80) / (barCount * 1.5), 30);
+  const chartHeight = height - 50;
+  
+  const barColors = [
+    ['#4CAF50', '#81C784'],
+    ['#2196F3', '#64B5F6'],
+    ['#9C27B0', '#BA68C8'],
+    ['#FF9800', '#FFB74D'],
+    ['#F44336', '#E57373'],
+  ];
+
+  return (
+    <View style={[styles.customBarChartWrapper, style]}>
+      <Svg width={width} height={height}>
+        {[...Array(5)].map((_, i) => {
+          const y = chartHeight - (chartHeight * (i / 4));
+          return (
+            <Line
+              key={i}
+              x1="40"
+              y1={y}
+              x2={width - 20}
+              y2={y}
+              stroke="#E0E0E0"
+              strokeWidth="1"
+              strokeDasharray="5,5"
+            />
+          );
+        })}
+
+        {data.map((value, i) => {
+          const barHeight = (value / maxValue) * (chartHeight - 40);
+          const x = 50 + i * (barWidth * 1.5);
+          const y = chartHeight - barHeight;
+          
+          return renderCustomBar3D({
+            x,
+            y,
+            width: barWidth,
+            height: barHeight,
+            colors: barColors[i % barColors.length],
+            value,
+            label: labels[i],
+            index: i
+          });
+        })}
+      </Svg>
+    </View>
+  );
+};
+
 const Chart = ({ incomes, categories, frequencies, processData, chartTypes = ['Bar', 'Pie', 'Line'] }) => {
   const [chartType, setChartType] = useState(chartTypes[0].toLowerCase());
   const [renderKey, setRenderKey] = useState(0);
   const [isChartReady, setIsChartReady] = useState(false);
-  const [period, setPeriod] = useState('month'); // 'day', 'week', 'month'
+  const [period, setPeriod] = useState('month');
   const screenWidth = Dimensions.get('window').width;
 
-  // Forçar re-render após um pequeno delay para garantir que o SVG seja renderizado corretamente
   useEffect(() => {
     const timer = setTimeout(() => {
       setIsChartReady(true);
@@ -191,7 +337,6 @@ const Chart = ({ incomes, categories, frequencies, processData, chartTypes = ['B
     const today = new Date();
     let categoryTotals = {};
 
-    // Inicializar totais para cada categoria
     categories.forEach(category => {
       categoryTotals[category.id] = {
         name: category.name,
@@ -199,13 +344,13 @@ const Chart = ({ incomes, categories, frequencies, processData, chartTypes = ['B
       };
     });
 
-    // Calcular totais baseado no período selecionado
     incomes.forEach(income => {
       const incomeDate = new Date(income.created_at);
       const frequency = frequencies.find(f => f.id === income.frequency_id);
       const days = frequency?.days || 30;
       let shouldInclude = false;
       let convertedAmount = income.amount;
+      
       switch (period) {
         case 'day':
           convertedAmount = income.amount / days;
@@ -224,13 +369,12 @@ const Chart = ({ incomes, categories, frequencies, processData, chartTypes = ['B
           shouldInclude = monthDiff < 6;
           break;
       }
-      // Só soma se a categoria existir
+
       if (shouldInclude && categoryTotals[income.category_id]) {
         categoryTotals[income.category_id].total += convertedAmount;
       }
     });
 
-    // Converter para array e ordenar
     const sortedCategories = Object.values(categoryTotals)
       .sort((a, b) => b.total - a.total)
       .slice(0, 4);
@@ -244,14 +388,12 @@ const Chart = ({ incomes, categories, frequencies, processData, chartTypes = ['B
   const calculatePieChartData = () => {
     if (!incomes || !categories || !frequencies) return [];
 
-    // Calcule o total mensal por categoria
     const categoryTotals = categories.map((category) => {
       const total = incomes
         .filter((income) => income.category_id === category.id)
         .reduce((sum, income) => {
           const frequency = frequencies.find((freq) => freq.id === income.frequency_id);
           const days = frequency?.days || 30;
-          // Converter para valor mensal
           const monthlyAmount = income.amount * (30 / days);
           return sum + monthlyAmount;
         }, 0);
@@ -259,11 +401,11 @@ const Chart = ({ incomes, categories, frequencies, processData, chartTypes = ['B
     });
 
     const totalSum = categoryTotals.reduce((sum, cat) => sum + cat.total, 0);
-    const colors = ['#FFA726', '#FFB74D', '#FFCC80', '#FFE0B2', '#FFECB3'];
+    const colors = ['#FFA726', '#FFD54F', '#FF8A65', '#FFB300', '#FFECB3'];
 
     return categoryTotals
       .filter((cat) => cat.total > 0)
-      .map((cat, index) => {
+            .map((cat, index) => {
         const percentage = totalSum > 0 ? Math.round((cat.total / totalSum) * 100) : 0;
         return {
           name: `% ${cat.name}`,
@@ -284,7 +426,6 @@ const Chart = ({ incomes, categories, frequencies, processData, chartTypes = ['B
 
     switch (period) {
       case 'day':
-        // Últimos 7 dias
         labels = Array.from({ length: 7 }, (_, i) => {
           const date = new Date(today);
           date.setDate(date.getDate() - (6 - i));
@@ -294,13 +435,11 @@ const Chart = ({ incomes, categories, frequencies, processData, chartTypes = ['B
         break;
 
       case 'week':
-        // Últimas 4 semanas
         labels = Array.from({ length: 4 }, (_, i) => `Week ${4 - i}`);
         data = Array(4).fill(0);
         break;
 
       case 'month':
-        // Últimos 6 meses
         labels = Array.from({ length: 6 }, (_, i) => {
           const date = new Date(today);
           date.setMonth(date.getMonth() - (5 - i));
@@ -310,7 +449,6 @@ const Chart = ({ incomes, categories, frequencies, processData, chartTypes = ['B
         break;
     }
 
-    // Calcular totais por período
     incomes.forEach(income => {
       const incomeDate = new Date(income.created_at);
       const frequency = frequencies.find(f => f.id === income.frequency_id);
@@ -346,7 +484,6 @@ const Chart = ({ incomes, categories, frequencies, processData, chartTypes = ['B
 
   const calculateChartData = () => {
     if (!incomes || !processData) {
-      // Fallback to original calculations for Income page
       if (chartType === 'bar') {
         const { labels, data } = calculateTopCategoriesByPeriod();
         return { labels, data };
@@ -361,7 +498,6 @@ const Chart = ({ incomes, categories, frequencies, processData, chartTypes = ['B
       return { labels: [], data: [] };
     }
 
-    // Process data for Expenses page
     const processedData = processData(incomes, period);
     if (!processedData) return { labels: [], data: [] };
 
@@ -376,7 +512,6 @@ const Chart = ({ incomes, categories, frequencies, processData, chartTypes = ['B
       case 'status':
         return processedData.statusData;
       default:
-        // Fallback to original calculations
         if (chartType === 'bar') {
           const { labels, data } = calculateTopCategoriesByPeriod();
           return { labels, data };
@@ -414,29 +549,14 @@ const Chart = ({ incomes, categories, frequencies, processData, chartTypes = ['B
 
     if (chartType === 'bar' || chartType === 'categories') {
       return (
-        <View style={styles.chartBackground}>
-          <BarChart
-            key={`bar-${renderKey}`}
-            data={{
-              labels: chartData.labels,
-              datasets: [{ data: chartData.data }],
-            }}
-            width={screenWidth - 48}
-            height={180}
-            fromZero={true}
-            chartConfig={{
-              ...defaultChartConfig,
-              backgroundGradientFromOpacity: 0,
-              backgroundGradientToOpacity: 0,
-              backgroundColor: 'transparent',
-              barPercentage: 0.7,
-              decimalPlaces: 0,
-            }}
-            style={styles.chart}
-            showValuesOnTopOfBars={true}
-            withInnerLines={false}
-            segments={4}
-          />
+        <View style={[styles.chartBackground, { backgroundColor: '#FFF', padding: 8 }]}>
+          {renderCustomBarChart({
+            labels: chartData.labels,
+            data: chartData.data,
+            width: screenWidth - 48,
+            height: 220,
+            style: { backgroundColor: 'transparent' }
+          })}
         </View>
       );
     }
@@ -651,10 +771,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: 'transparent',
   },
-  loadingText: {
-    color: '#666666',
-    fontSize: 14,
-    fontWeight: '500',
+  customBarChartWrapper: {
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
+    minHeight: 200,
+    paddingTop: 20,
+    paddingBottom: 16,
   },
 });
 
