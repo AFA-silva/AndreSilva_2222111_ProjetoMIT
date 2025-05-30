@@ -68,21 +68,12 @@ export const getSupportedCurrencies = async () => {
     
     if (data.result === 'success') {
       // Format the data into a more usable structure
-      const currencies = data.supported_codes.map(code => {
-        const currencyCode = code[0];
-        const currencyInfo = {
-          code: currencyCode,
-          name: code[1],
-          countries: []
-        };
-        
-        // Add country information if available
-        if (countryCurrencyMap[currencyCode]) {
-          currencyInfo.countries = countryCurrencyMap[currencyCode].countries;
-        }
-        
-        return currencyInfo;
-      });
+      const currencies = data.supported_codes.map(code => ({
+        code: code[0],
+        name: code[1],
+        countries: [], // Initialize empty countries array
+        symbol: getCurrencySymbol(code[0]) // Add symbol based on code
+      }));
       
       // Store the new data in cache
       const cacheData = {
@@ -98,8 +89,31 @@ export const getSupportedCurrencies = async () => {
     }
   } catch (error) {
     console.error('Error fetching supported currencies:', error);
-    throw error;
+    // Return a basic set of currencies in case of error
+    return [
+      { code: 'USD', name: 'US Dollar', symbol: '$', countries: [] },
+      { code: 'EUR', name: 'Euro', symbol: '€', countries: [] },
+      { code: 'GBP', name: 'British Pound', symbol: '£', countries: [] },
+      { code: 'JPY', name: 'Japanese Yen', symbol: '¥', countries: [] }
+    ];
   }
+};
+
+// Helper function to get currency symbol
+const getCurrencySymbol = (code) => {
+  const symbols = {
+    'USD': '$',
+    'EUR': '€',
+    'GBP': '£',
+    'JPY': '¥',
+    'CNY': '¥',
+    'INR': '₹',
+    'BRL': 'R$',
+    'RUB': '₽',
+    'KRW': '₩',
+    'TRY': '₺'
+  };
+  return symbols[code] || code;
 };
 
 export const convertCurrency = (amount, fromCurrency, toCurrency, rates) => {

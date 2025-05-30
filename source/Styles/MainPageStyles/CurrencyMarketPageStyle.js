@@ -32,7 +32,7 @@ const styles = StyleSheet.create({
     height: 250,
   },
   contentContainer: {
-    flex: 1,
+    flexGrow: 1,
   },
   converterContainer: {
     paddingHorizontal: 16,
@@ -263,8 +263,8 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   listContainer: {
-    flex: 1,
     paddingHorizontal: 16,
+    paddingBottom: 80,
   },
   listHeader: {
     flexDirection: 'row',
@@ -350,6 +350,9 @@ const styles = StyleSheet.create({
     width: '100%',
     borderRadius: 2,
   },
+  currencyItemContainer: {
+    marginBottom: 12,
+  },
   currencyItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -357,7 +360,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     padding: 16,
     borderRadius: 12,
-    marginBottom: 12,
     ...applyBoxShadow({
       x: 0,
       y: 2,
@@ -496,6 +498,7 @@ const styles = StyleSheet.create({
   },
   listContentContainer: {
     paddingBottom: 80,
+    paddingTop: 8,
   },
   successOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -612,6 +615,39 @@ const styles = StyleSheet.create({
   },
   modalUserPreferredItem: {
     backgroundColor: 'rgba(255, 152, 0, 0.05)',
+  },
+  loadMoreButton: {
+    marginTop: 16,
+    marginBottom: 24,
+    borderRadius: 12,
+    overflow: 'hidden',
+    ...applyBoxShadow({
+      x: 0,
+      y: 2,
+      blur: 4,
+      spread: 0,
+      color: '#FF980033',
+      opacity: 0.2,
+      android: 2
+    }),
+  },
+  loadMoreGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 152, 0, 0.2)',
+    borderRadius: 12,
+  },
+  loadMoreIcon: {
+    marginRight: 8,
+  },
+  loadMoreText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FF9800',
   },
 });
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   View, 
   Text, 
@@ -31,6 +31,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const { width, height } = Dimensions.get('window');
 const ITEM_HEIGHT = 90; // Altura aproximada de cada item de moeda
 const CARD_HEIGHT = 220; // Altura do card do conversor
+const ITEMS_PER_PAGE = 10;
 
 const CurrencyMarketPage = ({ navigation }) => {
   const [baseCurrency, setBaseCurrency] = useState('USD');
@@ -93,34 +94,76 @@ const CurrencyMarketPage = ({ navigation }) => {
     loadUserPreferences();
   }, []);
 
-  // Carregar taxas de câmbio e moedas suportadas
-  useEffect(() => {
-    loadData();
+  // Modificar a função loadData para garantir que as moedas populares sejam carregadas
+  const loadData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const exchangeRates = await fetchLatestRates(baseCurrency);
+      setRates(exchangeRates);
+      const supportedCurrencies = await getSupportedCurrencies();
+      
+      // Garantir que as moedas populares estejam na lista
+      const popularCodes = defaultPopularCurrencies.map(c => c.code);
+      const popularCurrenciesInList = supportedCurrencies.filter(c => popularCodes.includes(c.code));
+      const otherCurrencies = supportedCurrencies.filter(c => !popularCodes.includes(c.code));
+      
+      // Combinar moedas populares com outras moedas, mantendo as populares no topo
+      const combinedCurrencies = [
+        ...popularCurrenciesInList,
+        ...otherCurrencies.slice(0, 45) // Ajustar o slice para manter o total em 50
+      ];
+      
+      setCurrencies(combinedCurrencies);
+      
+      const currencyDetails = supportedCurrencies.find(c => c.code === baseCurrency);
+      if (currencyDetails) {
+        setUserCurrencyName(currencyDetails.name);
+      }
+      setLoading(false);
+    } catch (error) {
+      setLoading(false);
+      Alert.alert('Error', 'Failed to load currency data. Please try again later.');
+      console.error(error);
+    }
   }, [baseCurrency]);
 
-  // Atualizar moedas populares quando a lista de moedas for carregada
+  // Passo 2: Atualize o useEffect do loadData
   useEffect(() => {
-    if (currencies.length > 0) {
-      updatePopularCurrencies();
-    }
-  }, [currencies, userPreferredCurrency]);
+    loadData();
+  }, [loadData]);
 
-  // Atualizar resultado da conversão quando valores mudam
-  useEffect(() => {
-    if (!loading && rates) {
-      updateConversion();
+  // Passo 3: Adicione o useCallback para updateConversion
+  const updateConversion = useCallback(() => {
+    if (!rates || !amount || isNaN(amount)) {
+      setConvertedResult(null);
+      return;
     }
+    const numAmount = parseFloat(amount);
+    const result = convertCurrency(numAmount, baseCurrency, targetCurrency, rates);
+    setConvertedResult(result);
   }, [amount, baseCurrency, targetCurrency, rates]);
+
+  // Passo 4: Atualize o useEffect da conversão
+  useEffect(() => {
+    if (!loading && rates && amount && !isNaN(amount)) {
+      const numAmount = parseFloat(amount);
+      const result = convertCurrency(numAmount, baseCurrency, targetCurrency, rates);
+      if (result !== convertedResult) {
+        setConvertedResult(result);
+      }
+    }
+  }, [loading, rates, amount, baseCurrency, targetCurrency]);
 
   // Iniciar animações quando o carregamento for concluído
   useEffect(() => {
-    if (!loading) {
+    if (!loading && !fadeAnim._value) {
       startEntryAnimations();
     }
   }, [loading]);
 
   // Animar pontos de carregamento usando um timer em vez de Animated
   useEffect(() => {
+    let animationFrame;
     if (loading) {
       let dotCount = 0;
       const interval = setInterval(() => {
@@ -128,26 +171,37 @@ const CurrencyMarketPage = ({ navigation }) => {
         setLoadingDots('.'.repeat(dotCount));
       }, 500);
       
-      return () => clearInterval(interval);
+      return () => {
+        clearInterval(interval);
+        if (animationFrame) {
+          cancelAnimationFrame(animationFrame);
+        }
+      };
     }
   }, [loading]);
 
   // Iniciar a animação de rotação para o ícone de carregamento
   useEffect(() => {
+    let animation;
     if (loading) {
-      // Iniciar animação de rotação
-      Animated.loop(
+      animation = Animated.loop(
         Animated.timing(spinAnim, {
           toValue: 1,
           duration: 1500,
           useNativeDriver: Platform.OS !== 'web',
           easing: Easing.linear,
         })
-      ).start();
+      );
+      animation.start();
     } else {
-      // Resetar a animação quando o carregamento terminar
       spinAnim.setValue(0);
     }
+    
+    return () => {
+      if (animation) {
+        animation.stop();
+      }
+    };
   }, [loading]);
 
   // Estado para os pontos de carregamento
@@ -231,46 +285,7 @@ const CurrencyMarketPage = ({ navigation }) => {
     outputRange: [0, 1.2, 1],
   });
 
-  // Função para calcular o resultado da conversão
-  const updateConversion = () => {
-    if (!rates || !amount || isNaN(amount)) {
-      setConvertedResult(null);
-      return;
-    }
-    
-    const numAmount = parseFloat(amount);
-    const result = convertCurrency(numAmount, baseCurrency, targetCurrency, rates);
-    setConvertedResult(result);
-  };
-
-  const loadData = async () => {
-    try {
-      setLoading(true);
-      
-      // Buscar taxas de câmbio para a moeda base
-      const exchangeRates = await fetchLatestRates(baseCurrency);
-      setRates(exchangeRates);
-      
-      // Buscar lista de moedas suportadas (limitado a 50 moedas)
-      const supportedCurrencies = await getSupportedCurrencies();
-      // Limitar para 50 moedas para melhor performance
-      setCurrencies(supportedCurrencies.slice(0, 50));
-      
-      // Encontrar o nome da moeda atual do usuário
-      const currencyDetails = supportedCurrencies.find(c => c.code === baseCurrency);
-      if (currencyDetails) {
-        setUserCurrencyName(currencyDetails.name);
-      }
-      
-      setLoading(false);
-    } catch (error) {
-      setLoading(false);
-      Alert.alert('Error', 'Failed to load currency data. Please try again later.');
-      console.error(error);
-    }
-  };
-
-  // Atualizar a lista de moedas populares para incluir a moeda do usuário
+  // Modificar a função updatePopularCurrencies para usar a lista completa de moedas
   const updatePopularCurrencies = () => {
     // Não fazer nada se não tivermos moedas ainda
     if (!currencies || currencies.length === 0) return;
@@ -292,7 +307,8 @@ const CurrencyMarketPage = ({ navigation }) => {
         if (existingIndex >= 0) {
           updatedPopularCurrencies[existingIndex] = {
             ...updatedPopularCurrencies[existingIndex],
-            isUserCurrency: true
+            isUserCurrency: true,
+            name: userCurrencyDetails.name // Atualizar o nome também
           };
         } 
         // Se não existe, adicione-a no início
@@ -300,7 +316,7 @@ const CurrencyMarketPage = ({ navigation }) => {
           updatedPopularCurrencies.unshift({
             code: userPreferredCurrency,
             symbol: getCurrencySymbol(userPreferredCurrency),
-            name: userCurrencyDetails.name || 'My Currency',
+            name: userCurrencyDetails.name,
             isUserCurrency: true
           });
           
@@ -309,6 +325,17 @@ const CurrencyMarketPage = ({ navigation }) => {
             updatedPopularCurrencies.pop();
           }
         }
+        
+        // Atualizar os nomes das moedas populares com os dados reais
+        updatedPopularCurrencies.forEach((currency, index) => {
+          const currencyDetails = currencies.find(c => c.code === currency.code);
+          if (currencyDetails) {
+            updatedPopularCurrencies[index] = {
+              ...currency,
+              name: currencyDetails.name
+            };
+          }
+        });
         
         setPopularCurrencies(updatedPopularCurrencies);
       }
@@ -692,6 +719,60 @@ const CurrencyMarketPage = ({ navigation }) => {
       }) 
     : 'Loading...';
 
+  // Estados para paginação
+  const [displayedCurrencies, setDisplayedCurrencies] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [hasMoreItems, setHasMoreItems] = useState(true);
+  const filteredCurrenciesRef = useRef([]);
+
+  // Move updateDisplayedCurrencies before any useEffect that uses it
+  const updateDisplayedCurrencies = useCallback((page) => {
+    const startIndex = 0;
+    const endIndex = page * ITEMS_PER_PAGE;
+    const newDisplayedCurrencies = filteredCurrenciesRef.current.slice(startIndex, endIndex);
+    setDisplayedCurrencies(newDisplayedCurrencies);
+    setHasMoreItems(endIndex < filteredCurrenciesRef.current.length);
+  }, []);
+
+  // Then the useEffect that uses it
+  useEffect(() => {
+    if (filteredCurrencies.length > 0 && !loading) {
+      const currentFiltered = filteredCurrenciesRef.current;
+      if (JSON.stringify(currentFiltered) !== JSON.stringify(filteredCurrencies)) {
+        filteredCurrenciesRef.current = filteredCurrencies;
+        setCurrentPage(1);
+        updateDisplayedCurrencies(1);
+      }
+    }
+  }, [filteredCurrencies, loading]);
+
+  // Then loadMoreItems which also uses updateDisplayedCurrencies
+  const loadMoreItems = useCallback(() => {
+    const nextPage = currentPage + 1;
+    setCurrentPage(nextPage);
+    updateDisplayedCurrencies(nextPage);
+  }, [currentPage, updateDisplayedCurrencies]);
+
+  // Renderizar botão "Load More"
+  const renderLoadMoreButton = useCallback(() => {
+    if (!hasMoreItems) return null;
+
+    return (
+      <TouchableOpacity
+        style={styles.loadMoreButton}
+        onPress={loadMoreItems}
+      >
+        <LinearGradient
+          colors={['rgba(255, 152, 0, 0.1)', 'rgba(255, 152, 0, 0.2)']}
+          style={styles.loadMoreGradient}
+        >
+          <Ionicons name="add-circle-outline" size={20} color="#FF9800" style={styles.loadMoreIcon} />
+          <Text style={styles.loadMoreText}>Load More Currencies</Text>
+        </LinearGradient>
+      </TouchableOpacity>
+    );
+  }, [hasMoreItems, loadMoreItems]);
+
   // Renderizar tela de carregamento
   if (loading) {
     return (
@@ -738,8 +819,8 @@ const CurrencyMarketPage = ({ navigation }) => {
       <Header title="Currency Market" />
       
       <Animated.ScrollView
-        style={[styles.contentContainer, { opacity: fadeAnim }]}
-        showsVerticalScrollIndicator={false}
+        style={styles.contentContainer}
+        showsVerticalScrollIndicator={true}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -749,100 +830,99 @@ const CurrencyMarketPage = ({ navigation }) => {
           />
         }
       >
-        <View style={styles.converterContainer}>
-          <Text style={styles.sectionTitle}>Currency Converter</Text>
-          <Animated.View 
-            style={[
-              styles.converterCard,
-              { transform: [{ scale: converterScaleAnim }] }
-            ]}
-          >
-            {/* Input para valor */}
-            <View style={styles.converterInputRow}>
-              <Text style={styles.converterLabel}>Amount</Text>
-              <TextInput
-                style={styles.converterAmountInput}
-                value={amount}
-                onChangeText={setAmount}
-                keyboardType="numeric"
-                placeholder="Enter amount"
-                placeholderTextColor="#A0AEC0"
-              />
-            </View>
-            
-            {/* Seletor de moedas */}
-            <View style={styles.currencySelectionContainer}>
-              <View style={styles.currencySelectionRow}>
-                <View style={styles.currencySelection}>
-                  <Text style={styles.converterLabel}>From</Text>
+        {/* Converter Section */}
+        <Animated.View style={{ opacity: fadeAnim }}>
+          <View style={styles.converterContainer}>
+            <Text style={styles.sectionTitle}>Currency Converter</Text>
+            <Animated.View 
+              style={[
+                styles.converterCard,
+                { transform: [{ scale: converterScaleAnim }] }
+              ]}
+            >
+              {/* Input para valor */}
+              <View style={styles.converterInputRow}>
+                <Text style={styles.converterLabel}>Amount</Text>
+                <TextInput
+                  style={styles.converterAmountInput}
+                  value={amount}
+                  onChangeText={setAmount}
+                  keyboardType="numeric"
+                  placeholder="Enter amount"
+                  placeholderTextColor="#A0AEC0"
+                />
+              </View>
+              
+              {/* Seletor de moedas */}
+              <View style={styles.currencySelectionContainer}>
+                <View style={styles.currencySelectionRow}>
+                  <View style={styles.currencySelection}>
+                    <Text style={styles.converterLabel}>From</Text>
+                    <TouchableOpacity 
+                      style={styles.currencySelectorButton}
+                      onPress={() => openCurrencySelector('base')}
+                    >
+                      <Text style={styles.currencySelectorCode}>{baseCurrency}</Text>
+                      <Text style={styles.currencySelectorSymbol}>
+                        {getCurrencySymbol(baseCurrency)}
+                      </Text>
+                      <Ionicons name="chevron-down" size={16} color="#718096" />
+                    </TouchableOpacity>
+                  </View>
+                  
                   <TouchableOpacity 
-                    style={styles.currencySelectorButton}
-                    onPress={() => openCurrencySelector('base')}
+                    style={styles.swapButton}
+                    onPress={swapCurrencies}
                   >
-                    <Text style={styles.currencySelectorCode}>{baseCurrency}</Text>
-                    <Text style={styles.currencySelectorSymbol}>
-                      {getCurrencySymbol(baseCurrency)}
-                    </Text>
-                    <Ionicons name="chevron-down" size={16} color="#718096" />
+                    <Ionicons name="swap-horizontal" size={24} color="#FF9800" />
                   </TouchableOpacity>
+                  
+                  <View style={styles.currencySelection}>
+                    <Text style={styles.converterLabel}>To</Text>
+                    <TouchableOpacity 
+                      style={styles.currencySelectorButton}
+                      onPress={() => openCurrencySelector('target')}
+                    >
+                      <Text style={styles.currencySelectorCode}>{targetCurrency}</Text>
+                      <Text style={styles.currencySelectorSymbol}>
+                        {getCurrencySymbol(targetCurrency)}
+                      </Text>
+                      <Ionicons name="chevron-down" size={16} color="#718096" />
+                    </TouchableOpacity>
+                  </View>
                 </View>
                 
-                <TouchableOpacity 
-                  style={styles.swapButton}
-                  onPress={swapCurrencies}
-                >
-                  <Ionicons name="swap-horizontal" size={24} color="#FF9800" />
-                </TouchableOpacity>
-                
-                <View style={styles.currencySelection}>
-                  <Text style={styles.converterLabel}>To</Text>
-                  <TouchableOpacity 
-                    style={styles.currencySelectorButton}
-                    onPress={() => openCurrencySelector('target')}
-                  >
-                    <Text style={styles.currencySelectorCode}>{targetCurrency}</Text>
-                    <Text style={styles.currencySelectorSymbol}>
-                      {getCurrencySymbol(targetCurrency)}
+                {/* Resultado da conversão */}
+                {convertedResult !== null && (
+                  <View style={styles.conversionResultContainer}>
+                    <Text style={styles.conversionResultText}>
+                      {parseFloat(amount).toFixed(2)} {baseCurrency} = 
                     </Text>
-                    <Ionicons name="chevron-down" size={16} color="#718096" />
-                  </TouchableOpacity>
+                    <Text style={styles.conversionResultValue}>
+                      {convertedResult.toFixed(2)} {targetCurrency}
+                    </Text>
+                  </View>
+                )}
+              </View>
+              
+              {/* Moedas populares */}
+              <View style={styles.popularCurrenciesContainer}>
+                <Text style={styles.popularCurrenciesTitle}>Popular Currencies</Text>
+                <View style={styles.chipsContainer}>
+                  {popularCurrencies.map(renderPopularCurrency)}
                 </View>
               </View>
               
-              {/* Resultado da conversão */}
-              {convertedResult !== null && (
-                <View style={styles.conversionResultContainer}>
-                  <Text style={styles.conversionResultText}>
-                    {parseFloat(amount).toFixed(2)} {baseCurrency} = 
-                  </Text>
-                  <Text style={styles.conversionResultValue}>
-                    {convertedResult.toFixed(2)} {targetCurrency}
-                  </Text>
-                </View>
-              )}
-            </View>
-            
-            {/* Moedas populares */}
-            <View style={styles.popularCurrenciesContainer}>
-              <Text style={styles.popularCurrenciesTitle}>Popular Currencies</Text>
-              <View style={styles.chipsContainer}>
-                {popularCurrencies.map(renderPopularCurrency)}
+              <View style={styles.infoContainer}>
+                <Ionicons name="time-outline" size={14} color="#718096" />
+                <Text style={styles.infoText}>Last updated: {lastUpdated}</Text>
               </View>
-            </View>
-            
-            <View style={styles.infoContainer}>
-              <Ionicons name="time-outline" size={14} color="#718096" />
-              <Text style={styles.infoText}>Last updated: {lastUpdated}</Text>
-            </View>
-          </Animated.View>
-        </View>
-        
-        <Animated.View 
-          style={[
-            styles.listContainer,
-            { transform: [{ translateY: slideUpAnim }] }
-          ]}
-        >
+            </Animated.View>
+          </View>
+        </Animated.View>
+
+        {/* Currency List Section */}
+        <View style={styles.listContainer}>
           <View style={styles.listHeader}>
             <Text style={styles.sectionTitle}>All Currencies</Text>
             <View style={styles.searchContainer}>
@@ -871,24 +951,39 @@ const CurrencyMarketPage = ({ navigation }) => {
             </View>
           </View>
           
-          <FlatList
-            style={{ flex: 1 }}
-            contentContainerStyle={[styles.container, { paddingBottom: 24, flexGrow: 1 }]}
-            data={filteredCurrencies}
-            renderItem={renderCurrencyItem}
-            keyExtractor={item => item.code}
-            showsVerticalScrollIndicator={true}
-            bounces={true}
-            ListEmptyComponent={
-              <View style={styles.emptyContainer}>
-                <Ionicons name="alert-circle-outline" size={48} color="#CBD5E0" />
-                <Text style={styles.emptyText}>
-                  {searchQuery ? "No currencies found matching your search." : "No currencies available."}
-                </Text>
-              </View>
-            }
-          />
-        </Animated.View>
+          {displayedCurrencies.map((item, index) => (
+            <Animated.View 
+              key={item.code}
+              style={[
+                styles.currencyItemContainer,
+                { 
+                  opacity: fadeAnim,
+                  transform: [
+                    { 
+                      translateY: slideUpAnim.interpolate({
+                        inputRange: [0, 50],
+                        outputRange: [0, 50 + (Math.min(index, 10) * 50)],
+                      })
+                    }
+                  ]
+                }
+              ]}
+            >
+              {renderCurrencyItem({ item, index })}
+            </Animated.View>
+          ))}
+          
+          {displayedCurrencies.length === 0 && (
+            <View style={styles.emptyContainer}>
+              <Ionicons name="alert-circle-outline" size={48} color="#CBD5E0" />
+              <Text style={styles.emptyText}>
+                {searchQuery ? "No currencies found matching your search." : "No currencies available."}
+              </Text>
+            </View>
+          )}
+
+          {renderLoadMoreButton()}
+        </View>
       </Animated.ScrollView>
       
       {selectedCurrency && (
