@@ -14,8 +14,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const ExpensesPage = () => {
   const [expenses, setExpenses] = useState([]);
   const [originalExpenses, setOriginalExpenses] = useState([]); // Armazenar valores originais
+  const [filteredExpenses, setFilteredExpenses] = useState([]);
+  const [selectedCategoryId, setSelectedCategoryId] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [isFilterModalVisible, setFilterModalVisible] = useState(false); // Modal para exibir itens filtrados
+  const [isCategoryFilterVisible, setCategoryFilterVisible] = useState(false);
   const [categories, setCategories] = useState([]);
   const [frequencies, setFrequencies] = useState([]);
   const [userId, setUserId] = useState(null);
@@ -44,7 +48,122 @@ const ExpensesPage = () => {
   const [isDeleteCategoryModalVisible, setDeleteCategoryModalVisible] = useState(false);
   const [categoryToDelete, setCategoryToDelete] = useState(null);
 
-  const expensesWithAddButton = [...expenses, { isAddButton: true }];
+  // Use filteredExpenses para a lista e se estiver vazia, use expenses
+  const expensesToDisplay = filteredExpenses.length > 0 ? filteredExpenses : expenses;
+  const expensesWithAddButton = [...expensesToDisplay, { isAddButton: true }];
+  
+  // Handler para quando uma categoria é selecionada
+  const handleCategorySelect = (categoryId) => {
+    if (selectedCategoryId === categoryId) {
+      // Se clicar na mesma categoria, limpa o filtro
+      setSelectedCategoryId(null);
+      setFilteredExpenses([]);
+      return;
+    }
+    
+    setSelectedCategoryId(categoryId);
+    
+    // Filtrar as despesas para mostrar apenas as da categoria selecionada
+    const filtered = expenses.filter(expense => expense.category_id === categoryId);
+    setFilteredExpenses(filtered);
+    
+    if (filtered.length === 0) {
+      setAlertMessage('No expenses found for this category');
+      setAlertType('info');
+      setShowAlert(true);
+    }
+  };
+
+  // Renderizar um item de categoria para o filtro horizontal
+  const renderCategoryItem = ({ item }) => {
+    if (!item || !item.id) return null;
+    
+    const isSelected = selectedCategoryId === item.id;
+    
+    return (
+      <TouchableOpacity 
+        style={[
+          styles.categoryChip, 
+          isSelected && styles.categoryChipSelected
+        ]}
+        onPress={() => handleCategorySelect(item.id)}
+        activeOpacity={0.7}
+      >
+        <Text style={[
+          styles.categoryChipText,
+          isSelected && styles.categoryChipTextSelected
+        ]}>
+          {item.name}
+        </Text>
+        {isSelected && (
+          <View style={styles.categoryChipIndicator}>
+            <Ionicons name="checkmark" size={12} color="#FFF" />
+          </View>
+        )}
+      </TouchableOpacity>
+    );
+  };
+
+  // Botão para limpar filtros
+  const renderClearFilterButton = () => {
+    if (filteredExpenses.length === 0) return null;
+    
+    return (
+      <TouchableOpacity 
+        style={styles.clearFilterButton}
+        onPress={() => {
+          setFilteredExpenses([]);
+          setSelectedCategoryId(null);
+        }}
+        activeOpacity={0.7}
+      >
+        <Ionicons name="close-circle" size={18} color="#FFF" />
+        <Text style={styles.clearFilterButtonText}>Clear Filter</Text>
+      </TouchableOpacity>
+    );
+  };
+
+  // Renderiza um item de despesa para o modal de filtro
+  const renderFilterItem = ({ item, index }) => {
+    if (!item || item.isAddButton) return null;
+    
+    return (
+      <View style={styles.modalExpenseItem} key={`filter-item-${item.id || index}`}>
+        <View style={styles.expenseRow}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <View style={[styles.priorityIndicator, getPriorityColor(item.priority)]} />
+            <Text style={styles.expenseTitle}>{item.name}</Text>
+          </View>
+          <Text style={styles.expenseDetails}>
+            {formatCurrency(item.amount)}
+          </Text>
+        </View>
+
+        <View style={styles.expenseRow}>
+          {item.categories && (
+            <View style={styles.categoryTag}>
+              <Text style={styles.categoryText}>
+                {item.categories.name}
+              </Text>
+            </View>
+          )}
+          {item.frequencies && (
+            <View style={styles.frequencyTag}>
+              <Text style={styles.frequencyText}>
+                {item.frequencies.name}
+              </Text>
+            </View>
+          )}
+        </View>
+
+        <View style={[styles.expenseRow, { marginTop: 4 }]}>
+          <Text style={styles.expenseDetails}>
+            Priority: {getPriorityLabel(item.priority)}
+          </Text>
+        </View>
+      </View>
+    );
+  };
 
   // Carregar a moeda original salva do usuário
   const loadOriginalCurrency = async () => {
@@ -185,6 +304,10 @@ const ExpensesPage = () => {
       
       // Converter para a moeda atual
       await convertExpensesToCurrentCurrency(data || [], origCurrency);
+      
+      // Limpar o filtro quando novos dados são carregados
+      setFilteredExpenses([]);
+      setSelectedCategoryId(null);
     } catch (error) {
       console.error('Error fetching expenses:', error);
       setAlertMessage('Failed to fetch expenses');
@@ -285,6 +408,10 @@ const ExpensesPage = () => {
       setShowAlert(true);
 
       fetchExpenses(userId);
+      
+      // Limpar o filtro quando uma nova despesa é adicionada
+      setFilteredExpenses([]);
+      setSelectedCategoryId(null);
     } catch (error) {
       console.error('Error saving expense:', error);
       setAlertMessage('Error saving expense. Please try again.');
@@ -313,6 +440,10 @@ const ExpensesPage = () => {
       setAlertType('success');
       setShowAlert(true);
       fetchExpenses(userId);
+      
+      // Limpar o filtro quando uma despesa é excluída
+      setFilteredExpenses([]);
+      setSelectedCategoryId(null);
     } catch (error) {
       console.error('Error deleting expense:', error);
       setAlertMessage('Failed to delete expense');
@@ -382,6 +513,10 @@ const ExpensesPage = () => {
       setAlertType('success');
       setShowAlert(true);
       fetchCategoriesAndFrequencies(userId);
+      
+      // Limpar o filtro quando uma categoria é excluída
+      setFilteredExpenses([]);
+      setSelectedCategoryId(null);
     } catch (error) {
       console.error('Error deleting category:', error);
       setAlertMessage('Failed to delete category');
@@ -427,6 +562,10 @@ const ExpensesPage = () => {
       setCategoryFormData({ name: '' });
       setCategoryModalVisible(false);
       fetchCategoriesAndFrequencies(userId);
+      
+      // Limpar o filtro quando uma categoria é alterada
+      setFilteredExpenses([]);
+      setSelectedCategoryId(null);
     } catch (error) {
       console.error('Error saving category:', error);
       setAlertMessage('Failed to save category');
@@ -657,6 +796,30 @@ const ExpensesPage = () => {
         processData={processExpenseData}
         chartTypes={['categories', 'priority', 'status']}
       />
+      
+      {/* Filtro por categoria - lista horizontal */}
+      <View style={styles.filterSection}>
+        <View style={styles.filterHeader}>
+          <Text style={styles.filterHeaderText}>Filter by Category</Text>
+          {renderClearFilterButton()}
+        </View>
+        <FlatList
+          data={categories}
+          renderItem={renderCategoryItem}
+          keyExtractor={item => `category-${item.id}`}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.categoryList}
+        />
+      </View>
+
+      {selectedCategoryId && (
+        <View style={styles.filterInfoContainer}>
+          <Text style={styles.filterInfoText}>
+            Showing expenses for: {categories.find(c => c.id === selectedCategoryId)?.name || 'Selected category'}
+          </Text>
+        </View>
+      )}
 
       <FlatList
         data={expensesWithAddButton}

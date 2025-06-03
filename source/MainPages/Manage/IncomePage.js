@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Modal, FlatList, TextInput } from 'react-native';
+import { View, Text, TouchableOpacity, Modal, FlatList, TextInput, ScrollView } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../Supabase';
@@ -15,12 +15,16 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const IncomePage = ({ navigation }) => {
   const [incomes, setIncomes] = useState([]);
   const [originalIncomes, setOriginalIncomes] = useState([]); // Armazenar os valores originais
+  const [filteredIncomes, setFilteredIncomes] = useState([]);
+  const [selectedCategoryId, setSelectedCategoryId] = useState(null);
   const [chartRenderKey, setChartRenderKey] = useState(Date.now());
   const [frequencies, setFrequencies] = useState([]);
   const [categories, setCategories] = useState([]);
   const [chartData, setChartData] = useState([]);
   const [isModalVisible, setModalVisible] = useState(false);
   const [isDeleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [isFilterModalVisible, setFilterModalVisible] = useState(false); // Modal para exibir itens filtrados
+  const [isCategoryFilterVisible, setCategoryFilterVisible] = useState(false);
   const [incomeToDelete, setIncomeToDelete] = useState(null);
   const [userId, setUserId] = useState(null);
   const [selectedIncome, setSelectedIncome] = useState(null);
@@ -36,7 +40,9 @@ const IncomePage = ({ navigation }) => {
   const [alertType, setAlertType] = useState('');
   const [showAlert, setShowAlert] = useState(false);
 
-  const incomesWithAddButton = [...incomes, { isAddButton: true }];
+  // Use filteredIncomes para a lista e se estiver vazia, use incomes
+  const incomesToDisplay = filteredIncomes.length > 0 ? filteredIncomes : incomes;
+  const incomesWithAddButton = [...incomesToDisplay, { isAddButton: true }];
 
   // Carregar a moeda original salva do usuário
   const loadOriginalCurrency = async () => {
@@ -82,6 +88,10 @@ const IncomePage = ({ navigation }) => {
       
       // Converter valores para a moeda atual
       await convertIncomesToCurrentCurrency(data || [], origCurrency);
+      
+      // Limpar o filtro quando novos dados são carregados
+      setFilteredIncomes([]);
+      setSelectedCategoryId(null);
       
       processChartData(data || []); // Processar os dados para o gráfico
     } catch (error) {
@@ -325,6 +335,10 @@ const IncomePage = ({ navigation }) => {
       setShowAlert(true);
 
       fetchUserIncomes(userId); // Atualiza lista após salvar
+      
+      // Limpar o filtro quando um novo income é adicionado
+      setFilteredIncomes([]);
+      setSelectedCategoryId(null);
     } catch (error) {
       console.error('Unexpected error saving income:', error);
       alert('Unexpected error. Please try again.');
@@ -340,6 +354,11 @@ const IncomePage = ({ navigation }) => {
         console.error('Error deleting income:', error);
       } else {
         fetchUserIncomes(userId); // Atualiza lista após exclusão
+        
+        // Limpar o filtro quando um income é excluído
+        setFilteredIncomes([]);
+        setSelectedCategoryId(null);
+        
         // Exibe mensagem de sucesso em um alerta
         setAlertMessage('Income deleted successfully!');
         setAlertType('success');
@@ -357,6 +376,108 @@ const IncomePage = ({ navigation }) => {
     setDeleteModalVisible(true); // Abre o modal de confirmação
   };
 
+  const handleCategorySelect = (categoryId) => {
+    if (selectedCategoryId === categoryId) {
+      // Se clicar na mesma categoria, limpa o filtro
+      setSelectedCategoryId(null);
+      setFilteredIncomes([]);
+      return;
+    }
+    
+    setSelectedCategoryId(categoryId);
+    
+    // Filtrar os incomes para mostrar apenas os da categoria selecionada
+    const filtered = incomes.filter(income => income.category_id === categoryId);
+    setFilteredIncomes(filtered);
+    
+    if (filtered.length === 0) {
+      setAlertMessage('No incomes found for this category');
+      setAlertType('info');
+      setShowAlert(true);
+    }
+  };
+
+  // Renderizar um item de categoria para o filtro horizontal
+  const renderCategoryItem = ({ item }) => {
+    if (!item || !item.id) return null;
+    
+    const isSelected = selectedCategoryId === item.id;
+    
+    return (
+      <TouchableOpacity 
+        style={[
+          styles.categoryChip, 
+          isSelected && styles.categoryChipSelected
+        ]}
+        onPress={() => handleCategorySelect(item.id)}
+        activeOpacity={0.7}
+      >
+        <Text style={[
+          styles.categoryChipText,
+          isSelected && styles.categoryChipTextSelected
+        ]}>
+          {item.name}
+        </Text>
+        {isSelected && (
+          <View style={styles.categoryChipIndicator}>
+            <Ionicons name="checkmark" size={12} color="#FFF" />
+          </View>
+        )}
+      </TouchableOpacity>
+    );
+  };
+
+  // Botão para limpar filtros
+  const renderClearFilterButton = () => {
+    if (filteredIncomes.length === 0) return null;
+    
+    return (
+      <TouchableOpacity 
+        style={styles.clearFilterButton}
+        onPress={() => {
+          setFilteredIncomes([]);
+          setSelectedCategoryId(null);
+        }}
+        activeOpacity={0.7}
+      >
+        <Ionicons name="close-circle" size={18} color="#FFF" />
+        <Text style={styles.clearFilterButtonText}>Clear Filter</Text>
+      </TouchableOpacity>
+    );
+  };
+
+  // Renderiza um item de income para o modal de filtro
+  const renderFilterItem = ({ item, index }) => {
+    if (!item || item.isAddButton) return null;
+    
+    return (
+      <View style={styles.modalIncomeItem} key={`filter-item-${item.id || index}`}>
+        <View style={styles.incomeRow}>
+          <Text style={styles.incomeTitle}>{item.name}</Text>
+          <Text style={styles.incomeDetails}>
+            {formatCurrency(item.amount)}
+          </Text>
+        </View>
+
+        <View style={styles.incomeRow}>
+          {item.categories && (
+            <View style={styles.categoryTag}>
+              <Text style={styles.categoryText}>
+                {item.categories.name}
+              </Text>
+            </View>
+          )}
+          {item.frequencies && (
+            <View style={styles.frequencyTag}>
+              <Text style={styles.frequencyText}>
+                {item.frequencies.name}
+              </Text>
+            </View>
+          )}
+        </View>
+      </View>
+    );
+  };
 
   const renderIncomeItem = ({ item }) => {
     if (item.isAddButton) {
@@ -433,6 +554,30 @@ const IncomePage = ({ navigation }) => {
           chartTypes={['Bar', 'Pie', 'Line']}
         />
       </View>
+
+      {/* Filtro por categoria - lista horizontal */}
+      <View style={styles.filterSection}>
+        <View style={styles.filterHeader}>
+          <Text style={styles.filterHeaderText}>Filter by Category</Text>
+          {renderClearFilterButton()}
+        </View>
+        <FlatList
+          data={categories}
+          renderItem={renderCategoryItem}
+          keyExtractor={item => `category-${item.id}`}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.categoryList}
+        />
+      </View>
+
+      {selectedCategoryId && (
+        <View style={styles.filterInfoContainer}>
+          <Text style={styles.filterInfoText}>
+            Showing incomes for: {categories.find(c => c.id === selectedCategoryId)?.name || 'Selected category'}
+          </Text>
+        </View>
+      )}
 
       <FlatList
         data={incomesWithAddButton}

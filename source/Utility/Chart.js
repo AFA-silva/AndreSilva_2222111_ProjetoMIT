@@ -21,6 +21,7 @@ import Animated, {
   withTiming,
   Easing 
 } from 'react-native-reanimated';
+import { Ionicons } from '@expo/vector-icons';
 
 const GaugeChart = ({ 
   value = 0, 
@@ -148,6 +149,7 @@ const AnimatedPath = Animated.createAnimatedComponent(Path);
 
 const AnimatedText = Animated.createAnimatedComponent(SvgText);
 
+// Componente simplificado sem interatividade de clique
 const AnimatedBar3D = ({
   x,
   y,
@@ -169,7 +171,7 @@ const AnimatedBar3D = ({
 
     const timeout = setTimeout(() => {
       animatedHeight.value = withTiming(height, { 
-        duration: 1000,
+        duration: 800, // Animação mais rápida
         easing: Easing.bezier(0.25, 0.1, 0.25, 1)
       });
     }, delay);
@@ -313,7 +315,7 @@ const renderCustomBarChart = ({
 
   return (
     <View style={[styles.customBarChartWrapper, style]}>
-      <View style={{ position: 'relative', height: height + 30 }}>
+      <View style={{ position: 'relative', height: height + 20 }}>
         <View style={{
           position: 'absolute',
           top: 0,
@@ -378,7 +380,7 @@ const renderCustomBarChart = ({
                   value: Math.round(value),
                   label: labels[i],
                   index: i,
-                  isTextOnly: false
+                  isTextOnly: false,
                 })}
               </G>
             );
@@ -391,12 +393,23 @@ const renderCustomBarChart = ({
 
 const renderCustomBar3D = (props) => <AnimatedBar3D {...props} delay={props.index * 120} />;
 
-const Chart = ({ incomes, categories, frequencies, processData, chartTypes = ['Bar', 'Pie', 'Line'] }) => {
+const Chart = ({ 
+  incomes, 
+  categories, 
+  frequencies, 
+  processData, 
+  chartTypes = ['Bar', 'Pie', 'Line'],
+  chartHeight = 170, // Menor altura para telas pequenas
+}) => {
   const [chartType, setChartType] = useState(chartTypes[0].toLowerCase());
   const [renderKey, setRenderKey] = useState(0);
   const [isChartReady, setIsChartReady] = useState(false);
   const [period, setPeriod] = useState('month');
   const screenWidth = Dimensions.get('window').width;
+  const screenHeight = Dimensions.get('window').height;
+  
+  // Ajustar altura baseada no tamanho da tela
+  const dynamicChartHeight = screenHeight < 700 ? 150 : chartHeight;
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -659,7 +672,7 @@ const Chart = ({ incomes, categories, frequencies, processData, chartTypes = ['B
             labels: chartData.labels,
             data: chartData.data,
             width: screenWidth - 48,
-            height: 220,
+            height: dynamicChartHeight, // Reduzir altura do gráfico
             style: { backgroundColor: 'transparent' }
           })}
         </View>
@@ -671,7 +684,7 @@ const Chart = ({ incomes, categories, frequencies, processData, chartTypes = ['B
         <PieChart
           data={Array.isArray(chartData) ? chartData : [chartData]}
           width={screenWidth - 48}
-          height={180}
+          height={dynamicChartHeight} // Reduzir altura do gráfico
           chartConfig={{
             ...defaultChartConfig,
             backgroundGradientFromOpacity: 0,
@@ -699,7 +712,7 @@ const Chart = ({ incomes, categories, frequencies, processData, chartTypes = ['B
               datasets: [{ data: chartData.data }],
             }}
             width={screenWidth - 48}
-            height={180}
+            height={dynamicChartHeight} // Reduzir altura do gráfico
             chartConfig={{
               ...defaultChartConfig,
               backgroundGradientFromOpacity: 0,
@@ -764,9 +777,10 @@ const Chart = ({ incomes, categories, frequencies, processData, chartTypes = ['B
   );
 };
 
+// Ajuste nos estilos
 const styles = StyleSheet.create({
   container: {
-    marginVertical: 12,
+    marginVertical: 10, // Reduzido
   },
   periodContainer: {
     flexDirection: 'row',
@@ -802,15 +816,15 @@ const styles = StyleSheet.create({
   buttonContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginBottom: 16,
+    marginBottom: 12, // Reduzido
     gap: 12,
   },
   button: {
-    paddingVertical: 10,
-    paddingHorizontal: 20,
+    paddingVertical: 8, // Reduzido
+    paddingHorizontal: 16, // Reduzido
     backgroundColor: '#FFE0B2',
     borderRadius: 12,
-    minWidth: 90,
+    minWidth: 80, // Reduzido
     alignItems: 'center',
     shadowColor: '#FFA726',
     shadowOffset: { width: 0, height: 2 },
@@ -823,7 +837,7 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     color: '#FFA726',
-    fontSize: 14,
+    fontSize: 13, // Reduzido
     fontWeight: '600',
     letterSpacing: 0.5,
   },
@@ -845,7 +859,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
   },
   loadingContainer: {
-    height: 160,
+    height: 120, // Reduzido
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -865,6 +879,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 8,
     elevation: 4,
+    height: 120, // Reduzido
   },
   noDataText: {
     color: '#666666',
@@ -881,9 +896,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'transparent',
-    minHeight: 200,
-    paddingTop: 20,
-    paddingBottom: 16,
+    minHeight: 170, // Reduzido
+    paddingTop: 15, // Reduzido
+    paddingBottom: 10, // Reduzido
   },
 });
 
