@@ -52,19 +52,30 @@ const ExpensesPage = () => {
   const expensesToDisplay = filteredExpenses.length > 0 ? filteredExpenses : expenses;
   const expensesWithAddButton = [...expensesToDisplay, { isAddButton: true }];
   
-  // Handler para quando uma categoria é selecionada
-  const handleCategorySelect = (categoryId) => {
-    if (selectedCategoryId === categoryId) {
-      // Se clicar na mesma categoria, limpa o filtro
+  // Novo método para lidar com a seleção de categoria no gráfico
+  const handleChartCategorySelect = (selectedCategory) => {
+    if (!selectedCategory) {
+      // Se nenhuma categoria está selecionada, limpar o filtro
+      setFilteredExpenses([]);
+      setSelectedCategoryId(null);
+      return;
+    }
+
+    // Encontrar a categoria correspondente no array de categorias
+    const category = categories.find(c => c.name === selectedCategory.name);
+    if (!category) return;
+
+    // Se clicar na mesma categoria, limpa o filtro
+    if (selectedCategoryId === category.id) {
       setSelectedCategoryId(null);
       setFilteredExpenses([]);
       return;
     }
     
-    setSelectedCategoryId(categoryId);
+    setSelectedCategoryId(category.id);
     
     // Filtrar as despesas para mostrar apenas as da categoria selecionada
-    const filtered = expenses.filter(expense => expense.category_id === categoryId);
+    const filtered = expenses.filter(expense => expense.category_id === category.id);
     setFilteredExpenses(filtered);
     
     if (filtered.length === 0) {
@@ -86,7 +97,7 @@ const ExpensesPage = () => {
           styles.categoryChip, 
           isSelected && styles.categoryChipSelected
         ]}
-        onPress={() => handleCategorySelect(item.id)}
+        onPress={() => handleChartCategorySelect(item)}
         activeOpacity={0.7}
       >
         <Text style={[
@@ -661,18 +672,7 @@ const ExpensesPage = () => {
     if (!expenseData || !categories) return { labels: [], data: [] };
 
     const categoryMap = {};
-    const priorityMap = {
-      1: { name: 'Mínima', total: 0, color: '#4CAF50' },
-      2: { name: 'Baixa', total: 0, color: '#8BC34A' },
-      3: { name: 'Média', total: 0, color: '#FFD700' },
-      4: { name: 'Alta', total: 0, color: '#FF9800' },
-      5: { name: 'Máxima', total: 0, color: '#F44336' },
-    };
-    const statusMap = {
-      paid: { name: 'Paid', total: 0, color: '#4CAF50' },
-      pending: { name: 'Pending', total: 0, color: '#FFA726' },
-    };
-
+    
     // Initialize categories
     categories.forEach(category => {
       categoryMap[category.id] = {
@@ -683,7 +683,7 @@ const ExpensesPage = () => {
 
     const today = new Date();
     expenseData.forEach(expense => {
-      const { category_id, amount, priority, frequency_id, frequencies, status = 'pending' } = expense;
+      const { category_id, amount, frequency_id, frequencies } = expense;
       const expenseDate = new Date(expense.created_at);
       let shouldInclude = false;
       let convertedAmount = amount;
@@ -729,14 +729,6 @@ const ExpensesPage = () => {
       if (category_id && categoryMap[category_id]) {
         categoryMap[category_id].total += convertedAmount;
       }
-
-      // Process Priority Data
-      if (priority && priorityMap[priority]) {
-        priorityMap[priority].total += convertedAmount;
-      }
-
-      // Process Status Data
-      statusMap[status].total += convertedAmount;
     });
 
     // Convert category data for chart
@@ -752,34 +744,8 @@ const ExpensesPage = () => {
         legendFontSize: 12,
       }));
 
-    // Convert priority data for chart
-    const totalPriorityAmount = Object.values(priorityMap).reduce((sum, pri) => sum + pri.total, 0);
-    const priorityData = Object.values(priorityMap)
-      .filter(pri => pri.total > 0)
-      .map(pri => ({
-        name: `${pri.name} (${Math.round((pri.total / totalPriorityAmount) * 100)}%)`,
-        amount: Math.round(pri.total * 100) / 100,
-        color: pri.color,
-        legendFontColor: '#333333',
-        legendFontSize: 12,
-      }));
-
-    // Convert status data for chart
-    const totalStatusAmount = Object.values(statusMap).reduce((sum, stat) => sum + stat.total, 0);
-    const statusData = Object.values(statusMap)
-      .filter(stat => stat.total > 0)
-      .map(stat => ({
-        name: `${stat.name} (${Math.round((stat.total / totalStatusAmount) * 100)}%)`,
-        amount: Math.round(stat.total * 100) / 100,
-        color: stat.color,
-        legendFontColor: '#333333',
-        legendFontSize: 12,
-      }));
-
     return {
       categoryData,
-      priorityData,
-      statusData
     };
   };
 
@@ -794,33 +760,10 @@ const ExpensesPage = () => {
         categories={categories}
         frequencies={frequencies}
         processData={processExpenseData}
-        chartTypes={['categories', 'priority', 'status']}
+        chartTypes={['categories', 'pie', 'line']}
+        onCategorySelect={handleChartCategorySelect}
       />
       
-      {/* Filtro por categoria - lista horizontal */}
-      <View style={styles.filterSection}>
-        <View style={styles.filterHeader}>
-          <Text style={styles.filterHeaderText}>Filter by Category</Text>
-          {renderClearFilterButton()}
-        </View>
-        <FlatList
-          data={categories}
-          renderItem={renderCategoryItem}
-          keyExtractor={item => `category-${item.id}`}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.categoryList}
-        />
-      </View>
-
-      {selectedCategoryId && (
-        <View style={styles.filterInfoContainer}>
-          <Text style={styles.filterInfoText}>
-            Showing expenses for: {categories.find(c => c.id === selectedCategoryId)?.name || 'Selected category'}
-          </Text>
-        </View>
-      )}
-
       <FlatList
         data={expensesWithAddButton}
         keyExtractor={(item, idx) => item.id ? item.id.toString() : `add-btn-${idx}`}

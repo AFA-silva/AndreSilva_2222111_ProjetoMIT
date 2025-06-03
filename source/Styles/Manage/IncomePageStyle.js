@@ -456,6 +456,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginLeft: 6,
   },
+  chartContainer: {
+    width: '100%',
+    marginBottom: 16,
+    backgroundColor: 'transparent',
+  },
 });
 
 export default styles;

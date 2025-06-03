@@ -1,6 +1,6 @@
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
-import { LineChart, BarChart, PieChart } from 'react-native-chart-kit';
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Dimensions, Platform, Animated as RNAnimated, Pressable } from 'react-native';
+import { LineChart, BarChart } from 'react-native-chart-kit';
 import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { 
@@ -11,15 +11,22 @@ import Svg, {
   Rect,
   Line,
   LinearGradient as SvgGradient,
+  RadialGradient,
   Stop,
-  Defs 
+  Defs
 } from 'react-native-svg';
 import Animated, { 
   useSharedValue, 
   useAnimatedProps, 
   useAnimatedStyle,
   withTiming,
-  Easing 
+  withSpring,
+  withDelay,
+  withSequence,
+  Easing,
+  interpolate,
+  Extrapolate,
+  runOnJS
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -148,6 +155,9 @@ const AnimatedRect = Animated.createAnimatedComponent(Rect);
 const AnimatedPath = Animated.createAnimatedComponent(Path);
 
 const AnimatedText = Animated.createAnimatedComponent(SvgText);
+
+// Componente AnimatedView para animações do contenedor do gráfico
+const AnimatedView = Animated.createAnimatedComponent(View);
 
 // Componente simplificado sem interatividade de clique
 const AnimatedBar3D = ({
@@ -393,13 +403,452 @@ const renderCustomBarChart = ({
 
 const renderCustomBar3D = (props) => <AnimatedBar3D {...props} delay={props.index * 120} />;
 
+// Novo componente PieChart3D - abordagem completamente nova com melhorias visuais
+const SimplePie3D = ({ 
+  data = [], 
+  width = 300, 
+  height = 300, 
+  pieDepth = 15,
+  backgroundColor = 'transparent',
+  onSelectSlice = () => {},
+  showAllLabels = false,
+}) => {
+  const [selectedSlice, setSelectedSlice] = useState(null);
+  const [hoveredSlice, setHoveredSlice] = useState(null);
+  const initialRender = useRef(true);
+  const animationProgress = useSharedValue(0);
+
+  // Valores animados para rotação inicial e escala de entrada
+  const entryAnimation = useSharedValue(0);
+  const rotationValue = useSharedValue(0);
+  
+  // EDITAR AQUI: Posição vertical do centro da torta (menor = mais para cima, maior = mais para baixo)
+  const center = { x: width / 2, y: height / 2 };
+  // EDITAR AQUI: Tamanho da torta (menor número = torta maior, maior número = torta menor)
+  const radius = Math.min(width, height) / 2.65;
+  
+  // Paleta de cores melhorada para maior harmonia e contraste
+  const colors = [
+    '#FF9500', // Laranja
+    '#9C27B0', // Roxo
+    '#2196F3', // Azul
+    '#4CAF50', // Verde
+    '#F44336', // Vermelho
+    '#FFEB3B', // Amarelo
+  ];
+  
+  // Animação de entrada ao montar o componente
+  useEffect(() => {
+    if (initialRender.current) {
+      // Efeito de rotação suave na entrada
+      rotationValue.value = withSequence(
+        withTiming(-0.1, { duration: 400, easing: Easing.out(Easing.quad) }),
+        withTiming(0, { duration: 500, easing: Easing.inOut(Easing.quad) })
+      );
+      
+      // Efeito de escala na entrada
+      entryAnimation.value = withTiming(1, { 
+        duration: 800, 
+        easing: Easing.out(Easing.back(1.5)) 
+      });
+      
+      // Animação de "pulsar" levemente ao final
+      animationProgress.value = withSequence(
+        withDelay(800,
+          withTiming(1.02, { duration: 200, easing: Easing.out(Easing.quad) })
+        ),
+        withTiming(1, { duration: 300, easing: Easing.inOut(Easing.quad) })
+      );
+      
+      initialRender.current = false;
+    }
+  }, []);
+  
+  // Calcular os dados das fatias com memorizаção
+  const slices = useMemo(() => {
+    if (!data || data.length === 0) return [];
+    
+    const total = data.reduce((sum, item) => sum + (item.value || 0), 0);
+    let startAngle = 0;
+    
+    return data
+      .filter(item => item.name) // Manter apenas se tem um nome
+      .map((item, index) => {
+        const percentage = total > 0 ? (item.value / total) : 0;
+        const angle = percentage * Math.PI * 2;
+        const endAngle = startAngle + angle;
+        const midAngle = startAngle + angle / 2;
+        
+        // Determinar se esta fatia é a selecionada
+        const isSelected = index === selectedSlice;
+        const isHovered = index === hoveredSlice;
+        
+        // Calcular a posição do rótulo com espaçamento específico
+        // Posicionamento especial para investimentos e prêmios para evitar sobreposição
+        let labelRadius = radius * 1.15; // Base (reduzido de 1.2)
+        let labelAdjustment = 0;
+        
+        // Ajuste especial para categorias específicas para evitar sobreposição
+        if (item.name === "Investimentos" || item.name === "Prémios") {
+          labelRadius = radius * 1.3; // Mais distante (reduzido de 1.5)
+          
+          // Se for Investimentos, ajustar para cima e direita
+          if (item.name === "Investimentos") {
+            labelAdjustment = Math.PI * -0.025; // Mover para cima e direita
+          }
+          // Se for Prêmios, ajustar para a esquerda
+          if (item.name === "Prémios") {
+            labelAdjustment = -Math.PI * 0.08; // Deslocar para a esquerda
+          }
+        }
+        
+        const labelX = center.x + Math.cos(midAngle + labelAdjustment) * labelRadius;
+        const labelY = center.y + Math.sin(midAngle + labelAdjustment) * labelRadius;
+        
+        // Determinar alinhamento do texto baseado na posição
+        const textAnchor = Math.cos(midAngle + labelAdjustment) > 0 ? 'start' : 'end';
+        
+        // Criar resultado para esta fatia
+        const slice = {
+          ...item,
+          startAngle,
+          endAngle,
+          angle,
+          midAngle,
+          percentage,
+          color: item.color || colors[index % colors.length],
+          labelX,
+          labelY,
+          textAnchor,
+          isSelected,
+          isHovered,
+          index
+        };
+        
+        // Atualizar o ângulo inicial para a próxima fatia
+        startAngle = endAngle;
+        
+        return slice;
+      });
+  }, [data, radius, selectedSlice, hoveredSlice, colors, center]);
+  
+  // Estilo animado para rotação
+  const animatedStyle = useAnimatedStyle(() => {
+    return {
+      transform: [
+        { rotate: `${rotationValue.value * Math.PI}rad` },
+        { scale: entryAnimation.value }
+      ],
+    };
+  });
+  
+  // Função para criar o path para uma fatia
+  const createArcPath = (startAngle, endAngle, innerRadius, outerRadius) => {
+    const startX = center.x + Math.cos(startAngle) * outerRadius;
+    const startY = center.y + Math.sin(startAngle) * outerRadius;
+    const endX = center.x + Math.cos(endAngle) * outerRadius;
+    const endY = center.y + Math.sin(endAngle) * outerRadius;
+    
+    const startX2 = center.x + Math.cos(endAngle) * innerRadius;
+    const startY2 = center.y + Math.sin(endAngle) * innerRadius;
+    const endX2 = center.x + Math.cos(startAngle) * innerRadius;
+    const endY2 = center.y + Math.sin(startAngle) * innerRadius;
+    
+    const largeArcFlag = endAngle - startAngle > Math.PI ? 1 : 0;
+    
+    return `
+      M ${startX} ${startY}
+      A ${outerRadius} ${outerRadius} 0 ${largeArcFlag} 1 ${endX} ${endY}
+      L ${startX2} ${startY2}
+      A ${innerRadius} ${innerRadius} 0 ${largeArcFlag} 0 ${endX2} ${endY2}
+      Z
+    `;
+  };
+  
+  // Função para criar o caminho da lateral (side) da fatia
+  const createSidePath = (startAngle, endAngle, radius, depth) => {
+    const startX = center.x + Math.cos(startAngle) * radius;
+    const startY = center.y + Math.sin(startAngle) * radius;
+    const endX = center.x + Math.cos(endAngle) * radius;
+    const endY = center.y + Math.sin(endAngle) * radius;
+    
+    return `
+      M ${startX} ${startY}
+      L ${startX} ${startY + depth}
+      A ${radius} ${radius} 0 0 1 ${endX} ${endY + depth}
+      L ${endX} ${endY}
+      A ${radius} ${radius} 0 0 0 ${startX} ${startY}
+    `;
+  };
+  
+  // Lidar com toque/clique em uma fatia com animação de seleção
+  const handleSlicePress = (index) => {
+    // Efeito de "pulse" animado na seleção
+    animationProgress.value = withSequence(
+      withTiming(1.05, { duration: 150, easing: Easing.out(Easing.quad) }),
+      withTiming(1, { duration: 300, easing: Easing.inOut(Easing.quad) })
+    );
+    
+    // Efeito sutil de "giro" ao selecionar
+    rotationValue.value = withSequence(
+      withTiming(index * 0.01, { duration: 200, easing: Easing.out(Easing.quad) }),
+      withTiming(0, { duration: 400, easing: Easing.inOut(Easing.quad) })
+    );
+    
+    setSelectedSlice(selectedSlice === index ? null : index);
+    if (onSelectSlice) {
+      // Passar o objeto completo da categoria para o callback
+      const selectedCategory = index !== null ? data[index] : null;
+      onSelectSlice(selectedCategory);
+    }
+  };
+  
+  // Lidar com hover (simulado com pressionar e soltar rapidamente em mobile)
+  const handleSliceHover = (index) => {
+    setHoveredSlice(index);
+  };
+  
+  // Renderizar o gráfico de pizza 3D
+  return (
+    <View style={{ width, height, backgroundColor: backgroundColor }}>
+      {/* EDITAR AQUI: Tamanho do SVG (height + pieDepth) */}
+      <AnimatedView style={[{ width, height: height + pieDepth }, animatedStyle]}>
+        <Svg width={width} height={height + pieDepth}>
+          <Defs>
+            {/* Gradiente radial para a sombra com transição suave */}
+            <RadialGradient
+              id="shadow-gradient"
+              cx="50%"
+              cy="50%"
+              r="50%"
+              fx="50%"
+              fy="50%"
+              gradientUnits="userSpaceOnUse"
+            >
+              <Stop offset="0%" stopColor="#000000" stopOpacity="0.3" />
+              <Stop offset="70%" stopColor="#000000" stopOpacity="0.15" />
+              <Stop offset="100%" stopColor="#000000" stopOpacity="0.05" />
+            </RadialGradient>
+            
+            {/* Gradientes para cada fatia */}
+            {slices.map((slice, index) => (
+              <React.Fragment key={`gradients-${index}`}>
+                {/* Gradiente principal para o topo da fatia */}
+                <SvgGradient
+                  id={`gradient-top-${index}`}
+                  x1="0%"
+                  y1="0%"
+                  x2="100%"
+                  y2="100%"
+                >
+                  <Stop offset="0%" stopColor={slice.color} stopOpacity="1" />
+                  <Stop offset="100%" stopColor={slice.color} stopOpacity="0.9" />
+                </SvgGradient>
+                
+                {/* Gradiente para a parte lateral */}
+                <SvgGradient
+                  id={`gradient-side-${index}`}
+                  x1="0%"
+                  y1="0%"
+                  x2="100%"
+                  y2="0%"
+                >
+                  <Stop offset="0%" stopColor={slice.color} stopOpacity="0.85" />
+                  <Stop offset="100%" stopColor={slice.color} stopOpacity="0.6" />
+                </SvgGradient>
+                
+                {/* Gradiente para a parte inferior */}
+                <SvgGradient
+                  id={`gradient-bottom-${index}`}
+                  x1="0%"
+                  y1="0%"
+                  x2="100%"
+                  y2="0%"
+                >
+                  <Stop offset="0%" stopColor={slice.color} stopOpacity="0.5" />
+                  <Stop offset="100%" stopColor={slice.color} stopOpacity="0.3" />
+                </SvgGradient>
+              </React.Fragment>
+            ))}
+          </Defs>
+          
+          {/* EDITAR AQUI: Posição e tamanho da sombra */}
+          <Circle
+            cx={center.x}
+            cy={center.y + pieDepth + 5}
+            r={radius + 5} 
+            fill="url(#shadow-gradient)"
+          />
+          
+          {/* Renderizar as fatias em ordem inversa para sobrepor corretamente */}
+          {[...slices].reverse().map((slice, i) => {
+            const index = slices.length - 1 - i;
+            const actualSlice = slices[index];
+            
+            // Deslocamento quando selecionado (ajusta o "salto" da fatia)
+            const offsetX = actualSlice.isSelected ? Math.cos(actualSlice.midAngle) * 12 : 0;
+            const offsetY = actualSlice.isSelected ? Math.sin(actualSlice.midAngle) * 12 : 0;
+            // Profundidade extra quando selecionado
+            const sliceDepth = actualSlice.isSelected ? pieDepth + 5 : pieDepth;
+            
+            // Usar gradientes diferentes dependendo do estado
+            const fillGradient = `url(#gradient-top-${index})`;
+            
+            // Função para lidar com o clique para web e mobile
+            const handleClick = () => {
+              handleSlicePress(index);
+              handleSliceHover(index);
+            };
+            
+            return (
+              <G 
+                key={`slice-3d-${index}`}
+                x={offsetX}
+                y={offsetY}
+              >
+                {/* Face inferior da fatia */}
+                <Path
+                  d={createArcPath(actualSlice.startAngle, actualSlice.endAngle, 0, radius)}
+                  fill={`url(#gradient-bottom-${index})`}
+                  y={sliceDepth}
+                  opacity={0.8}
+                />
+                
+                {/* Lateral da fatia (profundidade) */}
+                <Path
+                  d={createSidePath(actualSlice.startAngle, actualSlice.endAngle, radius, sliceDepth)}
+                  fill={`url(#gradient-side-${index})`}
+                />
+                
+                {/* Face superior da fatia (topo) */}
+                <Path
+                  d={createArcPath(actualSlice.startAngle, actualSlice.endAngle, 0, radius)}
+                  fill={fillGradient}
+                  onClick={handleClick}
+                  scale={actualSlice.isSelected ? 1.04 : actualSlice.isHovered ? 1.02 : 1}
+                />
+              </G>
+            );
+          })}
+          
+          {/* Renderizar as linhas de conexão e rótulos */}
+          {slices.map((slice, index) => {
+            // Ajustar tamanho da fonte baseado na porcentagem 
+            const isSmallSlice = slice.percentage < 0.05;
+            
+            // Calcular deslocamento menor para seleção
+            const offsetX = slice.isSelected ? Math.cos(slice.midAngle) * 12 : 0;
+            const offsetY = slice.isSelected ? Math.sin(slice.midAngle) * 12 : 0;
+            
+            const labelX = slice.labelX + offsetX;
+            const labelY = slice.labelY + offsetY;
+            const lineStartX = center.x + Math.cos(slice.midAngle) * (radius * 0.95) + offsetX;
+            const lineStartY = center.y + Math.sin(slice.midAngle) * (radius * 0.95) + offsetY;
+            
+            // Cor do texto baseada na seleção 
+            const textColor = slice.isSelected ? slice.color : '#333';
+            
+            return (
+              <G key={`label-${index}`}>
+                {/* Linha conectora simplificada */}
+                <Line
+                  x1={lineStartX}
+                  y1={lineStartY}
+                  x2={labelX}
+                  y2={labelY}
+                  stroke={slice.isSelected ? slice.color : '#999'}
+                  strokeWidth={slice.isSelected ? 1 : 0.7}
+                  opacity={slice.isSelected ? 0.9 : 0.7}
+                />
+                
+                {/* Fundo do rótulo para todos */}
+                <Rect
+                  x={slice.textAnchor === 'start' ? labelX - 3 : labelX - 28}
+                  y={labelY - (isSmallSlice ? 10 : 12)}
+                  width={isSmallSlice ? 25 : 30}
+                  height={isSmallSlice ? 19 : 22}
+                  fill="#FFFFFF"
+                  opacity={0.9}
+                  rx={4}
+                  ry={4}
+                  stroke={slice.isSelected ? slice.color : "transparent"}
+                  strokeWidth={0.5}
+                />
+                
+                {/* Texto da porcentagem */}
+                <SvgText
+                  x={labelX}
+                  y={labelY - (isSmallSlice ? 2 : 4)}
+                  fill={textColor}
+                  fontSize={isSmallSlice ? "8" : "10"}
+                  fontWeight="bold"
+                  textAnchor={slice.textAnchor}
+                >
+                  {`${Math.round(slice.percentage * 100)}%`}
+                </SvgText>
+                
+                {/* Nome da categoria */}
+                <SvgText
+                  x={labelX}
+                  y={labelY + (isSmallSlice ? 7 : 8)}
+                  fill={slice.isSelected ? slice.color : "#666"}
+                  fontSize={isSmallSlice ? "6" : "8"}
+                  fontWeight={slice.isSelected ? "bold" : "normal"}
+                  textAnchor={slice.textAnchor}
+                >
+                  {slice.name}
+                </SvgText>
+              </G>
+            );
+          })}
+        </Svg>
+      </AnimatedView>
+      
+      {/* Legenda compacta */}
+      <View style={[styles.pieChartLegend, {marginTop: -5}]}>
+        {slices.map((slice, index) => (
+          <Pressable
+            key={`legend-${index}`}
+            style={({pressed}) => [
+              styles.legendItem,
+              slice.isSelected && styles.legendItemSelected,
+              pressed && {opacity: 0.7}
+            ]}
+            onPress={() => handleSlicePress(index)}
+          >
+            <View
+              style={[
+                styles.legendColorBox,
+                { backgroundColor: slice.color },
+                slice.isSelected && styles.legendColorBoxSelected
+              ]}
+            />
+            <Text
+              style={[
+                styles.legendText,
+                slice.isSelected && styles.legendTextSelected,
+                {color: slice.isSelected ? slice.color : '#555'}
+              ]}
+              numberOfLines={1}
+            >
+              {slice.name}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+    </View>
+  );
+};
+
+// Componente principal Chart com opções para gráficos de barras, linha e pizza
 const Chart = ({ 
   incomes, 
   categories, 
   frequencies, 
   processData, 
   chartTypes = ['Bar', 'Pie', 'Line'],
-  chartHeight = 170, // Menor altura para telas pequenas
+  chartHeight = 170,
+  onCategorySelect = () => {}, // Novo callback para seleção de categoria
 }) => {
   const [chartType, setChartType] = useState(chartTypes[0].toLowerCase());
   const [renderKey, setRenderKey] = useState(0);
@@ -408,7 +857,6 @@ const Chart = ({
   const screenWidth = Dimensions.get('window').width;
   const screenHeight = Dimensions.get('window').height;
   
-  // Ajustar altura baseada no tamanho da tela
   const dynamicChartHeight = screenHeight < 700 ? 150 : chartHeight;
 
   useEffect(() => {
@@ -503,36 +951,54 @@ const Chart = ({
     return { labels, data };
   };
 
-  const calculatePieChartData = () => {
+  // Nova função simplificada para calcular os dados do gráfico de pizza
+  const calculatePieData = () => {
     if (!incomes || !categories || !frequencies) return [];
 
-    const categoryTotals = categories.map((category) => {
-      const total = incomes
-        .filter((income) => income.category_id === category.id)
-        .reduce((sum, income) => {
-          const frequency = frequencies.find((freq) => freq.id === income.frequency_id);
-          const days = frequency?.days || 30;
-          const monthlyAmount = income.amount * (30 / days);
-          return sum + monthlyAmount;
-        }, 0);
-      return { name: category.name, total };
+    // Cores predefinidas para o gráfico
+    const pieColors = [
+      '#FF9500',  // Laranja
+      '#9C27B0',  // Roxo
+      '#2196F3',  // Azul
+      '#4CAF50',  // Verde
+      '#F44336',  // Vermelho
+      '#FFEB3B',  // Amarelo
+    ];
+    
+    // Agrupar por categoria
+    const catTotals = {};
+    
+    // Inicializar categorias
+    categories.forEach(cat => {
+      catTotals[cat.id] = { 
+        id: cat.id,
+        name: cat.name, 
+        value: 0, 
+        color: pieColors[cat.id % pieColors.length]
+      };
     });
+    
+    // Somar valores por categoria
+    incomes.forEach(income => {
+      if (catTotals[income.category_id]) {
+        const frequency = frequencies.find(f => f.id === income.frequency_id);
+          const days = frequency?.days || 30;
+        // Converter para valor mensal
+          const monthlyAmount = income.amount * (30 / days);
+        catTotals[income.category_id].value += monthlyAmount;
+      }
+    });
+    
+    // Filtrar para excluir categorias com valores muito pequenos
+    let result = Object.values(catTotals)
+      .filter(cat => cat.name) // Manter apenas se tem um nome
+      .sort((a, b) => b.value - a.value);
 
-    const totalSum = categoryTotals.reduce((sum, cat) => sum + cat.total, 0);
-    const colors = ['#FFA726', '#FFD54F', '#FF8A65', '#FFB300', '#FFECB3'];
-
-    return categoryTotals
-      .filter((cat) => cat.total > 0)
-            .map((cat, index) => {
-        const percentage = totalSum > 0 ? Math.round((cat.total / totalSum) * 100) : 0;
-        return {
-          name: `% ${cat.name}`,
-          value: percentage,
-          color: colors[index % colors.length],
-          legendFontColor: '#333333',
-          legendFontSize: 14,
-        };
-      });
+    // Calcular total
+    const total = result.reduce((sum, cat) => sum + cat.value, 0);
+    
+    // Categorias com menos de 0.5% serão agrupadas como "Outros" se não forem selecionadas
+    return result;
   };
 
   const calculateLineChartData = () => {
@@ -607,7 +1073,7 @@ const Chart = ({
         return { labels, data };
       }
       if (chartType === 'pie') {
-        return calculatePieChartData();
+        return calculatePieData();
       }
       if (chartType === 'line') {
         const { labels, data } = calculateLineChartData();
@@ -625,17 +1091,13 @@ const Chart = ({
           labels: processedData.categoryData.map(cat => cat.name.slice(0, 3)),
           data: processedData.categoryData.map(cat => Math.round(cat.amount)),
         };
-      case 'priority':
-        return processedData.priorityData;
-      case 'status':
-        return processedData.statusData;
       default:
         if (chartType === 'bar') {
           const { labels, data } = calculateTopCategoriesByPeriod();
           return { labels, data };
         }
         if (chartType === 'pie') {
-          return calculatePieChartData();
+          return calculatePieData();
         }
         if (chartType === 'line') {
           const { labels, data } = calculateLineChartData();
@@ -645,6 +1107,15 @@ const Chart = ({
     }
   };
 
+  // Adicionar novo método para lidar com a seleção do gráfico de pizza
+  const handlePieChartSelection = (selectedCategory) => {
+    // Chamar o callback passado pelo componente pai
+    if (onCategorySelect && selectedCategory) {
+      onCategorySelect(selectedCategory);
+    }
+  };
+
+  // Renderiza o gráfico com base no tipo selecionado
   const renderChart = () => {
     if (!isChartReady) {
       return (
@@ -672,31 +1143,38 @@ const Chart = ({
             labels: chartData.labels,
             data: chartData.data,
             width: screenWidth - 48,
-            height: dynamicChartHeight, // Reduzir altura do gráfico
+            height: dynamicChartHeight,
             style: { backgroundColor: 'transparent' }
           })}
         </View>
       );
     }
 
-    if (chartType === 'pie' || chartType === 'priority' || chartType === 'status') {
+    if (chartType === 'pie') {
       return (
-        <PieChart
-          data={Array.isArray(chartData) ? chartData : [chartData]}
-          width={screenWidth - 48}
-          height={dynamicChartHeight} // Reduzir altura do gráfico
-          chartConfig={{
-            ...defaultChartConfig,
-            backgroundGradientFromOpacity: 0,
-            backgroundGradientToOpacity: 0,
-            backgroundColor: 'transparent',
-          }}
-          accessor={chartType === 'priority' || chartType === 'status' ? "amount" : "value"}
-          backgroundColor="transparent"
-          paddingLeft="15"
-          style={styles.chart}
-          absolute
-        />
+        <View style={[styles.chartBackground, { 
+          backgroundColor: '#FFF', 
+          padding: 10, // Aumentado (era 5)
+          alignItems: 'center',
+          height: dynamicChartHeight * 1.6, // EDITAR AQUI: Altura do container (aumentado de 1.15 para 1.35)
+          marginBottom: 10, // Aumentado (era 5)
+          borderRadius: 20, // Adicionado para melhor aparência
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 3,
+          elevation: 3,
+        }]}>
+          <SimplePie3D
+            data={chartData}
+            width={screenWidth - 16} // EDITAR AQUI: Largura do SVG (aumentado, era 20 o desconto)
+            height={dynamicChartHeight * 1.2} // EDITAR AQUI: Altura do SVG (aumentado de 1.1 para 1.2)
+            pieDepth={15} // EDITAR AQUI: Profundidade do efeito 3D
+            backgroundColor="transparent"
+            showAllLabels={true}
+            onSelectSlice={handlePieChartSelection}
+          />
+        </View>
       );
     }
 
@@ -712,7 +1190,7 @@ const Chart = ({
               datasets: [{ data: chartData.data }],
             }}
             width={screenWidth - 48}
-            height={dynamicChartHeight} // Reduzir altura do gráfico
+            height={dynamicChartHeight} 
             chartConfig={{
               ...defaultChartConfig,
               backgroundGradientFromOpacity: 0,
@@ -735,39 +1213,55 @@ const Chart = ({
   return (
     <View style={styles.container}>
       <View style={styles.periodContainer}>
-        <TouchableOpacity
-          style={[styles.periodButton, period === 'day' && styles.activePeriodButton]}
+        <Pressable
+          style={({pressed}) => [
+            styles.periodButton, 
+            period === 'day' && styles.activePeriodButton,
+            pressed && {opacity: 0.8}
+          ]}
           onPress={() => setPeriod('day')}
         >
           <Text style={[styles.periodButtonText, period === 'day' && styles.activePeriodButtonText]}>Day</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.periodButton, period === 'week' && styles.activePeriodButton]}
+        </Pressable>
+        <Pressable
+          style={({pressed}) => [
+            styles.periodButton, 
+            period === 'week' && styles.activePeriodButton,
+            pressed && {opacity: 0.8}
+          ]}
           onPress={() => setPeriod('week')}
         >
           <Text style={[styles.periodButtonText, period === 'week' && styles.activePeriodButtonText]}>Week</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.periodButton, period === 'month' && styles.activePeriodButton]}
+        </Pressable>
+        <Pressable
+          style={({pressed}) => [
+            styles.periodButton, 
+            period === 'month' && styles.activePeriodButton,
+            pressed && {opacity: 0.8}
+          ]}
           onPress={() => setPeriod('month')}
         >
           <Text style={[styles.periodButtonText, period === 'month' && styles.activePeriodButtonText]}>Month</Text>
-        </TouchableOpacity>
+        </Pressable>
       </View>
 
       <View style={styles.buttonContainer}>
         {chartTypes.map((type) => {
           const typeLower = type.toLowerCase();
           return (
-            <TouchableOpacity
+            <Pressable
               key={type}
-              style={[styles.button, chartType === typeLower && styles.activeButton]}
+              style={({pressed}) => [
+                styles.button, 
+                chartType === typeLower && styles.activeButton,
+                pressed && {opacity: 0.8}
+              ]}
               onPress={() => setChartType(typeLower)}
             >
               <Text style={[styles.buttonText, chartType === typeLower && styles.activeButtonText]}>
                 {type}
               </Text>
-            </TouchableOpacity>
+            </Pressable>
           );
         })}
       </View>
@@ -780,7 +1274,7 @@ const Chart = ({
 // Ajuste nos estilos
 const styles = StyleSheet.create({
   container: {
-    marginVertical: 10, // Reduzido
+    marginVertical: 10,
   },
   periodContainer: {
     flexDirection: 'row',
@@ -816,15 +1310,15 @@ const styles = StyleSheet.create({
   buttonContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginBottom: 12, // Reduzido
+    marginBottom: 12,
     gap: 12,
   },
   button: {
-    paddingVertical: 8, // Reduzido
-    paddingHorizontal: 16, // Reduzido
+    paddingVertical: 8,
+    paddingHorizontal: 16,
     backgroundColor: '#FFE0B2',
     borderRadius: 12,
-    minWidth: 80, // Reduzido
+    minWidth: 80,
     alignItems: 'center',
     shadowColor: '#FFA726',
     shadowOffset: { width: 0, height: 2 },
@@ -837,7 +1331,7 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     color: '#FFA726',
-    fontSize: 13, // Reduzido
+    fontSize: 13,
     fontWeight: '600',
     letterSpacing: 0.5,
   },
@@ -853,13 +1347,14 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 8,
     elevation: 4,
+    marginBottom: 10,
   },
   chart: {
     marginVertical: 8,
     borderRadius: 16,
   },
   loadingContainer: {
-    height: 120, // Reduzido
+    height: 120,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -879,7 +1374,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 8,
     elevation: 4,
-    height: 120, // Reduzido
+    height: 120,
   },
   noDataText: {
     color: '#666666',
@@ -896,11 +1391,56 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'transparent',
-    minHeight: 170, // Reduzido
-    paddingTop: 15, // Reduzido
-    paddingBottom: 10, // Reduzido
+    minHeight: 170,
+    paddingTop: 15,
+    paddingBottom: 10,
+  },
+  pieChartLegend: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    marginTop: 0,
+    maxWidth: '100%',
+    paddingTop: 0,
+    paddingBottom: 0,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 3,
+    paddingHorizontal: 6,
+    marginHorizontal: 2,
+    marginVertical: 1,
+    borderRadius: 10,
+    backgroundColor: '#F5F5F5',
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.03)',
+  },
+  legendItemSelected: {
+    backgroundColor: '#FFFDF0',
+    borderColor: 'rgba(0,0,0,0.1)',
+    elevation: 1,
+  },
+  legendColorBox: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 4,
+  },
+  legendColorBoxSelected: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  legendText: {
+    color: '#555',
+    fontSize: 10,
+    fontWeight: '400',
+  },
+  legendTextSelected: {
+    fontWeight: 'bold',
   },
 });
 
-export { GaugeChart };
+export { GaugeChart, SimplePie3D };
 export default Chart;

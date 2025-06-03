@@ -4,7 +4,6 @@ import { Picker } from '@react-native-picker/picker';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../Supabase';
 import styles from '../../Styles/Manage/IncomePageStyle';
-import IncomeChart from '../../Utility/Chart';
 import AlertComponent from '../../Utility/Alerts';
 import { useFocusEffect } from '@react-navigation/native';
 import Chart from '../../Utility/Chart';
@@ -376,18 +375,30 @@ const IncomePage = ({ navigation }) => {
     setDeleteModalVisible(true); // Abre o modal de confirmação
   };
 
-  const handleCategorySelect = (categoryId) => {
-    if (selectedCategoryId === categoryId) {
-      // Se clicar na mesma categoria, limpa o filtro
+  // Novo método para lidar com a seleção de categoria no gráfico
+  const handleChartCategorySelect = (selectedCategory) => {
+    if (!selectedCategory) {
+      // Se nenhuma categoria está selecionada, limpar o filtro
+      setFilteredIncomes([]);
+      setSelectedCategoryId(null);
+      return;
+    }
+
+    // Encontrar a categoria correspondente no array de categorias
+    const category = categories.find(c => c.name === selectedCategory.name);
+    if (!category) return;
+
+    // Se clicar na mesma categoria, limpa o filtro
+    if (selectedCategoryId === category.id) {
       setSelectedCategoryId(null);
       setFilteredIncomes([]);
       return;
     }
     
-    setSelectedCategoryId(categoryId);
+    setSelectedCategoryId(category.id);
     
     // Filtrar os incomes para mostrar apenas os da categoria selecionada
-    const filtered = incomes.filter(income => income.category_id === categoryId);
+    const filtered = incomes.filter(income => income.category_id === category.id);
     setFilteredIncomes(filtered);
     
     if (filtered.length === 0) {
@@ -395,88 +406,6 @@ const IncomePage = ({ navigation }) => {
       setAlertType('info');
       setShowAlert(true);
     }
-  };
-
-  // Renderizar um item de categoria para o filtro horizontal
-  const renderCategoryItem = ({ item }) => {
-    if (!item || !item.id) return null;
-    
-    const isSelected = selectedCategoryId === item.id;
-    
-    return (
-      <TouchableOpacity 
-        style={[
-          styles.categoryChip, 
-          isSelected && styles.categoryChipSelected
-        ]}
-        onPress={() => handleCategorySelect(item.id)}
-        activeOpacity={0.7}
-      >
-        <Text style={[
-          styles.categoryChipText,
-          isSelected && styles.categoryChipTextSelected
-        ]}>
-          {item.name}
-        </Text>
-        {isSelected && (
-          <View style={styles.categoryChipIndicator}>
-            <Ionicons name="checkmark" size={12} color="#FFF" />
-          </View>
-        )}
-      </TouchableOpacity>
-    );
-  };
-
-  // Botão para limpar filtros
-  const renderClearFilterButton = () => {
-    if (filteredIncomes.length === 0) return null;
-    
-    return (
-      <TouchableOpacity 
-        style={styles.clearFilterButton}
-        onPress={() => {
-          setFilteredIncomes([]);
-          setSelectedCategoryId(null);
-        }}
-        activeOpacity={0.7}
-      >
-        <Ionicons name="close-circle" size={18} color="#FFF" />
-        <Text style={styles.clearFilterButtonText}>Clear Filter</Text>
-      </TouchableOpacity>
-    );
-  };
-
-  // Renderiza um item de income para o modal de filtro
-  const renderFilterItem = ({ item, index }) => {
-    if (!item || item.isAddButton) return null;
-    
-    return (
-      <View style={styles.modalIncomeItem} key={`filter-item-${item.id || index}`}>
-        <View style={styles.incomeRow}>
-          <Text style={styles.incomeTitle}>{item.name}</Text>
-          <Text style={styles.incomeDetails}>
-            {formatCurrency(item.amount)}
-          </Text>
-        </View>
-
-        <View style={styles.incomeRow}>
-          {item.categories && (
-            <View style={styles.categoryTag}>
-              <Text style={styles.categoryText}>
-                {item.categories.name}
-              </Text>
-            </View>
-          )}
-          {item.frequencies && (
-            <View style={styles.frequencyTag}>
-              <Text style={styles.frequencyText}>
-                {item.frequencies.name}
-              </Text>
-            </View>
-          )}
-        </View>
-      </View>
-    );
   };
 
   const renderIncomeItem = ({ item }) => {
@@ -552,32 +481,9 @@ const IncomePage = ({ navigation }) => {
           categories={categories}
           frequencies={frequencies}
           chartTypes={['Bar', 'Pie', 'Line']}
+          onCategorySelect={handleChartCategorySelect}
         />
       </View>
-
-      {/* Filtro por categoria - lista horizontal */}
-      <View style={styles.filterSection}>
-        <View style={styles.filterHeader}>
-          <Text style={styles.filterHeaderText}>Filter by Category</Text>
-          {renderClearFilterButton()}
-        </View>
-        <FlatList
-          data={categories}
-          renderItem={renderCategoryItem}
-          keyExtractor={item => `category-${item.id}`}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.categoryList}
-        />
-      </View>
-
-      {selectedCategoryId && (
-        <View style={styles.filterInfoContainer}>
-          <Text style={styles.filterInfoText}>
-            Showing incomes for: {categories.find(c => c.id === selectedCategoryId)?.name || 'Selected category'}
-          </Text>
-        </View>
-      )}
 
       <FlatList
         data={incomesWithAddButton}
