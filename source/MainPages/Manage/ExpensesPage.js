@@ -7,6 +7,7 @@ import { supabase } from '../../../Supabase';
 import AlertComponent from '../../Utility/Alerts';
 import { useFocusEffect } from '@react-navigation/native';
 import Chart from '../../Utility/Chart';
+import Header from '../../Utility/Header';
 import { formatCurrency, getCurrentCurrency, addCurrencyChangeListener, removeCurrencyChangeListener, shouldConvertCurrencyValues } from '../../Utility/FetchCountries';
 import { convertValueToCurrentCurrency } from '../../Utility/CurrencyConverter';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -753,16 +754,18 @@ const ExpensesPage = () => {
     <View style={styles.container}>
       {showAlert && <AlertComponent type={alertType} message={alertMessage} onClose={() => setShowAlert(false)} />}
 
-      <Text style={styles.header}>Expenses Management</Text>
+      <Header title="Expenses Management" />
 
-      <Chart
-        incomes={expenses}
-        categories={categories}
-        frequencies={frequencies}
-        processData={processExpenseData}
-        chartTypes={['categories', 'pie', 'line']}
-        onCategorySelect={handleChartCategorySelect}
-      />
+      <View style={styles.chartContainer}>
+        <Chart
+          incomes={expenses}
+          categories={categories}
+          frequencies={frequencies}
+          processData={processExpenseData}
+          chartTypes={['categories', 'pie', 'line']}
+          onCategorySelect={handleChartCategorySelect}
+        />
+      </View>
       
       <FlatList
         data={expensesWithAddButton}

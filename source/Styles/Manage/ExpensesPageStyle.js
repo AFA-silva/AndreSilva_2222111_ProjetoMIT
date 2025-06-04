@@ -4,15 +4,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FAFAFA',
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    paddingTop: 0,
   },
-  header: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#333333',
-    marginBottom: 24,
-    textAlign: 'center',
-    letterSpacing: 0.5,
+  chartContainer: {
+    width: '100%',
+    marginTop: 16,
+    marginBottom: 16,
+    backgroundColor: 'transparent',
   },
   expenseItem: {
     backgroundColor: '#FFFFFF',

@@ -1,10 +1,11 @@
 import React from 'react';
-import { View, Text, StyleSheet, StatusBar, Platform } from 'react-native';
+import { View, Text, StyleSheet, StatusBar, Platform, Dimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
 // Detector de plataforma
 const isWeb = Platform.OS === 'web';
 const STATUSBAR_HEIGHT = isWeb ? 0 : (StatusBar.currentHeight || (Platform.OS === 'ios' ? 44 : 0));
+const SCREEN_WIDTH = Dimensions.get('window').width;
 
 const Header = ({ title }) => {
   return (
@@ -39,7 +40,12 @@ const Header = ({ title }) => {
 
 const styles = StyleSheet.create({
   headerWrapper: {
-    width: '100%',
+    width: SCREEN_WIDTH, // Usar largura da tela
+    left: 0,
+    right: 0,
+    position: 'relative',
+    marginHorizontal: -16, // Compensar pelo padding dos containers pai
+    alignSelf: 'center',
   },
   headerContainer: {
     paddingTop: isWeb ? 16 : STATUSBAR_HEIGHT + 8,
@@ -49,26 +55,30 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     position: 'relative',
     overflow: 'hidden',
-    borderBottomLeftRadius: 15,
-    borderBottomRightRadius: 15,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+    width: '100%',
   },
   titleContainer: {
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
     zIndex: 2,
+    paddingTop: 4,
+    paddingBottom: 2,
   },
   headerTitle: {
     fontSize: 20,
     fontWeight: '700',
     color: '#FFFFFF',
     textAlign: 'center',
+    letterSpacing: 0.5,
   },
   titleUnderline: {
     height: 2,
-    width: 30,
+    width: 40,
     backgroundColor: '#FFFFFF',
-    marginTop: 5,
+    marginTop: 6,
   },
   decorativeCircle: {
     position: 'absolute',

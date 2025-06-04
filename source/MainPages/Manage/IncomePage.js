@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Modal, FlatList, TextInput, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, Modal, FlatList, TextInput, ScrollView, Animated as RNAnimated } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../Supabase';
@@ -7,6 +7,7 @@ import styles from '../../Styles/Manage/IncomePageStyle';
 import AlertComponent from '../../Utility/Alerts';
 import { useFocusEffect } from '@react-navigation/native';
 import Chart from '../../Utility/Chart';
+import Header from '../../Utility/Header';
 import { formatCurrency, getCurrentCurrency, addCurrencyChangeListener, removeCurrencyChangeListener, shouldConvertCurrencyValues } from '../../Utility/FetchCountries';
 import { convertValueToCurrentCurrency } from '../../Utility/CurrencyConverter';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -34,6 +35,9 @@ const IncomePage = ({ navigation }) => {
     category_id: '',
   });
   const [originalCurrency, setOriginalCurrency] = useState('EUR'); // Moeda original do sistema
+  // Nova state para controlar a animação
+  const [fadeAnim] = useState(new RNAnimated.Value(1));
+  const [animationInProgress, setAnimationInProgress] = useState(false);
 
   const [alertMessage, setAlertMessage] = useState('');
   const [alertType, setAlertType] = useState('');
@@ -375,12 +379,11 @@ const IncomePage = ({ navigation }) => {
     setDeleteModalVisible(true); // Abre o modal de confirmação
   };
 
-  // Novo método para lidar com a seleção de categoria no gráfico
+  // Versão animada do método de seleção da categoria do gráfico
   const handleChartCategorySelect = (selectedCategory) => {
     if (!selectedCategory) {
-      // Se nenhuma categoria está selecionada, limpar o filtro
-      setFilteredIncomes([]);
-      setSelectedCategoryId(null);
+      // Se nenhuma categoria está selecionada, limpar o filtro com animação
+      clearFiltersWithAnimation();
       return;
     }
 
@@ -388,91 +391,207 @@ const IncomePage = ({ navigation }) => {
     const category = categories.find(c => c.name === selectedCategory.name);
     if (!category) return;
 
-    // Se clicar na mesma categoria, limpa o filtro
+    // Se clicar na mesma categoria, limpa o filtro com animação
     if (selectedCategoryId === category.id) {
-      setSelectedCategoryId(null);
-      setFilteredIncomes([]);
+      clearFiltersWithAnimation();
       return;
     }
     
-    setSelectedCategoryId(category.id);
+    // Animar a transição do filtro
+    setAnimationInProgress(true);
     
-    // Filtrar os incomes para mostrar apenas os da categoria selecionada
-    const filtered = incomes.filter(income => income.category_id === category.id);
-    setFilteredIncomes(filtered);
+    // Fade out
+    RNAnimated.timing(fadeAnim, {
+      toValue: 0,
+      duration: 250,
+      useNativeDriver: true
+    }).start(() => {
+      // Aplicar o filtro quando a animação de fade out terminar
+      setSelectedCategoryId(category.id);
+      
+      // Filtrar os incomes para mostrar apenas os da categoria selecionada
+      const filtered = incomes.filter(income => income.category_id === category.id);
+      setFilteredIncomes(filtered);
+      
+      // Mostrar mensagem se não encontrar incomes
+      if (filtered.length === 0) {
+        setAlertMessage('No incomes found for this category');
+        setAlertType('info');
+        setShowAlert(true);
+      }
+      
+      // Fade in
+      RNAnimated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 250,
+        useNativeDriver: true
+      }).start(() => {
+        setAnimationInProgress(false);
+      });
+    });
+  };
+  
+  // Novo método para limpar os filtros com animação
+  const clearFiltersWithAnimation = () => {
+    if (animationInProgress || (filteredIncomes.length === 0 && !selectedCategoryId)) return;
     
-    if (filtered.length === 0) {
-      setAlertMessage('No incomes found for this category');
-      setAlertType('info');
-      setShowAlert(true);
-    }
+    setAnimationInProgress(true);
+    
+    // Fade out
+    RNAnimated.timing(fadeAnim, {
+      toValue: 0,
+      duration: 250,
+      useNativeDriver: true
+    }).start(() => {
+      // Limpar os filtros
+      setSelectedCategoryId(null);
+      setFilteredIncomes([]);
+      
+      // Fade in
+      RNAnimated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 250,
+        useNativeDriver: true
+      }).start(() => {
+        setAnimationInProgress(false);
+      });
+    });
   };
 
   const renderIncomeItem = ({ item }) => {
     if (item.isAddButton) {
       return (
-        <TouchableOpacity
-          style={[styles.incomeItem, { justifyContent: 'center', alignItems: 'center', borderStyle: 'dashed', borderColor: '#FFB74D', borderWidth: 2, backgroundColor: '#FFFDE7' }]}
-          onPress={handleAddIncome}
-          activeOpacity={0.8}
-        >
-          <Text style={[styles.addButtonText, { color: '#FFA726', fontSize: 18 }]}>+ Add Income</Text>
-        </TouchableOpacity>
+        <RNAnimated.View style={{opacity: fadeAnim}}>
+          <TouchableOpacity
+            style={[styles.incomeItem, { justifyContent: 'center', alignItems: 'center', borderStyle: 'dashed', borderColor: '#FFB74D', borderWidth: 2, backgroundColor: '#FFFDE7' }]}
+            onPress={handleAddIncome}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.addButtonText, { color: '#FFA726', fontSize: 18 }]}>+ Add Income</Text>
+          </TouchableOpacity>
+        </RNAnimated.View>
       );
     }
 
+    const isHighlighted = selectedCategoryId === item.category_id;
+
     return (
-      <View style={styles.incomeItem}>
-        <View style={styles.incomeRow}>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <View style={[styles.priorityIndicator, { backgroundColor: '#4CAF50' }]} />
-            <Text style={styles.incomeTitle}>{item.name}</Text>
+      <RNAnimated.View style={{
+        opacity: fadeAnim,
+        transform: [{
+          scale: fadeAnim.interpolate({
+            inputRange: [0, 1],
+            outputRange: [0.96, 1]
+          })
+        }]
+      }}>
+        <View style={[
+          styles.incomeItem, 
+          isHighlighted && styles.highlightedIncomeItem
+        ]}>
+          <View style={styles.incomeRow}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <View style={[styles.priorityIndicator, { backgroundColor: '#4CAF50' }]} />
+              <Text style={styles.incomeTitle}>{item.name}</Text>
+            </View>
+            <Text style={styles.incomeDetails}>
+              {formatCurrency(item.amount)}
+            </Text>
           </View>
-          <Text style={styles.incomeDetails}>
-            {formatCurrency(item.amount)}
-          </Text>
-        </View>
 
-        <View style={styles.incomeRow}>
-          {item.categories && (
-            <View style={styles.categoryTag}>
-              <Text style={styles.categoryText}>
-                {item.categories.name}
-              </Text>
-            </View>
-          )}
-          {item.frequencies && (
-            <View style={styles.frequencyTag}>
-              <Text style={styles.frequencyText}>
-                {item.frequencies.name}
-              </Text>
-            </View>
-          )}
-        </View>
+          <View style={styles.incomeRow}>
+            {item.categories && (
+              <View style={[
+                styles.categoryTag,
+                isHighlighted && styles.highlightedCategoryTag
+              ]}>
+                <Text style={[
+                  styles.categoryText,
+                  isHighlighted && styles.highlightedCategoryText
+                ]}>
+                  {item.categories.name}
+                </Text>
+              </View>
+            )}
+            {item.frequencies && (
+              <View style={styles.frequencyTag}>
+                <Text style={styles.frequencyText}>
+                  {item.frequencies.name}
+                </Text>
+              </View>
+            )}
+          </View>
 
-        <View style={[styles.incomeRow, { marginTop: 8, justifyContent: 'flex-end' }]}>
-          <TouchableOpacity
-            style={[styles.actionButtonEdit, { marginRight: 8 }]}
-            onPress={() => handleEditIncome(item)}
-          >
-            <Ionicons name="pencil" size={16} color="#FFF" />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.actionButtonDelete}
-            onPress={() => confirmDeleteIncome(item)}
-          >
-            <Ionicons name="trash" size={16} color="#FFF" />
-          </TouchableOpacity>
+          <View style={[styles.incomeRow, { marginTop: 8, justifyContent: 'flex-end' }]}>
+            <TouchableOpacity
+              style={[styles.actionButtonEdit, { marginRight: 8 }]}
+              onPress={() => handleEditIncome(item)}
+            >
+              <Ionicons name="pencil" size={16} color="#FFF" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.actionButtonDelete}
+              onPress={() => confirmDeleteIncome(item)}
+            >
+              <Ionicons name="trash" size={16} color="#FFF" />
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
+      </RNAnimated.View>
     );
+  };
+
+  // Nova função simplificada para calcular os dados do gráfico de pizza
+  const calculatePieData = () => {
+    if (!incomes || !categories || !frequencies) return [];
+
+    // Cores predefinidas para o gráfico
+    const pieColors = [
+      '#FF9500',  // Laranja
+      '#9C27B0',  // Roxo
+      '#2196F3',  // Azul
+      '#4CAF50',  // Verde
+      '#F44336',  // Vermelho
+      '#FFEB3B',  // Amarelo
+    ];
+    
+    // Agrupar por categoria
+    const catTotals = {};
+    
+    // Inicializar categorias
+    categories.forEach(cat => {
+      catTotals[cat.id] = { 
+        id: cat.id,
+        name: cat.name, 
+        value: 0, 
+        color: pieColors[cat.id % pieColors.length]
+      };
+    });
+    
+    // Somar valores por categoria
+    incomes.forEach(income => {
+      if (catTotals[income.category_id]) {
+        const frequency = frequencies.find(f => f.id === income.frequency_id);
+          const days = frequency?.days || 30;
+        // Converter para valor mensal
+          const monthlyAmount = income.amount * (30 / days);
+        catTotals[income.category_id].value += monthlyAmount;
+      }
+    });
+    
+    // Filtrar para excluir categorias sem valores ou com valores muito pequenos
+    let result = Object.values(catTotals)
+      .filter(cat => cat.name && cat.value > 0) // Só incluir categorias com valor > 0
+      .sort((a, b) => b.value - a.value);
+
+    return result;
   };
 
   return (
     <View style={styles.container}>
       {showAlert && <AlertComponent type={alertType} message={alertMessage} onClose={() => setShowAlert(false)} />}
 
-      <Text style={styles.header}>Income Management</Text>
+      <Header title="Income Management" />
 
       <View style={styles.chartContainer}>
         <Chart
@@ -484,6 +603,18 @@ const IncomePage = ({ navigation }) => {
           onCategorySelect={handleChartCategorySelect}
         />
       </View>
+
+      {/* Se existir um filtro ativo, mostrar botão para limpar */}
+      {filteredIncomes.length > 0 && (
+        <TouchableOpacity 
+          style={styles.clearFilterButton}
+          onPress={clearFiltersWithAnimation}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="close-circle" size={18} color="#FFF" />
+          <Text style={styles.clearFilterButtonText}>Clear Filter</Text>
+        </TouchableOpacity>
+      )}
 
       <FlatList
         data={incomesWithAddButton}

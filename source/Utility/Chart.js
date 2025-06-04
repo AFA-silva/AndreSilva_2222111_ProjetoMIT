@@ -2,7 +2,7 @@ import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { View, Text, TouchableOpacity, StyleSheet, Dimensions, Platform, Animated as RNAnimated, Pressable } from 'react-native';
 import { LineChart, BarChart } from 'react-native-chart-kit';
 import { useFocusEffect } from '@react-navigation/native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { LinearGradient as ExpoLinearGradient } from 'expo-linear-gradient';
 import Svg, { 
   G, 
   Path, 
@@ -10,10 +10,10 @@ import Svg, {
   Text as SvgText,
   Rect,
   Line,
-  LinearGradient as SvgGradient,
+  LinearGradient,
   RadialGradient,
   Stop,
-  Defs
+  Defs 
 } from 'react-native-svg';
 import Animated, { 
   useSharedValue, 
@@ -48,7 +48,7 @@ const GaugeChart = ({
   gaugeColors = {
     valueArc: '#FF9800',
     referenceArc: '#FFE0B2',
-    valueText: '#2D3748'
+    valueText: '#333333'
   },
 }) => {
   const [isReady, setIsReady] = useState(false);
@@ -257,18 +257,18 @@ const AnimatedBar3D = ({
   return (
     <G key={index}>
       <Defs>
-        <SvgGradient id={`gradient-${index}`} x1="0" y1="0" x2="0" y2="1">
+        <LinearGradient id={`gradient-${index}`} x1="0" y1="0" x2="0" y2="1">
           <Stop offset="0" stopColor={colors[0]} stopOpacity="1" />
           <Stop offset="1" stopColor={colors[1]} stopOpacity="0.8" />
-        </SvgGradient>
-        <SvgGradient id={`gradient-top-${index}`} x1="0" y1="0" x2="1" y2="0">
+        </LinearGradient>
+        <LinearGradient id={`gradient-top-${index}`} x1="0" y1="0" x2="1" y2="0">
           <Stop offset="0" stopColor={colors[0]} stopOpacity="1" />
           <Stop offset="1" stopColor={colors[1]} stopOpacity="0.9" />
-        </SvgGradient>
-        <SvgGradient id={`gradient-side-${index}`} x1="0" y1="0" x2="1" y2="0">
+        </LinearGradient>
+        <LinearGradient id={`gradient-side-${index}`} x1="0" y1="0" x2="1" y2="0">
           <Stop offset="0" stopColor={colors[1]} stopOpacity="0.4" />
           <Stop offset="1" stopColor={colors[1]} stopOpacity="0.1" />
-        </SvgGradient>
+        </LinearGradient>
       </Defs>
 
       <AnimatedPath
@@ -316,11 +316,11 @@ const renderCustomBarChart = ({
   const chartHeight = height - 50;
   
   const barColors = [
-    ['#4CAF50', '#81C784'],
-    ['#2196F3', '#64B5F6'],
-    ['#9C27B0', '#BA68C8'],
-    ['#FF9800', '#FFB74D'],
-    ['#F44336', '#E57373'],
+    ['#FF9800', '#FFB74D'], // Laranja
+    ['#FF5722', '#FF8A65'], // Laranja profundo
+    ['#FFEB3B', '#FFF176'], // Amarelo
+    ['#F44336', '#E57373'], // Vermelho
+    ['#FF9500', '#FFC06A'], // Laranja claro
   ];
 
   return (
@@ -425,16 +425,16 @@ const SimplePie3D = ({
   // EDITAR AQUI: Posição vertical do centro da torta (menor = mais para cima, maior = mais para baixo)
   const center = { x: width / 2, y: height / 2 };
   // EDITAR AQUI: Tamanho da torta (menor número = torta maior, maior número = torta menor)
-  const radius = Math.min(width, height) / 2.65;
+  const radius = Math.min(width, height) / 2.7;
   
   // Paleta de cores melhorada para maior harmonia e contraste
   const colors = [
-    '#FF9500', // Laranja
-    '#9C27B0', // Roxo
-    '#2196F3', // Azul
-    '#4CAF50', // Verde
-    '#F44336', // Vermelho
-    '#FFEB3B', // Amarelo
+    '#FF9500', // Laranja principal
+    '#E53935', // Vermelho vibrante
+    '#FFD54F', // Amarelo dourado
+    '#FF6D00', // Laranja escuro
+    '#FFC107', // Amber
+    '#FF3D00', // Vermelho alaranjado
   ];
   
   // Animação de entrada ao montar o componente
@@ -472,7 +472,7 @@ const SimplePie3D = ({
     let startAngle = 0;
     
     return data
-      .filter(item => item.name) // Manter apenas se tem um nome
+      .filter(item => item.name && item.value > 0) // Filtrar apenas categorias com valor > 0
       .map((item, index) => {
         const percentage = total > 0 ? (item.value / total) : 0;
         const angle = percentage * Math.PI * 2;
@@ -583,22 +583,19 @@ const SimplePie3D = ({
   
   // Lidar com toque/clique em uma fatia com animação de seleção
   const handleSlicePress = (index) => {
-    // Efeito de "pulse" animado na seleção
-    animationProgress.value = withSequence(
-      withTiming(1.05, { duration: 150, easing: Easing.out(Easing.quad) }),
-      withTiming(1, { duration: 300, easing: Easing.inOut(Easing.quad) })
-    );
+    // Efeito de "pulse" animado na seleção (removido o sequenceWithTiming que causava o shake)
+    animationProgress.value = withTiming(1, { 
+      duration: 300, 
+      easing: Easing.inOut(Easing.quad)
+    });
     
-    // Efeito sutil de "giro" ao selecionar
-    rotationValue.value = withSequence(
-      withTiming(index * 0.01, { duration: 200, easing: Easing.out(Easing.quad) }),
-      withTiming(0, { duration: 400, easing: Easing.inOut(Easing.quad) })
-    );
+    // Remover rotação que causava shake
+    rotationValue.value = 0;
     
     setSelectedSlice(selectedSlice === index ? null : index);
     if (onSelectSlice) {
       // Passar o objeto completo da categoria para o callback
-      const selectedCategory = index !== null ? data[index] : null;
+      const selectedCategory = index !== null && index < data.length ? data[index] : null;
       onSelectSlice(selectedCategory);
     }
   };
@@ -630,44 +627,87 @@ const SimplePie3D = ({
               <Stop offset="100%" stopColor="#000000" stopOpacity="0.05" />
             </RadialGradient>
             
+            {/* Gradiente de sombra projetada para fatias elevadas */}
+            <RadialGradient
+              id="elevation-shadow"
+              cx="50%"
+              cy="50%"
+              r="50%"
+              fx="50%"
+              fy="50%"
+              gradientUnits="userSpaceOnUse"
+            >
+              <Stop offset="0%" stopColor="#000000" stopOpacity="0.2" />
+              <Stop offset="70%" stopColor="#000000" stopOpacity="0.1" />
+              <Stop offset="100%" stopColor="#000000" stopOpacity="0.0" />
+            </RadialGradient>
+            
             {/* Gradientes para cada fatia */}
             {slices.map((slice, index) => (
               <React.Fragment key={`gradients-${index}`}>
                 {/* Gradiente principal para o topo da fatia */}
-                <SvgGradient
+                <LinearGradient
                   id={`gradient-top-${index}`}
                   x1="0%"
                   y1="0%"
                   x2="100%"
                   y2="100%"
                 >
-                  <Stop offset="0%" stopColor={slice.color} stopOpacity="1" />
-                  <Stop offset="100%" stopColor={slice.color} stopOpacity="0.9" />
-                </SvgGradient>
+                  <Stop offset="0%" stopColor={slice.color} stopOpacity={slice.isSelected ? 1 : 0.9} />
+                  <Stop offset="100%" stopColor={slice.color} stopOpacity={slice.isSelected ? 0.95 : 0.8} />
+                </LinearGradient>
                 
                 {/* Gradiente para a parte lateral */}
-                <SvgGradient
+                <LinearGradient
                   id={`gradient-side-${index}`}
                   x1="0%"
                   y1="0%"
                   x2="100%"
                   y2="0%"
                 >
-                  <Stop offset="0%" stopColor={slice.color} stopOpacity="0.85" />
-                  <Stop offset="100%" stopColor={slice.color} stopOpacity="0.6" />
-                </SvgGradient>
+                  <Stop offset="0%" stopColor={slice.color} stopOpacity={slice.isSelected ? 0.9 : 0.75} />
+                  <Stop offset="100%" stopColor={slice.color} stopOpacity={slice.isSelected ? 0.7 : 0.5} />
+                </LinearGradient>
                 
                 {/* Gradiente para a parte inferior */}
-                <SvgGradient
+                <LinearGradient
                   id={`gradient-bottom-${index}`}
                   x1="0%"
                   y1="0%"
                   x2="100%"
                   y2="0%"
                 >
-                  <Stop offset="0%" stopColor={slice.color} stopOpacity="0.5" />
-                  <Stop offset="100%" stopColor={slice.color} stopOpacity="0.3" />
-                </SvgGradient>
+                  <Stop offset="0%" stopColor={slice.color} stopOpacity={slice.isSelected ? 0.6 : 0.45} />
+                  <Stop offset="100%" stopColor={slice.color} stopOpacity={slice.isSelected ? 0.4 : 0.25} />
+                </LinearGradient>
+                
+                {/* Novo gradiente para fatias selecionadas com efeito brilhante */}
+                {slice.isSelected && (
+                  <LinearGradient
+                    id={`gradient-glow-${index}`}
+                    x1="0%"
+                    y1="0%"
+                    x2="100%"
+                    y2="100%"
+                  >
+                    <Stop offset="0%" stopColor="#FFFFFF" stopOpacity="0.5" />
+                    <Stop offset="100%" stopColor={slice.color} stopOpacity="0.8" />
+                  </LinearGradient>
+                )}
+                
+                {/* Fundo escuro para a fatia selecionada */}
+                {slice.isSelected && (
+                  <LinearGradient
+                    id={`gradient-background-${index}`}
+                    x1="0%"
+                    y1="0%"
+                    x2="100%"
+                    y2="100%"
+                  >
+                    <Stop offset="0%" stopColor="#333" stopOpacity="0.15" />
+                    <Stop offset="100%" stopColor="#111" stopOpacity="0.3" />
+                  </LinearGradient>
+                )}
               </React.Fragment>
             ))}
           </Defs>
@@ -680,19 +720,46 @@ const SimplePie3D = ({
             fill="url(#shadow-gradient)"
           />
           
+          {/* Renderizar background para fatias selecionadas */}
+          {slices.map((slice, index) => {
+            if (!slice.isSelected) return null;
+            
+            // Restaurar o deslocamento radial original
+            const offsetX = Math.cos(slice.midAngle) * 14;
+            const offsetY = Math.sin(slice.midAngle) * 14;
+            
+            return (
+              <Path
+                key={`background-${index}`}
+                d={createArcPath(slice.startAngle, slice.endAngle, 0, radius * 1.08)}
+                fill={`url(#gradient-background-${index})`}
+                x={offsetX}
+                y={offsetY}
+                opacity={0.8}
+              />
+            );
+          })}
+          
           {/* Renderizar as fatias em ordem inversa para sobrepor corretamente */}
           {[...slices].reverse().map((slice, i) => {
             const index = slices.length - 1 - i;
             const actualSlice = slices[index];
             
-            // Deslocamento quando selecionado (ajusta o "salto" da fatia)
-            const offsetX = actualSlice.isSelected ? Math.cos(actualSlice.midAngle) * 12 : 0;
-            const offsetY = actualSlice.isSelected ? Math.sin(actualSlice.midAngle) * 12 : 0;
-            // Profundidade extra quando selecionado
-            const sliceDepth = actualSlice.isSelected ? pieDepth + 5 : pieDepth;
+            // Restaurar o deslocamento radial para o comportamento original
+            const offsetX = actualSlice.isSelected ? Math.cos(actualSlice.midAngle) * 14 : 0;
+            const offsetY = actualSlice.isSelected ? Math.sin(actualSlice.midAngle) * 14 : 0;
+            
+            // Profundidade extra quando selecionado e escala para destacar
+            const sliceDepth = actualSlice.isSelected ? pieDepth + 6 : pieDepth;
+            const sliceScale = actualSlice.isSelected ? 1.05 : 1;
             
             // Usar gradientes diferentes dependendo do estado
-            const fillGradient = `url(#gradient-top-${index})`;
+            const fillGradient = actualSlice.isSelected 
+              ? `url(#gradient-glow-${index})` 
+              : `url(#gradient-top-${index})`;
+            
+            // Opacidade para destacar a seleção - reduzir menos as fatias não selecionadas
+            const sliceOpacity = actualSlice.isSelected ? 1 : (selectedSlice !== null ? 0.85 : 0.95);
             
             // Função para lidar com o clique para web e mobile
             const handleClick = () => {
@@ -705,13 +772,26 @@ const SimplePie3D = ({
                 key={`slice-3d-${index}`}
                 x={offsetX}
                 y={offsetY}
+                opacity={sliceOpacity}
+                scale={sliceScale}
               >
+                {/* Remover as sombras específicas que adicionamos */}
+                {/* Adicionar um efeito de brilho/contorno para a fatia selecionada */}
+                {actualSlice.isSelected && (
+                  <Path
+                    d={createArcPath(actualSlice.startAngle, actualSlice.endAngle, 0, radius * 1.02)}
+                    fill="none"
+                    stroke={actualSlice.color}
+                    strokeWidth={2}
+                    strokeOpacity={0.7}
+                  />
+                )}
+                
                 {/* Face inferior da fatia */}
                 <Path
                   d={createArcPath(actualSlice.startAngle, actualSlice.endAngle, 0, radius)}
                   fill={`url(#gradient-bottom-${index})`}
                   y={sliceDepth}
-                  opacity={0.8}
                 />
                 
                 {/* Lateral da fatia (profundidade) */}
@@ -725,7 +805,6 @@ const SimplePie3D = ({
                   d={createArcPath(actualSlice.startAngle, actualSlice.endAngle, 0, radius)}
                   fill={fillGradient}
                   onClick={handleClick}
-                  scale={actualSlice.isSelected ? 1.04 : actualSlice.isHovered ? 1.02 : 1}
                 />
               </G>
             );
@@ -736,9 +815,9 @@ const SimplePie3D = ({
             // Ajustar tamanho da fonte baseado na porcentagem 
             const isSmallSlice = slice.percentage < 0.05;
             
-            // Calcular deslocamento menor para seleção
-            const offsetX = slice.isSelected ? Math.cos(slice.midAngle) * 12 : 0;
-            const offsetY = slice.isSelected ? Math.sin(slice.midAngle) * 12 : 0;
+            // Restaurar o deslocamento radial para rótulos também
+            const offsetX = slice.isSelected ? Math.cos(slice.midAngle) * 14 : 0;
+            const offsetY = slice.isSelected ? Math.sin(slice.midAngle) * 14 : 0;
             
             const labelX = slice.labelX + offsetX;
             const labelY = slice.labelY + offsetY;
@@ -747,32 +826,34 @@ const SimplePie3D = ({
             
             // Cor do texto baseada na seleção 
             const textColor = slice.isSelected ? slice.color : '#333';
+            const labelOpacity = slice.isSelected ? 1 : (selectedSlice !== null ? 0.8 : 1);
             
             return (
-              <G key={`label-${index}`}>
-                {/* Linha conectora simplificada */}
+              <G key={`label-${index}`} opacity={labelOpacity}>
+                {/* Linha conectora mais estilizada quando selecionada */}
                 <Line
                   x1={lineStartX}
                   y1={lineStartY}
                   x2={labelX}
                   y2={labelY}
                   stroke={slice.isSelected ? slice.color : '#999'}
-                  strokeWidth={slice.isSelected ? 1 : 0.7}
+                  strokeWidth={slice.isSelected ? 1.5 : 0.8}
                   opacity={slice.isSelected ? 0.9 : 0.7}
+                  strokeDasharray={slice.isSelected ? "" : "2,1"}
                 />
                 
                 {/* Fundo do rótulo para todos */}
                 <Rect
                   x={slice.textAnchor === 'start' ? labelX - 3 : labelX - 28}
                   y={labelY - (isSmallSlice ? 10 : 12)}
-                  width={isSmallSlice ? 25 : 30}
+                  width={isSmallSlice ? 25 : 32}
                   height={isSmallSlice ? 19 : 22}
-                  fill="#FFFFFF"
-                  opacity={0.9}
+                  fill={slice.isSelected ? "#FFFDF0" : "#FFFFFF"}
+                  opacity={0.95}
                   rx={4}
                   ry={4}
                   stroke={slice.isSelected ? slice.color : "transparent"}
-                  strokeWidth={0.5}
+                  strokeWidth={slice.isSelected ? 1 : 0.5}
                 />
                 
                 {/* Texto da porcentagem */}
@@ -781,7 +862,7 @@ const SimplePie3D = ({
                   y={labelY - (isSmallSlice ? 2 : 4)}
                   fill={textColor}
                   fontSize={isSmallSlice ? "8" : "10"}
-                  fontWeight="bold"
+                  fontWeight={slice.isSelected ? "bold" : "normal"}
                   textAnchor={slice.textAnchor}
                 >
                   {`${Math.round(slice.percentage * 100)}%`}
@@ -812,7 +893,8 @@ const SimplePie3D = ({
             style={({pressed}) => [
               styles.legendItem,
               slice.isSelected && styles.legendItemSelected,
-              pressed && {opacity: 0.7}
+              pressed && {opacity: 0.7},
+              selectedSlice !== null && !slice.isSelected && {opacity: 0.6}
             ]}
             onPress={() => handleSlicePress(index)}
           >
@@ -837,6 +919,368 @@ const SimplePie3D = ({
         ))}
       </View>
     </View>
+  );
+};
+
+// Componente Ultra-Moderno para o Line Chart com animações avançadas
+const UltraModernLineChart = ({ data, labels, width, height, style }) => {
+  const canvasHeight = height * 0.85;
+  const chartHeight = canvasHeight * 0.8;
+  const AnimatedPath = Animated.createAnimatedComponent(Path);
+  const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+  
+  // Estados para animação e interatividade
+  const animationProgress = useSharedValue(0);
+  const [activePointIndex, setActivePointIndex] = useState(null);
+  const [isInitialAnimationDone, setIsInitialAnimationDone] = useState(false);
+  
+  // Valores derivados
+  const paddingHorizontal = 30;
+  const paddingTop = 30;
+  const paddingBottom = 30;
+  const xAxisWidth = width - (paddingHorizontal * 2);
+  const yAxisHeight = chartHeight - paddingTop - paddingBottom;
+  
+  // Validação de dados
+  if (!data || data.length === 0 || !labels || labels.length === 0) {
+    return (
+      <View style={{
+        width, 
+        height, 
+        justifyContent: 'center', 
+        alignItems: 'center',
+        backgroundColor: '#FFF',
+        borderRadius: 20
+      }}>
+        <Text style={{color: '#666', fontSize: 14, fontWeight: '500'}}>No data available</Text>
+      </View>
+    );
+  }
+  
+  // Calcular valores máximos para escala
+  const maxValue = Math.max(...data, 1);
+  const minValue = Math.min(...data, 0);
+  const valueRange = Math.max(maxValue - minValue, 1);
+  
+  // Normalizar dados para animação
+  const points = data.map((value, index) => {
+    const x = paddingHorizontal + (index / (data.length - 1)) * xAxisWidth;
+    const normalizedValue = (value - minValue) / valueRange;
+    const y = paddingTop + (1 - normalizedValue) * yAxisHeight;
+    return { x, y, value };
+  });
+  
+  // Criar path para a linha
+  const createPathD = (points, progress) => {
+    if (points.length === 0) return '';
+    if (points.length === 1) {
+      return `M ${points[0].x},${points[0].y} L ${points[0].x},${points[0].y}`;
+    }
+    
+    let path = `M ${points[0].x},${points[0].y}`;
+    for (let i = 0; i < points.length - 1; i++) {
+      const currentPoint = points[i];
+      const nextPoint = points[i + 1];
+      
+      // Limitar pelo progresso da animação
+      const visiblePointCount = Math.floor(progress * points.length);
+      if (i >= visiblePointCount) break;
+      
+      // Se for o último ponto visível na animação, interpolar
+      if (i === visiblePointCount - 1 && visiblePointCount < points.length) {
+        const partialProgress = (progress * points.length) % 1;
+        const interpolatedX = currentPoint.x + (nextPoint.x - currentPoint.x) * partialProgress;
+        const interpolatedY = currentPoint.y + (nextPoint.y - currentPoint.y) * partialProgress;
+        path += ` L ${interpolatedX},${interpolatedY}`;
+      } else {
+        // Bezier curve para suavidade
+        const controlPointX1 = (currentPoint.x + nextPoint.x) / 2;
+        const controlPointX2 = (currentPoint.x + nextPoint.x) / 2;
+        path += ` C ${controlPointX1},${currentPoint.y} ${controlPointX2},${nextPoint.y} ${nextPoint.x},${nextPoint.y}`;
+      }
+    }
+    
+    return path;
+  };
+  
+  // Criar path para a área preenchida abaixo da linha
+  const createAreaD = (points, progress) => {
+    if (points.length === 0) return '';
+    
+    const baselineY = paddingTop + yAxisHeight;
+    let path = `M ${points[0].x},${baselineY} L ${points[0].x},${points[0].y}`;
+    
+    for (let i = 0; i < points.length - 1; i++) {
+      const currentPoint = points[i];
+      const nextPoint = points[i + 1];
+      
+      // Limitar pelo progresso da animação
+      const visiblePointCount = Math.floor(progress * points.length);
+      if (i >= visiblePointCount) break;
+      
+      // Se for o último ponto visível na animação, interpolar
+      if (i === visiblePointCount - 1 && visiblePointCount < points.length) {
+        const partialProgress = (progress * points.length) % 1;
+        const interpolatedX = currentPoint.x + (nextPoint.x - currentPoint.x) * partialProgress;
+        const interpolatedY = currentPoint.y + (nextPoint.y - currentPoint.y) * partialProgress;
+        path += ` L ${interpolatedX},${interpolatedY}`;
+        path += ` L ${interpolatedX},${baselineY} Z`;
+      } else if (i === points.length - 2) {
+        // Último segmento completo
+        const controlPointX1 = (currentPoint.x + nextPoint.x) / 2;
+        const controlPointX2 = (currentPoint.x + nextPoint.x) / 2;
+        path += ` C ${controlPointX1},${currentPoint.y} ${controlPointX2},${nextPoint.y} ${nextPoint.x},${nextPoint.y}`;
+        path += ` L ${nextPoint.x},${baselineY} Z`;
+      } else {
+        // Segmentos intermediários
+        const controlPointX1 = (currentPoint.x + nextPoint.x) / 2;
+        const controlPointX2 = (currentPoint.x + nextPoint.x) / 2;
+        path += ` C ${controlPointX1},${currentPoint.y} ${controlPointX2},${nextPoint.y} ${nextPoint.x},${nextPoint.y}`;
+      }
+    }
+    
+    return path;
+  };
+
+  // Animação inicial ao montar o componente
+  useEffect(() => {
+    animationProgress.value = 0;
+    
+    const timeout = setTimeout(() => {
+      animationProgress.value = withTiming(1, { 
+        duration: 1200, 
+        easing: Easing.bezier(0.16, 1, 0.3, 1)
+      }, () => {
+        runOnJS(setIsInitialAnimationDone)(true);
+      });
+    }, 300);
+    
+    return () => clearTimeout(timeout);
+  }, [data, labels]);
+  
+  // Props animados para o path da linha
+  const animatedLineProps = useAnimatedProps(() => ({
+    d: createPathD(points, animationProgress.value),
+    opacity: interpolate(
+      animationProgress.value,
+      [0, 0.1, 1],
+      [0, 1, 1]
+    ),
+  }));
+  
+  // Props animados para a área preenchida
+  const animatedAreaProps = useAnimatedProps(() => ({
+    d: createAreaD(points, animationProgress.value),
+    opacity: interpolate(
+      animationProgress.value,
+      [0, 0.3, 1],
+      [0, 0.7, 0.7]
+    ),
+  }));
+  
+  // Renderizar linhas de grade
+  const renderGridLines = () => {
+    const gridLineCount = 5;
+    return Array.from({ length: gridLineCount }).map((_, index) => {
+      const y = paddingTop + (index / (gridLineCount - 1)) * yAxisHeight;
+      const value = maxValue - (index / (gridLineCount - 1)) * valueRange;
+      
+      return (
+        <G key={`grid-${index}`}>
+          <Line
+            x1={paddingHorizontal - 10}
+            y1={y}
+            x2={width - paddingHorizontal}
+            y2={y}
+            stroke="#EDEDED"
+            strokeWidth={1}
+            strokeDasharray="5,5"
+          />
+          <SvgText
+            x={paddingHorizontal - 15}
+            y={y + 4}
+            fontSize="10"
+            fontWeight="500"
+            fill="#999"
+            textAnchor="end"
+          >
+            {Math.round(value)}
+          </SvgText>
+        </G>
+      );
+    });
+  };
+  
+  // Renderizar os pontos de dados com animação
+  const renderDataPoints = () => {
+    if (!isInitialAnimationDone) return null;
+    
+    return points.map((point, index) => {
+      const isActive = activePointIndex === index;
+      const pointSize = isActive ? 12 : 8;
+      
+      return (
+        <G key={`point-${index}`}>
+          {/* Ponto exterior */}
+          <Circle
+            cx={point.x}
+            cy={point.y}
+            r={pointSize}
+            fill="#FFFFFF"
+            stroke={isActive ? "#FF9800" : "#FFB74D"}
+            strokeWidth={isActive ? 3 : 2}
+          />
+          
+          {/* Ponto interior */}
+          <Circle
+            cx={point.x}
+            cy={point.y}
+            r={isActive ? 4 : 3}
+            fill={isActive ? "#FF9800" : "#FFB74D"}
+          />
+          
+          {/* Tooltip para ponto ativo */}
+          {isActive && (
+            <G>
+              <Rect
+                x={point.x - 25}
+                y={point.y - 40}
+                width="50"
+                height="30"
+                rx="6"
+                ry="6"
+                fill="#FF9800"
+                opacity={0.9}
+              />
+              <Path
+                d={`M ${point.x - 6} ${point.y - 10} L ${point.x} ${point.y - 4} L ${point.x + 6} ${point.y - 10}`}
+                fill="#FF9800"
+                opacity={0.9}
+              />
+              <SvgText
+                x={point.x}
+                y={point.y - 20}
+                fontSize="12"
+                fontWeight="bold"
+                fill="#FFFFFF"
+                textAnchor="middle"
+              >
+                {Math.round(point.value)}
+              </SvgText>
+            </G>
+          )}
+          
+          {/* Área de toque invisível */}
+          <Circle
+            cx={point.x}
+            cy={point.y}
+            r={20}
+            fill="transparent"
+            onPress={() => setActivePointIndex(index === activePointIndex ? null : index)}
+          />
+        </G>
+      );
+    });
+  };
+  
+  // Renderizar labels do eixo X
+  const renderXLabels = () => {
+    return points.map((point, index) => {
+      // Mostrar apenas algumas labels para evitar sobreposição
+      if (data.length > 6 && index % Math.ceil(data.length / 6) !== 0 && index !== data.length - 1) {
+        return null;
+      }
+      
+      const label = labels[index] || '';
+      
+      return (
+        <SvgText
+          key={`label-${index}`}
+          x={point.x}
+          y={paddingTop + yAxisHeight + 20}
+          fontSize="10"
+          fontWeight="500"
+          fill="#666"
+          textAnchor="middle"
+        >
+          {label}
+        </SvgText>
+      );
+    });
+  };
+  
+  // Estilo animado para o contêiner
+  const containerStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(
+      animationProgress.value,
+      [0, 0.3],
+      [0.7, 1]
+    ),
+    transform: [
+      { 
+        scale: interpolate(
+          animationProgress.value,
+          [0, 1],
+          [0.97, 1]
+        )
+      }
+    ],
+  }));
+  
+  return (
+    <AnimatedView style={[styles.ultraModernChartContainer, containerStyle, style]}>
+      <View style={styles.chartTitle}>
+        <Text style={styles.chartTitleText}>Trend Analysis</Text>
+      </View>
+      
+      <Svg width={width} height={canvasHeight}>
+        {/* Definições de gradientes e sombras */}
+        <Defs>
+          <LinearGradient id="lineGradient" x1="0" y1="0" x2="0" y2="1">
+            <Stop offset="0%" stopColor="#FF9800" stopOpacity="1" />
+            <Stop offset="100%" stopColor="#FFAC42" stopOpacity="1" />
+          </LinearGradient>
+          
+          <LinearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
+            <Stop offset="0%" stopColor="#FF9800" stopOpacity="0.4" />
+            <Stop offset="100%" stopColor="#FFFFFF" stopOpacity="0" />
+          </LinearGradient>
+        </Defs>
+        
+        {/* Linhas de grade */}
+        {renderGridLines()}
+        
+        {/* Área preenchida sob a linha */}
+        <AnimatedPath
+          animatedProps={animatedAreaProps}
+          fill="url(#areaGradient)"
+          strokeWidth="0"
+        />
+        
+        {/* Linha principal */}
+        <AnimatedPath
+          animatedProps={animatedLineProps}
+          stroke="url(#lineGradient)"
+          strokeWidth="3"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          fill="none"
+        />
+        
+        {/* Pontos de dados */}
+        {renderDataPoints()}
+        
+        {/* Labels do eixo X */}
+        {renderXLabels()}
+      </Svg>
+      
+      <View style={styles.chartLegend}>
+        <View style={styles.legendItem}>
+          <View style={[styles.legendColorBox, { backgroundColor: '#FF9800' }]} />
+          <Text style={styles.legendText}>Values</Text>
+        </View>
+      </View>
+    </AnimatedView>
   );
 };
 
@@ -876,9 +1320,65 @@ const Chart = ({
       return () => clearTimeout(timer);
     }, [])
   );
+  
+  // Componente para botões modernos com ícones
+  const TimeButton = ({ label, value, icon }) => {
+    const isActive = period === value;
+    return (
+      <TouchableOpacity
+        style={[
+          styles.periodButton, 
+          isActive && styles.activePeriodButton,
+        ]}
+        onPress={() => setPeriod(value)}
+        activeOpacity={0.8}
+      >
+        <Ionicons 
+          name={icon} 
+          size={16} 
+          color={isActive ? '#FFFFFF' : '#FF8F00'} 
+          style={{marginRight: 6}}
+        />
+        <Text style={[
+          styles.periodButtonText, 
+          isActive && styles.activePeriodButtonText
+        ]}>
+          {label}
+        </Text>
+      </TouchableOpacity>
+    );
+  };
+  
+  // Componente para botões de tipo de gráfico com ícones
+  const ChartTypeButton = ({ label, value, icon }) => {
+    const isActive = chartType === value.toLowerCase();
+    return (
+      <TouchableOpacity
+        style={[
+          styles.button, 
+          isActive && styles.activeButton,
+        ]}
+        onPress={() => setChartType(value.toLowerCase())}
+        activeOpacity={0.8}
+      >
+        <Ionicons 
+          name={icon} 
+          size={18} 
+          color={isActive ? '#FFFFFF' : '#FF8F00'} 
+          style={{marginRight: 6}}
+        />
+        <Text style={[
+          styles.buttonText, 
+          isActive && styles.activeButtonText
+        ]}>
+          {label}
+        </Text>
+      </TouchableOpacity>
+    );
+  };
 
   const defaultChartConfig = {
-    backgroundGradientFrom: '#FFA726',
+    backgroundGradientFrom: '#FF9800',
     backgroundGradientTo: '#FFB74D',
     decimalPlaces: 0,
     color: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
@@ -889,7 +1389,7 @@ const Chart = ({
     propsForDots: {
       r: '6',
       strokeWidth: '2',
-      stroke: '#FFA726',
+      stroke: '#FF8C00',
     },
     propsForBackgroundLines: {
       strokeDasharray: '',
@@ -958,11 +1458,11 @@ const Chart = ({
     // Cores predefinidas para o gráfico
     const pieColors = [
       '#FF9500',  // Laranja
-      '#9C27B0',  // Roxo
-      '#2196F3',  // Azul
-      '#4CAF50',  // Verde
-      '#F44336',  // Vermelho
-      '#FFEB3B',  // Amarelo
+      '#E53935',  // Vermelho vibrante
+      '#FFD54F',  // Amarelo dourado
+      '#FF6D00',  // Laranja escuro
+      '#FFC107',  // Amber
+      '#FF3D00',  // Vermelho alaranjado
     ];
     
     // Agrupar por categoria
@@ -1073,7 +1573,14 @@ const Chart = ({
         return { labels, data };
       }
       if (chartType === 'pie') {
-        return calculatePieData();
+        // Se tivermos acesso à função externa calculatePieData definida em IncomePage.js
+        if (typeof calculatePieData === 'function') {
+          return calculatePieData();
+        } else {
+          // Usar versão interna modificada que só mostra categorias com valor > 0
+          const filteredPieData = calculatePieDataInternal();
+          return filteredPieData;
+        }
       }
       if (chartType === 'line') {
         const { labels, data } = calculateLineChartData();
@@ -1097,7 +1604,14 @@ const Chart = ({
           return { labels, data };
         }
         if (chartType === 'pie') {
-          return calculatePieData();
+          // Se tivermos acesso à função externa calculatePieData definida em IncomePage.js
+          if (typeof calculatePieData === 'function') {
+            return calculatePieData();
+          } else {
+            // Usar versão interna modificada que só mostra categorias com valor > 0
+            const filteredPieData = calculatePieDataInternal();
+            return filteredPieData;
+          }
         }
         if (chartType === 'line') {
           const { labels, data } = calculateLineChartData();
@@ -1105,6 +1619,50 @@ const Chart = ({
         }
         return { labels: [], data: [] };
     }
+  };
+
+  // Função interna para calcular dados do gráfico de pizza, garantindo que só mostre categorias com valores > 0
+  const calculatePieDataInternal = () => {
+    if (!incomes || !categories || !frequencies) return [];
+
+    // Cores predefinidas para o gráfico - alinhadas com o tema do projeto
+    const pieColors = [
+      '#FF9500', // Laranja principal
+      '#E53935', // Vermelho vibrante
+      '#FFD54F', // Amarelo dourado
+      '#FF6D00', // Laranja escuro
+      '#FFC107', // Amber
+      '#FF3D00', // Vermelho alaranjado
+    ];
+    
+    // Agrupar por categoria
+    const catTotals = {};
+    
+    // Inicializar categorias
+    categories.forEach(cat => {
+      catTotals[cat.id] = { 
+        id: cat.id,
+        name: cat.name, 
+        value: 0, 
+        color: pieColors[cat.id % pieColors.length]
+      };
+    });
+    
+    // Somar valores por categoria
+    incomes.forEach(income => {
+      if (catTotals[income.category_id]) {
+        const frequency = frequencies.find(f => f.id === income.frequency_id);
+        const days = frequency?.days || 30;
+        // Converter para valor mensal
+        const monthlyAmount = income.amount * (30 / days);
+        catTotals[income.category_id].value += monthlyAmount;
+      }
+    });
+    
+    // Filtrar para excluir categorias sem valores
+    return Object.values(catTotals)
+      .filter(cat => cat.name && cat.value > 0)
+      .sort((a, b) => b.value - a.value);
   };
 
   // Adicionar novo método para lidar com a seleção do gráfico de pizza
@@ -1154,11 +1712,11 @@ const Chart = ({
       return (
         <View style={[styles.chartBackground, { 
           backgroundColor: '#FFF', 
-          padding: 10, // Aumentado (era 5)
+          padding: 10,
           alignItems: 'center',
-          height: dynamicChartHeight * 1.6, // EDITAR AQUI: Altura do container (aumentado de 1.15 para 1.35)
-          marginBottom: 10, // Aumentado (era 5)
-          borderRadius: 20, // Adicionado para melhor aparência
+          height: dynamicChartHeight * 1.6,
+          marginBottom: 10,
+          borderRadius: 20,
           shadowColor: "#000",
           shadowOffset: { width: 0, height: 2 },
           shadowOpacity: 0.1,
@@ -1167,9 +1725,9 @@ const Chart = ({
         }]}>
           <SimplePie3D
             data={chartData}
-            width={screenWidth - 16} // EDITAR AQUI: Largura do SVG (aumentado, era 20 o desconto)
-            height={dynamicChartHeight * 1.2} // EDITAR AQUI: Altura do SVG (aumentado de 1.1 para 1.2)
-            pieDepth={15} // EDITAR AQUI: Profundidade do efeito 3D
+            width={screenWidth - 16}
+            height={dynamicChartHeight * 1.2}
+            pieDepth={15}
             backgroundColor="transparent"
             showAllLabels={true}
             onSelectSlice={handlePieChartSelection}
@@ -1180,30 +1738,29 @@ const Chart = ({
 
     if (chartType === 'line') {
       return (
-        <LinearGradient
-          colors={['#FFA726', '#FFB74D']}
-          style={styles.chartBackground}
-        >
-          <LineChart
-            data={{
-              labels: chartData.labels,
-              datasets: [{ data: chartData.data }],
-            }}
+        <View style={[styles.chartBackground, { 
+          backgroundColor: '#FFF',
+          padding: 10,
+          paddingBottom: 20,
+          borderRadius: 20,
+          shadowColor: '#FFB74D',
+          shadowOffset: { width: 0, height: 6 },
+          shadowOpacity: 0.15,
+          shadowRadius: 10,
+          elevation: 5,
+        }]}>
+          <UltraModernLineChart 
+            data={chartData.data}
+            labels={chartData.labels}
             width={screenWidth - 48}
-            height={dynamicChartHeight} 
-            chartConfig={{
-              ...defaultChartConfig,
-              backgroundGradientFromOpacity: 0,
-              backgroundGradientToOpacity: 0,
-              backgroundColor: 'transparent',
-              propsForBackgroundLines: { strokeDasharray: '', stroke: 'rgba(255, 255, 255, 0.2)' },
-              propsForDots: { r: '6', strokeWidth: '2', stroke: '#FFFFFF' },
+            height={dynamicChartHeight * 1.2}
+            style={{ 
+              borderRadius: 16,
+              overflow: 'hidden',
+              backgroundColor: '#FFFFFF'
             }}
-            bezier
-            style={styles.chart}
-            withInnerLines={false}
           />
-        </LinearGradient>
+        </View>
       );
     }
 
@@ -1213,55 +1770,26 @@ const Chart = ({
   return (
     <View style={styles.container}>
       <View style={styles.periodContainer}>
-        <Pressable
-          style={({pressed}) => [
-            styles.periodButton, 
-            period === 'day' && styles.activePeriodButton,
-            pressed && {opacity: 0.8}
-          ]}
-          onPress={() => setPeriod('day')}
-        >
-          <Text style={[styles.periodButtonText, period === 'day' && styles.activePeriodButtonText]}>Day</Text>
-        </Pressable>
-        <Pressable
-          style={({pressed}) => [
-            styles.periodButton, 
-            period === 'week' && styles.activePeriodButton,
-            pressed && {opacity: 0.8}
-          ]}
-          onPress={() => setPeriod('week')}
-        >
-          <Text style={[styles.periodButtonText, period === 'week' && styles.activePeriodButtonText]}>Week</Text>
-        </Pressable>
-        <Pressable
-          style={({pressed}) => [
-            styles.periodButton, 
-            period === 'month' && styles.activePeriodButton,
-            pressed && {opacity: 0.8}
-          ]}
-          onPress={() => setPeriod('month')}
-        >
-          <Text style={[styles.periodButtonText, period === 'month' && styles.activePeriodButtonText]}>Month</Text>
-        </Pressable>
+        <TimeButton label="Day" value="day" icon="today-outline" />
+        <TimeButton label="Week" value="week" icon="calendar-outline" />
+        <TimeButton label="Month" value="month" icon="calendar" />
       </View>
 
       <View style={styles.buttonContainer}>
         {chartTypes.map((type) => {
           const typeLower = type.toLowerCase();
+          let icon = 'bar-chart-outline';
+          if (typeLower === 'pie') icon = 'pie-chart-outline';
+          if (typeLower === 'line') icon = 'trending-up-outline';
+          if (typeLower === 'categories') icon = 'list-outline';
+          
           return (
-            <Pressable
-              key={type}
-              style={({pressed}) => [
-                styles.button, 
-                chartType === typeLower && styles.activeButton,
-                pressed && {opacity: 0.8}
-              ]}
-              onPress={() => setChartType(typeLower)}
-            >
-              <Text style={[styles.buttonText, chartType === typeLower && styles.activeButtonText]}>
-                {type}
-              </Text>
-            </Pressable>
+            <ChartTypeButton 
+              key={type} 
+              label={type} 
+              value={type} 
+              icon={icon}
+            />
           );
         })}
       </View>
@@ -1279,44 +1807,13 @@ const styles = StyleSheet.create({
   periodContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginBottom: 8,
-    gap: 8,
+    marginBottom: 12,
+    gap: 10,
   },
   periodButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    backgroundColor: '#FFE0B2',
-    borderRadius: 8,
-    minWidth: 60,
-    alignItems: 'center',
-    shadowColor: '#FFA726',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  activePeriodButton: {
-    backgroundColor: '#FFA726',
-  },
-  periodButtonText: {
-    color: '#FFA726',
-    fontSize: 12,
-    fontWeight: '600',
-    letterSpacing: 0.5,
-  },
-  activePeriodButtonText: {
-    color: '#FFFFFF',
-  },
-  buttonContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginBottom: 12,
-    gap: 12,
-  },
-  button: {
     paddingVertical: 8,
     paddingHorizontal: 16,
-    backgroundColor: '#FFE0B2',
+    backgroundColor: '#FFECB3',
     borderRadius: 12,
     minWidth: 80,
     alignItems: 'center',
@@ -1325,18 +1822,66 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 2,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 167, 38, 0.2)',
+  },
+  activePeriodButton: {
+    backgroundColor: '#FF9800',
+    shadowColor: '#FF6F00',
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 4,
+    borderColor: '#FF8F00',
+  },
+  periodButtonText: {
+    color: '#FF8F00',
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+  },
+  activePeriodButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginBottom: 16,
+    gap: 14,
+  },
+  button: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    backgroundColor: '#FFECB3',
+    borderRadius: 15,
+    minWidth: 90,
+    alignItems: 'center',
+    shadowColor: '#FFA726',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 167, 38, 0.2)',
   },
   activeButton: {
-    backgroundColor: '#FFA726',
+    backgroundColor: '#FF9800',
+    shadowColor: '#FF6F00',
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 4,
+    borderColor: '#FF8F00',
+    transform: [{scale: 1.05}],
   },
   buttonText: {
-    color: '#FFA726',
-    fontSize: 13,
+    color: '#FF8F00',
+    fontSize: 14,
     fontWeight: '600',
     letterSpacing: 0.5,
   },
   activeButtonText: {
     color: '#FFFFFF',
+    fontWeight: '700',
   },
   chartBackground: {
     borderRadius: 16,
@@ -1439,6 +1984,40 @@ const styles = StyleSheet.create({
   },
   legendTextSelected: {
     fontWeight: 'bold',
+  },
+  // Estilos para UltraModernLineChart
+  ultraModernChartContainer: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    backgroundColor: '#FFF',
+    padding: 15,
+    paddingTop: 10,
+    shadowColor: '#FFB74D',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  chartTitle: {
+    marginBottom: 12,
+    paddingBottom: 5,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  chartTitleText: {
+    color: '#666',
+    fontSize: 14,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+    textAlign: 'center',
+  },
+  chartLegend: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F0',
   },
 });
 
