@@ -1,6 +1,5 @@
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Dimensions, Platform, Animated as RNAnimated, Pressable } from 'react-native';
-import { LineChart, BarChart } from 'react-native-chart-kit';
 import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient as ExpoLinearGradient } from 'expo-linear-gradient';
 import Svg, { 
@@ -173,6 +172,7 @@ const AnimatedBar3D = ({
   topEffect = 4,
   delay = 0,
   isTextOnly = false,
+  periodKey = "default", // Adicionar um prop para forçar animação quando período mudar
 }) => {
   const animatedHeight = useSharedValue(0);
 
@@ -190,7 +190,7 @@ const AnimatedBar3D = ({
       clearTimeout(timeout);
       animatedHeight.value = 0;
     };
-  }, [height, delay]);
+  }, [height, delay, periodKey]); // Adicionar periodKey às dependências
 
   // Estilo animado para o texto
   const animatedTextStyle = useAnimatedStyle(() => {
@@ -309,6 +309,7 @@ const renderCustomBarChart = ({
   width,
   height,
   style,
+  periodKey, // Adicionar periodKey como parâmetro
 }) => {
   const barCount = data.length;
   const maxValue = Math.max(...data, 1);
@@ -342,7 +343,7 @@ const renderCustomBarChart = ({
             
             return (
               <AnimatedBar3D
-                key={`text-${i}`}
+                key={`text-${i}-${periodKey}`} // Adicionar periodKey para forçar reanimação
                 x={x}
                 y={y}
                 width={barWidth}
@@ -352,6 +353,7 @@ const renderCustomBarChart = ({
                 label={labels[i]}
                 index={i}
                 isTextOnly={true}
+                periodKey={periodKey} // Passar periodKey como prop
               />
             );
           })}
@@ -380,7 +382,7 @@ const renderCustomBarChart = ({
             const y = chartHeight - barHeight;
             
             return (
-              <G key={i}>
+              <G key={`bar-${i}-${periodKey}`}> {/* Adicionar periodKey para forçar reanimação */}
                 {renderCustomBar3D({
                   x,
                   y,
@@ -391,6 +393,7 @@ const renderCustomBarChart = ({
                   label: labels[i],
                   index: i,
                   isTextOnly: false,
+                  periodKey: periodKey, // Passar periodKey como prop
                 })}
               </G>
             );
@@ -412,6 +415,7 @@ const SimplePie3D = ({
   backgroundColor = 'transparent',
   onSelectSlice = () => {},
   showAllLabels = false,
+  selectedCategoryId = null,
 }) => {
   const [selectedSlice, setSelectedSlice] = useState(null);
   const [hoveredSlice, setHoveredSlice] = useState(null);
@@ -804,7 +808,7 @@ const SimplePie3D = ({
                 <Path
                   d={createArcPath(actualSlice.startAngle, actualSlice.endAngle, 0, radius)}
                   fill={fillGradient}
-                  onClick={handleClick}
+                  {...(Platform.OS === 'web' ? { onClick: handleClick } : { onPress: handleClick })}
                 />
               </G>
             );
@@ -861,7 +865,7 @@ const SimplePie3D = ({
                   x={labelX}
                   y={labelY - (isSmallSlice ? 2 : 4)}
                   fill={textColor}
-                  fontSize={isSmallSlice ? "8" : "10"}
+                  fontSize={isSmallSlice ? "8" : (slice.isSelected ? "12" : "10")}
                   fontWeight={slice.isSelected ? "bold" : "normal"}
                   textAnchor={slice.textAnchor}
                 >
@@ -893,10 +897,11 @@ const SimplePie3D = ({
             style={({pressed}) => [
               styles.legendItem,
               slice.isSelected && styles.legendItemSelected,
-              pressed && {opacity: 0.7},
-              selectedSlice !== null && !slice.isSelected && {opacity: 0.6}
+              pressed && {opacity: 0.7}
             ]}
             onPress={() => handleSlicePress(index)}
+            {...(Platform.OS === 'web' ? 
+              { onClick: () => handleSlicePress(index) } : {})}
           >
             <View
               style={[
@@ -922,37 +927,45 @@ const SimplePie3D = ({
   );
 };
 
-// Componente Ultra-Moderno para o Line Chart com animações avançadas
-const UltraModernLineChart = ({ data, labels, width, height, style }) => {
-  const canvasHeight = height * 0.85;
-  const chartHeight = canvasHeight * 0.8;
-  const AnimatedPath = Animated.createAnimatedComponent(Path);
-  const AnimatedCircle = Animated.createAnimatedComponent(Circle);
-  
-  // Estados para animação e interatividade
+// Componente SimpleLineChart para substituir o UltraModernLineChart
+const SimpleLineChart = ({ data, labels, width, height, style }) => {
+  const [isLoaded, setIsLoaded] = useState(false);
   const animationProgress = useSharedValue(0);
-  const [activePointIndex, setActivePointIndex] = useState(null);
-  const [isInitialAnimationDone, setIsInitialAnimationDone] = useState(false);
   
-  // Valores derivados
+  // Valores para cálculos do gráfico
+  const chartHeight = height * 0.75;
   const paddingHorizontal = 30;
-  const paddingTop = 30;
+  const paddingTop = 20;
   const paddingBottom = 30;
   const xAxisWidth = width - (paddingHorizontal * 2);
   const yAxisHeight = chartHeight - paddingTop - paddingBottom;
   
-  // Validação de dados
+  // AnimatedPath para animação das linhas
+  const AnimatedPath = Animated.createAnimatedComponent(Path);
+  
+  useEffect(() => {
+    // Iniciar animação após um pequeno atraso
+    const timeout = setTimeout(() => {
+      setIsLoaded(true);
+      animationProgress.value = withTiming(1, { 
+        duration: 1000, 
+        easing: Easing.bezier(0.16, 1, 0.3, 1) 
+      });
+    }, 300);
+    
+    return () => clearTimeout(timeout);
+  }, [data, labels]);
+  
+  // Validar dados
   if (!data || data.length === 0 || !labels || labels.length === 0) {
     return (
       <View style={{
-        width, 
-        height, 
-        justifyContent: 'center', 
-        alignItems: 'center',
-        backgroundColor: '#FFF',
-        borderRadius: 20
+        width, height, justifyContent: 'center', alignItems: 'center',
+        backgroundColor: '#FFF', borderRadius: 12
       }}>
-        <Text style={{color: '#666', fontSize: 14, fontWeight: '500'}}>No data available</Text>
+        <Text style={{color: '#666', fontSize: 14, fontWeight: '500'}}>
+          No data available
+        </Text>
       </View>
     );
   }
@@ -962,7 +975,7 @@ const UltraModernLineChart = ({ data, labels, width, height, style }) => {
   const minValue = Math.min(...data, 0);
   const valueRange = Math.max(maxValue - minValue, 1);
   
-  // Normalizar dados para animação
+  // Normalizar dados para o gráfico
   const points = data.map((value, index) => {
     const x = paddingHorizontal + (index / (data.length - 1)) * xAxisWidth;
     const normalizedValue = (value - minValue) / valueRange;
@@ -973,9 +986,7 @@ const UltraModernLineChart = ({ data, labels, width, height, style }) => {
   // Criar path para a linha
   const createPathD = (points, progress) => {
     if (points.length === 0) return '';
-    if (points.length === 1) {
-      return `M ${points[0].x},${points[0].y} L ${points[0].x},${points[0].y}`;
-    }
+    if (points.length === 1) return `M ${points[0].x},${points[0].y} L ${points[0].x},${points[0].y}`;
     
     let path = `M ${points[0].x},${points[0].y}`;
     for (let i = 0; i < points.length - 1; i++) {
@@ -993,7 +1004,7 @@ const UltraModernLineChart = ({ data, labels, width, height, style }) => {
         const interpolatedY = currentPoint.y + (nextPoint.y - currentPoint.y) * partialProgress;
         path += ` L ${interpolatedX},${interpolatedY}`;
       } else {
-        // Bezier curve para suavidade
+        // Curva suave entre pontos
         const controlPointX1 = (currentPoint.x + nextPoint.x) / 2;
         const controlPointX2 = (currentPoint.x + nextPoint.x) / 2;
         path += ` C ${controlPointX1},${currentPoint.y} ${controlPointX2},${nextPoint.y} ${nextPoint.x},${nextPoint.y}`;
@@ -1003,7 +1014,7 @@ const UltraModernLineChart = ({ data, labels, width, height, style }) => {
     return path;
   };
   
-  // Criar path para a área preenchida abaixo da linha
+  // Criar path para a área abaixo da linha
   const createAreaD = (points, progress) => {
     if (points.length === 0) return '';
     
@@ -1041,22 +1052,6 @@ const UltraModernLineChart = ({ data, labels, width, height, style }) => {
     
     return path;
   };
-
-  // Animação inicial ao montar o componente
-  useEffect(() => {
-    animationProgress.value = 0;
-    
-    const timeout = setTimeout(() => {
-      animationProgress.value = withTiming(1, { 
-        duration: 1200, 
-        easing: Easing.bezier(0.16, 1, 0.3, 1)
-      }, () => {
-        runOnJS(setIsInitialAnimationDone)(true);
-      });
-    }, 300);
-    
-    return () => clearTimeout(timeout);
-  }, [data, labels]);
   
   // Props animados para o path da linha
   const animatedLineProps = useAnimatedProps(() => ({
@@ -1076,6 +1071,24 @@ const UltraModernLineChart = ({ data, labels, width, height, style }) => {
       [0, 0.3, 1],
       [0, 0.7, 0.7]
     ),
+  }));
+  
+  // Estilo animado para o contêiner
+  const containerStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(
+      animationProgress.value,
+      [0, 0.3],
+      [0.7, 1]
+    ),
+    transform: [
+      { 
+        scale: interpolate(
+          animationProgress.value,
+          [0, 1],
+          [0.97, 1]
+        )
+      }
+    ],
   }));
   
   // Renderizar linhas de grade
@@ -1111,76 +1124,45 @@ const UltraModernLineChart = ({ data, labels, width, height, style }) => {
     });
   };
   
-  // Renderizar os pontos de dados com animação
+  // Renderizar pontos de dados
   const renderDataPoints = () => {
-    if (!isInitialAnimationDone) return null;
+    if (!isLoaded) return null;
     
-    return points.map((point, index) => {
-      const isActive = activePointIndex === index;
-      const pointSize = isActive ? 12 : 8;
-      
-      return (
-        <G key={`point-${index}`}>
-          {/* Ponto exterior */}
-          <Circle
-            cx={point.x}
-            cy={point.y}
-            r={pointSize}
-            fill="#FFFFFF"
-            stroke={isActive ? "#FF9800" : "#FFB74D"}
-            strokeWidth={isActive ? 3 : 2}
-          />
-          
-          {/* Ponto interior */}
-          <Circle
-            cx={point.x}
-            cy={point.y}
-            r={isActive ? 4 : 3}
-            fill={isActive ? "#FF9800" : "#FFB74D"}
-          />
-          
-          {/* Tooltip para ponto ativo */}
-          {isActive && (
-            <G>
-              <Rect
-                x={point.x - 25}
-                y={point.y - 40}
-                width="50"
-                height="30"
-                rx="6"
-                ry="6"
-                fill="#FF9800"
-                opacity={0.9}
-              />
-              <Path
-                d={`M ${point.x - 6} ${point.y - 10} L ${point.x} ${point.y - 4} L ${point.x + 6} ${point.y - 10}`}
-                fill="#FF9800"
-                opacity={0.9}
-              />
-              <SvgText
-                x={point.x}
-                y={point.y - 20}
-                fontSize="12"
-                fontWeight="bold"
-                fill="#FFFFFF"
-                textAnchor="middle"
-              >
-                {Math.round(point.value)}
-              </SvgText>
-            </G>
-          )}
-          
-          {/* Área de toque invisível */}
-          <Circle
-            cx={point.x}
-            cy={point.y}
-            r={20}
-            fill="transparent"
-            onPress={() => setActivePointIndex(index === activePointIndex ? null : index)}
-          />
+    return points.map((point, index) => (
+      <G key={`point-${index}`}>
+        {/* Ponto exterior */}
+        <Circle
+          cx={point.x}
+          cy={point.y}
+          r={5}
+          fill="#FFFFFF"
+          stroke="#FF9800"
+          strokeWidth={1.5}
+          opacity={0.9}
+        />
+        
+        {/* Ponto interior */}
+        <Circle
+          cx={point.x}
+          cy={point.y}
+          r={2}
+          fill="#FF9800"
+        />
+        
+        {/* Tooltip simples */}
+        <G opacity={0.8}>
+          <SvgText
+            x={point.x}
+            y={point.y - 12}
+            fontSize={10}
+            fill="#666"
+            textAnchor="middle"
+          >
+            {Math.round(point.value)}
+          </SvgText>
         </G>
-      );
-    });
+      </G>
+    ));
   };
   
   // Renderizar labels do eixo X
@@ -1209,80 +1191,68 @@ const UltraModernLineChart = ({ data, labels, width, height, style }) => {
     });
   };
   
-  // Estilo animado para o contêiner
-  const containerStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(
-      animationProgress.value,
-      [0, 0.3],
-      [0.7, 1]
-    ),
-    transform: [
-      { 
-        scale: interpolate(
-          animationProgress.value,
-          [0, 1],
-          [0.97, 1]
-        )
-      }
-    ],
-  }));
-  
   return (
-    <AnimatedView style={[styles.ultraModernChartContainer, containerStyle, style]}>
-      <View style={styles.chartTitle}>
-        <Text style={styles.chartTitleText}>Trend Analysis</Text>
-      </View>
-      
-      <Svg width={width} height={canvasHeight}>
-        {/* Definições de gradientes e sombras */}
-        <Defs>
-          <LinearGradient id="lineGradient" x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0%" stopColor="#FF9800" stopOpacity="1" />
-            <Stop offset="100%" stopColor="#FFAC42" stopOpacity="1" />
-          </LinearGradient>
-          
-          <LinearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0%" stopColor="#FF9800" stopOpacity="0.4" />
-            <Stop offset="100%" stopColor="#FFFFFF" stopOpacity="0" />
-          </LinearGradient>
-        </Defs>
-        
-        {/* Linhas de grade */}
-        {renderGridLines()}
-        
-        {/* Área preenchida sob a linha */}
-        <AnimatedPath
-          animatedProps={animatedAreaProps}
-          fill="url(#areaGradient)"
-          strokeWidth="0"
-        />
-        
-        {/* Linha principal */}
-        <AnimatedPath
-          animatedProps={animatedLineProps}
-          stroke="url(#lineGradient)"
-          strokeWidth="3"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          fill="none"
-        />
-        
-        {/* Pontos de dados */}
-        {renderDataPoints()}
-        
-        {/* Labels do eixo X */}
-        {renderXLabels()}
-      </Svg>
-      
-      <View style={styles.chartLegend}>
-        <View style={styles.legendItem}>
-          <View style={[styles.legendColorBox, { backgroundColor: '#FF9800' }]} />
-          <Text style={styles.legendText}>Values</Text>
+    <Animated.View style={[{ borderRadius: 12, overflow: 'hidden' }, containerStyle, style]}>
+      <View style={{ padding: 10 }}>
+        <View style={{ alignItems: 'center', marginBottom: 10 }}>
+          <Text style={{ fontSize: 14, color: '#666', fontWeight: '600' }}>
+            Trend Analysis
+          </Text>
         </View>
+        
+        {!isLoaded ? (
+          <View style={{ height: chartHeight, justifyContent: 'center', alignItems: 'center' }}>
+            <Text style={{ color: '#666', fontSize: 14 }}>Loading chart...</Text>
+          </View>
+        ) : (
+          <Svg width={width} height={chartHeight}>
+            {/* Definições de gradientes */}
+            <Defs>
+              <LinearGradient id="lineGradient" x1="0" y1="0" x2="0" y2="1">
+                <Stop offset="0%" stopColor="#FF9800" stopOpacity="1" />
+                <Stop offset="100%" stopColor="#FFAC42" stopOpacity="1" />
+              </LinearGradient>
+              
+              <LinearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
+                <Stop offset="0%" stopColor="#FF9800" stopOpacity="0.3" />
+                <Stop offset="100%" stopColor="#FFFFFF" stopOpacity="0" />
+              </LinearGradient>
+            </Defs>
+            
+            {/* Linhas de grade */}
+            {renderGridLines()}
+            
+            {/* Área preenchida sob a linha */}
+            <AnimatedPath
+              animatedProps={animatedAreaProps}
+              fill="url(#areaGradient)"
+              strokeWidth="0"
+            />
+            
+            {/* Linha principal */}
+            <AnimatedPath
+              animatedProps={animatedLineProps}
+              stroke="url(#lineGradient)"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              fill="none"
+            />
+            
+            {/* Pontos de dados */}
+            {renderDataPoints()}
+            
+            {/* Labels do eixo X */}
+            {renderXLabels()}
+          </Svg>
+        )}
       </View>
-    </AnimatedView>
+    </Animated.View>
   );
 };
+
+// Definir UltraModernLineChart como alias de SimpleLineChart
+const UltraModernLineChart = SimpleLineChart;
 
 // Componente principal Chart com opções para gráficos de barras, linha e pizza
 const Chart = ({ 
@@ -1298,6 +1268,7 @@ const Chart = ({
   const [renderKey, setRenderKey] = useState(0);
   const [isChartReady, setIsChartReady] = useState(false);
   const [period, setPeriod] = useState('month');
+  const [selectedCategoryId, setSelectedCategoryId] = useState(null); // Adicionar estado para a categoria selecionada
   const screenWidth = Dimensions.get('window').width;
   const screenHeight = Dimensions.get('window').height;
   
@@ -1322,26 +1293,26 @@ const Chart = ({
   );
   
   // Componente para botões modernos com ícones
-  const TimeButton = ({ label, value, icon }) => {
+  const TimeButton = ({ label, value, icon, compact = false }) => {
     const isActive = period === value;
     return (
       <TouchableOpacity
         style={[
-          styles.periodButton, 
-          isActive && styles.activePeriodButton,
+          compact ? styles.periodButtonCompact : styles.periodButton, 
+          isActive && (compact ? styles.activePeriodButtonCompact : styles.activePeriodButton),
         ]}
         onPress={() => setPeriod(value)}
         activeOpacity={0.8}
       >
         <Ionicons 
           name={icon} 
-          size={16} 
+          size={compact ? 14 : 16} 
           color={isActive ? '#FFFFFF' : '#FF8F00'} 
-          style={{marginRight: 6}}
+          style={{marginRight: compact ? 4 : 6}}
         />
         <Text style={[
-          styles.periodButtonText, 
-          isActive && styles.activePeriodButtonText
+          compact ? styles.periodButtonTextCompact : styles.periodButtonText, 
+          isActive && (compact ? styles.activePeriodButtonTextCompact : styles.activePeriodButtonText)
         ]}>
           {label}
         </Text>
@@ -1377,24 +1348,15 @@ const Chart = ({
     );
   };
 
-  const defaultChartConfig = {
-    backgroundGradientFrom: '#FF9800',
-    backgroundGradientTo: '#FFB74D',
-    decimalPlaces: 0,
-    color: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
-    labelColor: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
-    style: {
-      borderRadius: 16,
-    },
-    propsForDots: {
-      r: '6',
-      strokeWidth: '2',
-      stroke: '#FF8C00',
-    },
-    propsForBackgroundLines: {
-      strokeDasharray: '',
-      stroke: 'rgba(255, 255, 255, 0.2)',
-    },
+  // Componente para mostrar os botões de período
+  const TimePeriodButtons = () => {
+    return (
+      <View style={styles.periodContainerInChart}>
+        <TimeButton label="Day" value="day" icon="today-outline" compact={true} />
+        <TimeButton label="Week" value="week" icon="calendar-outline" compact={true} />
+        <TimeButton label="Month" value="month" icon="calendar" compact={true} />
+      </View>
+    );
   };
 
   const calculateTopCategoriesByPeriod = () => {
@@ -1667,6 +1629,17 @@ const Chart = ({
 
   // Adicionar novo método para lidar com a seleção do gráfico de pizza
   const handlePieChartSelection = (selectedCategory) => {
+    if (selectedCategory) {
+      // Encontrar a categoria correspondente no array de categorias
+      const category = categories.find(c => c.name === selectedCategory.name);
+      if (category) {
+        setSelectedCategoryId(category.id);
+      }
+    } else {
+      // Se não houver categoria selecionada, limpar a seleção
+      setSelectedCategoryId(null);
+    }
+    
     // Chamar o callback passado pelo componente pai
     if (onCategorySelect && selectedCategory) {
       onCategorySelect(selectedCategory);
@@ -1697,12 +1670,16 @@ const Chart = ({
     if (chartType === 'bar' || chartType === 'categories') {
       return (
         <View style={[styles.chartBackground, { backgroundColor: '#FFF', padding: 8 }]}>
+          {/* Botões de período integrados no gráfico de barras */}
+          <TimePeriodButtons />
+          
           {renderCustomBarChart({
             labels: chartData.labels,
             data: chartData.data,
             width: screenWidth - 48,
             height: dynamicChartHeight,
-            style: { backgroundColor: 'transparent' }
+            style: { backgroundColor: 'transparent' },
+            periodKey: period, // Adicionar periodKey como parâmetro
           })}
         </View>
       );
@@ -1714,7 +1691,7 @@ const Chart = ({
           backgroundColor: '#FFF', 
           padding: 10,
           alignItems: 'center',
-          height: dynamicChartHeight * 1.6,
+          height: dynamicChartHeight * 1.8, // Reduced from 2 to 1.8
           marginBottom: 10,
           borderRadius: 20,
           shadowColor: "#000",
@@ -1726,11 +1703,12 @@ const Chart = ({
           <SimplePie3D
             data={chartData}
             width={screenWidth - 16}
-            height={dynamicChartHeight * 1.2}
+            height={dynamicChartHeight * 1.4} // Reduced from 1.6 to 1.4
             pieDepth={15}
             backgroundColor="transparent"
             showAllLabels={true}
             onSelectSlice={handlePieChartSelection}
+            selectedCategoryId={selectedCategoryId}
           />
         </View>
       );
@@ -1749,15 +1727,18 @@ const Chart = ({
           shadowRadius: 10,
           elevation: 5,
         }]}>
-          <UltraModernLineChart 
+          {/* Botões de período integrados no gráfico de linha */}
+          <TimePeriodButtons />
+          
+          <SimpleLineChart 
             data={chartData.data}
             labels={chartData.labels}
             width={screenWidth - 48}
             height={dynamicChartHeight * 1.2}
             style={{ 
-              borderRadius: 16,
+              borderRadius: 12,
               overflow: 'hidden',
-              backgroundColor: '#FFFFFF'
+              backgroundColor: 'transparent'
             }}
           />
         </View>
@@ -1769,12 +1750,6 @@ const Chart = ({
 
   return (
     <View style={styles.container}>
-      <View style={styles.periodContainer}>
-        <TimeButton label="Day" value="day" icon="today-outline" />
-        <TimeButton label="Week" value="week" icon="calendar-outline" />
-        <TimeButton label="Month" value="month" icon="calendar" />
-      </View>
-
       <View style={styles.buttonContainer}>
         {chartTypes.map((type) => {
           const typeLower = type.toLowerCase();
@@ -1809,6 +1784,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 12,
     gap: 10,
+  },
+  periodContainerInChart: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginBottom: 10,
+    gap: 8,
+    paddingTop: 5,
+    paddingBottom: 5,
   },
   periodButton: {
     paddingVertical: 8,
@@ -1987,19 +1970,12 @@ const styles = StyleSheet.create({
   },
   // Estilos para UltraModernLineChart
   ultraModernChartContainer: {
-    borderRadius: 16,
     overflow: 'hidden',
-    backgroundColor: '#FFF',
     padding: 15,
     paddingTop: 10,
-    shadowColor: '#FFB74D',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 3,
   },
   chartTitle: {
-    marginBottom: 12,
+    marginBottom: 10,
     paddingBottom: 5,
     borderBottomWidth: 1,
     borderBottomColor: '#F0F0F0',
@@ -2011,6 +1987,46 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     textAlign: 'center',
   },
+  chartControls: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: 8,
+    gap: 8,
+  },
+  chartControlButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    backgroundColor: '#FFECB3',
+    borderRadius: 10,
+    shadowColor: '#FFA726',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 1,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 167, 38, 0.2)',
+  },
+  chartControlButtonActive: {
+    backgroundColor: '#FF9800',
+    shadowColor: '#FF6F00',
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 2,
+    borderColor: '#FF8F00',
+  },
+  chartControlButtonText: {
+    color: '#FF8F00',
+    fontSize: 12,
+    fontWeight: '600',
+    letterSpacing: 0.3,
+    marginLeft: 4,
+  },
+  chartControlButtonTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
   chartLegend: {
     flexDirection: 'row',
     justifyContent: 'center',
@@ -2018,6 +2034,39 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     borderTopWidth: 1,
     borderTopColor: '#F0F0F0',
+  },
+  periodButtonCompact: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    backgroundColor: '#FFECB3',
+    borderRadius: 10,
+    minWidth: 70,
+    alignItems: 'center',
+    shadowColor: '#FFA726',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 1,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 167, 38, 0.2)',
+  },
+  activePeriodButtonCompact: {
+    backgroundColor: '#FF9800',
+    shadowColor: '#FF6F00',
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 2,
+    borderColor: '#FF8F00',
+  },
+  periodButtonTextCompact: {
+    color: '#FF8F00',
+    fontSize: 12,
+    fontWeight: '600',
+    letterSpacing: 0.3,
+  },
+  activePeriodButtonTextCompact: {
+    color: '#FFFFFF',
+    fontWeight: '700',
   },
 });
 
