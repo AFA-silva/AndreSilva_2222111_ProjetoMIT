@@ -1,14 +1,30 @@
-import React from 'react'; // Import do React
+import React, { useEffect } from 'react'; // Import do React
 import { NavigationContainer } from '@react-navigation/native'; // Import do NavigationContainer 
 import { createStackNavigator } from '@react-navigation/stack'; // Import do Stack.Navigator
 import WelcomePage from './source/AccountPages/WelcomePage'; // Import da página Welcome
 import LoginPage from './source/AccountPages/LoginPage'; // Import da página Login
 import RegisterPage from './source/AccountPages/RegisterPage'; // Import da página Register
 import MainPagesNavigator from './source/MainPagesNavigator'; // Import do Navigator das Main Pages
+import { cleanupDuplicateCurrencyPreferences } from './source/Utility/MainQueries'; // Import da função de limpeza
 
 const Stack = createStackNavigator();
 
 export default function App() {
+  // Run cleanup on app initialization
+  useEffect(() => {
+    const initializeApp = async () => {
+      console.log('Initializing app and cleaning up database...');
+      try {
+        // Clean up any duplicate currency preferences
+        await cleanupDuplicateCurrencyPreferences();
+      } catch (error) {
+        console.error('Error during app initialization:', error);
+      }
+    };
+    
+    initializeApp();
+  }, []);
+
   return (
     // É o componente responsavel pela navegação no aplicativo. Sem ele o projeto não funciona.
     <NavigationContainer>  

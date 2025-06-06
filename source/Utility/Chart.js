@@ -327,15 +327,17 @@ const renderCustomBarChart = ({
   return (
     <View style={[styles.customBarChartWrapper, style]}>
       <View style={{ position: 'relative', height: height + 20 }}>
-        <View style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          pointerEvents: 'none',
-          zIndex: 1000,
-        }}>
+        <View 
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 1000
+          }}
+          pointerEvents="none"
+        >
           {data.map((value, i) => {
             const barHeight = (value / maxValue) * (chartHeight - 40);
             const x = 50 + i * (barWidth * 1.5);

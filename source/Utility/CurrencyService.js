@@ -76,10 +76,8 @@ export const getSupportedCurrencies = async () => {
           countries: []
         };
         
-        // Add country information if available
-        if (countryCurrencyMap[currencyCode]) {
-          currencyInfo.countries = countryCurrencyMap[currencyCode].countries;
-        }
+        // Remove country information lookup that was causing the error
+        // We'll populate this data from different sources or directly from the API
         
         return currencyInfo;
       });
@@ -103,14 +101,36 @@ export const getSupportedCurrencies = async () => {
 };
 
 export const convertCurrency = (amount, fromCurrency, toCurrency, rates) => {
-  if (!rates) return null;
+  // Validate inputs
+  if (!amount || isNaN(parseFloat(amount))) {
+    console.warn('Invalid amount for currency conversion:', amount);
+    return 0;
+  }
+  
+  if (!fromCurrency || !toCurrency) {
+    console.warn('Invalid currencies for conversion:', { from: fromCurrency, to: toCurrency });
+    return parseFloat(amount);
+  }
+  
+  if (!rates) {
+    console.warn('No rates provided for currency conversion');
+    return parseFloat(amount);
+  }
+  
+  // If same currency, no conversion needed
+  if (fromCurrency === toCurrency) {
+    return parseFloat(amount);
+  }
   
   // Direct conversion if rates are based on fromCurrency
   if (rates[toCurrency]) {
-    return amount * rates[toCurrency];
+    const convertedAmount = parseFloat(amount) * rates[toCurrency];
+    console.log(`Converted ${amount} ${fromCurrency} to ${convertedAmount.toFixed(2)} ${toCurrency} (rate: ${rates[toCurrency]})`);
+    return convertedAmount;
   }
   
-  return null;
+  console.warn(`Conversion rate not found for ${fromCurrency} to ${toCurrency}`);
+  return parseFloat(amount);
 };
 
 // Get user's preferred currency from Supabase or AsyncStorage

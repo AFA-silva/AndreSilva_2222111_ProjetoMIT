@@ -282,7 +282,6 @@ const styles = StyleSheet.create({
     right: 16,
     zIndex: 1000,
     alignItems: 'center',
-    pointerEvents: 'box-none',
   },
   alertContainerInModal: {
     position: 'absolute',
@@ -291,7 +290,6 @@ const styles = StyleSheet.create({
     right: 0,
     zIndex: 999999,
     alignItems: 'center',
-    pointerEvents: 'box-none',
   },
   detailsGrid: {
     marginBottom: 24,

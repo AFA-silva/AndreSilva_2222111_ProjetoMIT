@@ -1,4 +1,4 @@
-import { StyleSheet } from 'react-native';
+import { StyleSheet, Platform } from 'react-native';
 
 const styles = StyleSheet.create({
   mainContainer: {
@@ -16,20 +16,28 @@ const styles = StyleSheet.create({
     marginBottom: 30,
     textAlign: 'center',
     letterSpacing: 0.5,
-    textShadowColor: 'rgba(255, 152, 0, 0.15)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
+    ...(Platform.OS === 'web' ? {
+      textShadow: '0px 1px 3px rgba(255, 152, 0, 0.15)'
+    } : {
+      textShadowColor: 'rgba(255, 152, 0, 0.15)',
+      textShadowOffset: { width: 0, height: 1 },
+      textShadowRadius: 3,
+    }),
   },
   menuItem: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 18,
     marginBottom: 18,
-    shadowColor: '#1A365D',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    ...(Platform.OS === 'web' ? {
+      boxShadow: '0px 3px 8px rgba(26, 54, 93, 0.1)'
+    } : {
+      shadowColor: '#1A365D',
+      shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.1,
+      shadowRadius: 8,
+      elevation: 4,
+    }),
     borderLeftWidth: 4,
     borderLeftColor: '#FF9800',
   },
@@ -61,11 +69,15 @@ const styles = StyleSheet.create({
     padding: 16,
     alignItems: 'center',
     marginTop: 24,
-    shadowColor: '#F56565',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
-    elevation: 5,
+    ...(Platform.OS === 'web' ? {
+      boxShadow: '0px 4px 10px rgba(245, 101, 101, 0.25)'
+    } : {
+      shadowColor: '#F56565',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.25,
+      shadowRadius: 10,
+      elevation: 5,
+    }),
   },
   logoutText: {
     fontSize: 16,

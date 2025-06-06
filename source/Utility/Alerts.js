@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 const Alert = ({ message, type = 'info', onClose }) => {
@@ -17,7 +17,7 @@ const Alert = ({ message, type = 'info', onClose }) => {
   };
 
   return (
-    <View style={[styles.alertContainer, { backgroundColor: getBackgroundColor() }]}>
+    <View style={[styles.alertContainer, { backgroundColor: getBackgroundColor() }]} pointerEvents="auto">
       <Text style={styles.alertText}>{message}</Text>
       <TouchableOpacity onPress={onClose} style={styles.closeButton}>
         <Ionicons name="close" size={20} color="white" />
@@ -39,13 +39,17 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     elevation: 9999, // Para Android
     zIndex: 999999, // Para iOS
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
+    ...(Platform.OS === 'web' ? {
+      boxShadow: '0px 2px 3.84px rgba(0, 0, 0, 0.25)'
+    } : {
+      shadowColor: '#000',
+      shadowOffset: {
+        width: 0,
+        height: 2,
+      },
+      shadowOpacity: 0.25,
+      shadowRadius: 3.84,
+    }),
   },
   alertText: {
     color: 'white',

@@ -45,6 +45,12 @@ const styles = StyleSheet.create({
     color: '#2D3748',
     marginBottom: 12,
   },
+  sectionSubtitle: {
+    fontSize: 14,
+    color: '#718096',
+    marginBottom: 12,
+    marginTop: -8,
+  },
   converterCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
@@ -193,6 +199,17 @@ const styles = StyleSheet.create({
     color: '#4A5568',
     marginBottom: 10,
   },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  saveInstructionText: {
+    fontSize: 12,
+    color: '#718096',
+    fontStyle: 'italic',
+  },
   chipsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -271,6 +288,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 12,
+  },
+  listHeaderTitles: {
+    flex: 1,
   },
   searchContainer: {
     flexDirection: 'row',
@@ -384,6 +404,36 @@ const styles = StyleSheet.create({
   userPreferredItem: {
     borderColor: '#4CAF50',
     borderWidth: 1,
+  },
+  savedCurrencyItem: {
+    borderColor: '#2196F3',
+    borderWidth: 1,
+    borderStyle: 'dashed',
+  },
+  noSavedCurrenciesText: {
+    color: '#718096',
+    fontStyle: 'italic',
+    fontSize: 14,
+    textAlign: 'center',
+    marginVertical: 10,
+    width: '100%',
+  },
+  currencyActions: {
+    flexDirection: 'row',
+    marginTop: 8,
+    justifyContent: 'flex-end',
+  },
+  bookmarkButton: {
+    padding: 8,
+    borderRadius: 50,
+    marginTop: 10,
+    alignSelf: 'center',
+  },
+  saveButton: {
+    backgroundColor: 'rgba(33, 150, 243, 0.1)',
+  },
+  removeButton: {
+    backgroundColor: 'rgba(33, 150, 243, 0.2)',
   },
   currencyInfo: {
     flex: 1,

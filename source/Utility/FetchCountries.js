@@ -1,3 +1,5 @@
+import { fetchUserCurrencyPreference, updateUserCurrencyPreference } from './MainQueries';
+
 export const fetchCountries = async () => {
     try {
       const response = await fetch('https://restcountries.com/v3.1/all');
@@ -90,11 +92,21 @@ export const setCurrentCurrency = async (countryCodeOrName) => {
     
     // Salvar a moeda atual no AsyncStorage para persistência
     if (currentCurrencyInfo) {
+      // Atualizar no AsyncStorage
       try {
         const AsyncStorage = require('@react-native-async-storage/async-storage').default;
         await AsyncStorage.setItem('app_currency', JSON.stringify(currentCurrencyInfo));
+        console.log('Currency saved to AsyncStorage:', currentCurrencyInfo.code);
       } catch (storageError) {
-        console.error('Error saving currency to storage:', storageError);
+        console.error('Error saving currency to AsyncStorage:', storageError);
+      }
+      
+      // Atualizar na Supabase (crucial para sincronização entre dispositivos)
+      try {
+        await updateUserCurrencyPreference(currentCurrencyInfo.code);
+        console.log('Currency saved to Supabase:', currentCurrencyInfo.code);
+      } catch (supabaseError) {
+        console.error('Error saving currency to Supabase:', supabaseError);
       }
       
       // Notificar todos os componentes registrados
@@ -111,6 +123,24 @@ export const setCurrentCurrency = async (countryCodeOrName) => {
 // Função para carregar a moeda salva no início do aplicativo
 export const loadSavedCurrency = async () => {
   try {
+    // Tentar carregar do Supabase primeiro (prioridade)
+    try {
+      const currencyCode = await fetchUserCurrencyPreference();
+      if (currencyCode) {
+        console.log('Moeda carregada do Supabase:', currencyCode);
+        const currencyInfo = await getCurrencyByCountryCode(currencyCode);
+        if (currencyInfo) {
+          currentCurrencyInfo = currencyInfo;
+          notifyCurrencyChange();
+          return currentCurrencyInfo;
+        }
+      }
+    } catch (supabaseError) {
+      console.error('Erro ao carregar moeda do Supabase:', supabaseError);
+      // Continuar para tentar carregar do AsyncStorage
+    }
+    
+    // Carregar do AsyncStorage como fallback
     const AsyncStorage = require('@react-native-async-storage/async-storage').default;
     const savedCurrency = await AsyncStorage.getItem('app_currency');
     
@@ -163,15 +193,58 @@ export const loadSavedCurrency = async () => {
 export const getCurrentCurrency = () => {
   // Valor padrão caso não tenha sido definido
   if (!currentCurrencyInfo) {
-    console.log('Moeda não definida, usando EUR padrão');
-    return { code: 'EUR', name: 'Euro', symbol: '€' };
+    // Tentar buscar do Supabase em modo síncrono
+    if (!getCurrentCurrency.fetchingFromSupabase) {
+      getCurrentCurrency.fetchingFromSupabase = true;
+      
+      // Iniciar busca assíncrona
+      (async () => {
+        try {
+          const currencyCode = await fetchUserCurrencyPreference();
+          if (currencyCode) {
+            console.log('Buscando moeda do Supabase:', currencyCode);
+            const currencyInfo = await getCurrencyByCountryCode(currencyCode);
+            if (currencyInfo) {
+              currentCurrencyInfo = currencyInfo;
+              notifyCurrencyChange();
+              console.log('Moeda atualizada com base no Supabase:', currentCurrencyInfo);
+            }
+          }
+        } catch (error) {
+          console.error('Erro ao buscar moeda do Supabase:', error);
+        } finally {
+          getCurrentCurrency.fetchingFromSupabase = false;
+        }
+      })();
+    }
+    
+    // Usar um valor padrão baseado no Supabase (default USD em vez de EUR)
+    return { code: 'USD', name: 'US Dollar', symbol: '$' };
   }
   return currentCurrencyInfo;
 };
 
 // Função para formatar valores monetários com o símbolo da moeda atual
-export const formatCurrency = (value) => {
-  const { symbol } = getCurrentCurrency();
+export const formatCurrency = (value, forcedSymbol = null) => {
+  // Se um símbolo foi fornecido, usá-lo diretamente
+  if (forcedSymbol) {
+    // Garantir que o valor seja um número
+    const numValue = parseFloat(value);
+    
+    if (isNaN(numValue)) {
+      return `${forcedSymbol} 0.00`;
+    }
+    
+    // Formatar o número com 2 casas decimais
+    const formattedValue = numValue.toFixed(2);
+    
+    // Retornar o valor formatado com o símbolo da moeda e um espaço
+    return `${forcedSymbol} ${formattedValue}`;
+  }
+  
+  // Caso contrário, obter do cache atual
+  const currency = getCurrentCurrency();
+  const symbol = currency?.symbol || '$'; // Usar $ como símbolo de fallback em vez de €
   
   // Garantir que o valor seja um número
   const numValue = parseFloat(value);

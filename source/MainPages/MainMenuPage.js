@@ -1,37 +1,41 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, TouchableOpacity, Dimensions, StyleSheet, Modal, Animated, FlatList } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Modal, Animated, FlatList, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import styles from '../Styles/MainPageStyles/MainMenuPageStyle';
 import { supabase } from '../../Supabase';
 import { GoalOverviewSkeleton, NetIncomeSkeleton } from '../Utility/SkeletonLoading';
 import { GaugeChart } from '../Utility/Chart';
-import { formatCurrency, calculateAllocationValue } from './Manage/GoalsCalc';
 import Header from '../Utility/Header';
 import { LinearGradient } from 'expo-linear-gradient';
-import { setCurrentCurrency, loadSavedCurrency, addCurrencyChangeListener, removeCurrencyChangeListener, shouldConvertCurrencyValues } from '../Utility/FetchCountries';
-import { convertValueToCurrentCurrency } from '../Utility/CurrencyConverter';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getCurrentCurrency, fetchExchangeRates, formatCurrency, loadSavedCurrency, addCurrencyChangeListener, removeCurrencyChangeListener } from '../Utility/FetchCountries';
+import { convertCurrency } from '../Utility/CurrencyService';
+import { 
+  fetchGoalsByUser, 
+  fetchIncomesByUser, 
+  fetchExpensesByUser,
+  fetchUserSettings,
+  getSession,
+  fetchUserCurrencyPreference
+} from '../Utility/MainQueries';
 
 const MainMenuPage = ({ navigation }) => {
+  // Estados para armazenar dados do dashboard
   const [okCount, setOkCount] = useState(0);
   const [warningCount, setWarningCount] = useState(0);
   const [problemCount, setProblemCount] = useState(0);
   const [todayCount, setTodayCount] = useState(0);
-  const [availableMoney, setAvailableMoney] = useState(null);
-  const [usagePercentage, setUsagePercentage] = useState(0);
+  const [availableMoney, setAvailableMoney] = useState(0);
+  const [usagePercentage, setUsagePercentage] = useState(20);
   const [savingsAmount, setSavingsAmount] = useState(0);
   const [totalIncome, setTotalIncome] = useState(0);
   const [totalExpenses, setTotalExpenses] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [dominantGoalStatus, setDominantGoalStatus] = useState(null);
-  const [refreshKey, setRefreshKey] = useState(0); // Chave para forçar re-render
+  const [loading, setLoading] = useState(false);
+  const [dominantGoalStatus, setDominantGoalStatus] = useState('achievable');
+  const [refreshKey, setRefreshKey] = useState(0);
   const [goals, setGoals] = useState([]);
-  const [currentCurrency, setCurrentCurrency] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
-  const [originalCurrency, setOriginalCurrency] = useState('EUR'); // Moeda original do sistema
-  const [originalIncome, setOriginalIncome] = useState(0); // Valores originais
-  const [originalExpenses, setOriginalExpenses] = useState(0);
-  const [originalSavings, setOriginalSavings] = useState(0);
+  const [userCurrency, setUserCurrency] = useState(null);
+  const [error, setError] = useState(null);
 
   // Layout sections para renderizar na FlatList
   const sections = [
@@ -39,28 +43,309 @@ const MainMenuPage = ({ navigation }) => {
     { key: 'goalStatus', type: 'goalStatus' }
   ];
 
-  // Carregar a moeda original salva do usuário
-  const loadOriginalCurrency = async () => {
-    try {
-      const savedCurrency = await AsyncStorage.getItem('original_app_currency');
-      if (savedCurrency) {
-        console.log('[MainMenuPage] Moeda original carregada:', savedCurrency);
-        setOriginalCurrency(savedCurrency);
-        return savedCurrency;
-      } else {
-        // Se não tiver sido salva ainda, salvar a moeda atual como original
-        const currentCurrency = await loadSavedCurrency();
-        const currencyCode = currentCurrency?.code || 'EUR';
-        console.log('[MainMenuPage] Definindo moeda original:', currencyCode);
-        await AsyncStorage.setItem('original_app_currency', currencyCode);
-        setOriginalCurrency(currencyCode);
-        return currencyCode;
+  // Efeito para carregar dados ao montar o componente e garantir que a moeda correta seja usada
+  useEffect(() => {
+    // Carregar moeda do usuário do Supabase antes de qualquer coisa
+    const initializeCurrency = async () => {
+      try {
+        await loadSavedCurrency(); // Isso agora prioriza a moeda do Supabase
+        loadDashboardData();
+      } catch (error) {
+        console.error('Error initializing currency:', error);
+        loadDashboardData(); // Continuar mesmo se falhar
       }
+    };
+    
+    initializeCurrency();
+    
+    // Adicionar listener para mudanças de moeda
+    const handleCurrencyChange = (newCurrency) => {
+      console.log('Currency change detected in MainMenuPage:', newCurrency?.code);
+      setUserCurrency(newCurrency);
+      setRefreshKey(prev => prev + 1);
+      loadDashboardData();
+    };
+    
+    // Registrar listener de moeda
+    addCurrencyChangeListener(handleCurrencyChange);
+    
+    // Adicionar listener de foco para recarregar dados quando retornar à tela
+    const unsubscribe = navigation.addListener('focus', () => {
+      if (!loading) {
+        console.log('Tela recebeu foco, recarregando moeda e dados...');
+        initializeCurrency();
+      }
+    });
+    
+    // Remover listeners ao desmontar
+    return () => {
+      unsubscribe();
+      removeCurrencyChangeListener(handleCurrencyChange);
+    };
+  }, [navigation]);
+
+  // Função principal para carregar todos os dados do dashboard
+  const loadDashboardData = async () => {
+    if (loading) {
+      console.log('Já está carregando dados, ignorando chamada duplicada');
+      return;
+    }
+    
+    setLoading(true);
+    setError(null);
+    console.log('Iniciando carregamento de dados do dashboard');
+    
+    // Safety timeout para evitar loading infinito
+    const safetyTimeout = setTimeout(() => {
+      console.log('Tempo limite de carregamento atingido, forçando reset');
+      setLoading(false);
+      setError('Tempo limite de carregamento excedido');
+    }, 8000);
+    
+    try {
+      // 1. Verificar autenticação usando a função de MainQueries
+      const session = await getSession();
+      if (!session || !session.session?.user) {
+        console.log('Usuário não autenticado');
+        clearTimeout(safetyTimeout);
+        setLoading(false);
+        setError('Usuário não autenticado');
+        return;
+      }
+      
+      const userId = session.session.user.id;
+
+      // 2. Carregar moeda atual do usuário - agora sempre do Supabase
+      // Carregar primeiro a moeda para garantir que os dados sejam mostrados corretamente
+      const currency = getCurrentCurrency(); // Agora usa USD como default em vez de EUR
+      setUserCurrency(currency);
+      console.log('Moeda atual do usuário:', currency);
+      
+      // 3. Carregar goals e processar estatísticas
+      const goalsData = await loadGoals(userId);
+      
+      // 4. Carregar dados financeiros (income e expenses)
+      await loadFinancialData(userId, currency, goalsData);
+      
+      console.log('Carregamento de dados concluído com sucesso');
+      // Incrementar refreshKey para forçar atualização do componente GaugeChart
+      setRefreshKey(prevKey => prevKey + 1);
+      
     } catch (error) {
-      console.error('[MainMenuPage] Erro ao carregar moeda original:', error);
-      // Usar EUR como fallback se houver erro
-      setOriginalCurrency('EUR');
-      return 'EUR';
+      console.error('Erro ao carregar dados do dashboard:', error);
+      setError(`Erro ao carregar dados: ${error.message}`);
+    } finally {
+      clearTimeout(safetyTimeout);
+      setLoading(false);
+    }
+  };
+  
+  // Função para carregar goals e calcular estatísticas
+  const loadGoals = async (userId) => {
+    try {
+      console.log('Carregando goals...');
+      
+      // Usar a função centralizada de consulta em vez da consulta direta
+      const goals = await fetchGoalsByUser(userId);
+      
+      if (!goals) {
+        console.log('Nenhum goal encontrado ou ocorreu um erro');
+        setGoals([]);
+        return [];
+      }
+      
+      setGoals(goals);
+      console.log(`${goals.length || 0} goals carregados`);
+      
+      // Calcular contadores de status
+      let ok = 0, warnings = 0, problems = 0, today = 0;
+      
+      if (goals.length > 0) {
+        goals.forEach(goal => {
+          const status = Number(goal.status) || 0;
+          if (status === 4) today++;
+          else if (status === 3) problems++;
+          else if (status === 2) warnings++;
+          else if (status === 1) ok++;
+        });
+      }
+      
+      // Atualizar contadores
+      setOkCount(ok);
+      setWarningCount(warnings);
+      setProblemCount(problems);
+      setTodayCount(today);
+      
+      // Determinar status dominante
+      let dominantStatus = 'achievable'; // Default
+      
+      if (problems > 0) {
+        dominantStatus = 'impossible';
+      } else if (warnings > 0) {
+        dominantStatus = 'adjustments';
+      } else if (today > 0) {
+        dominantStatus = 'dueToday';
+      } else if (ok > 0) {
+        dominantStatus = 'achievable';
+      }
+      
+      setDominantGoalStatus(dominantStatus);
+      console.log(`Status dominante: ${dominantStatus}`);
+      
+      return goals;
+    } catch (error) {
+      console.error('Erro ao carregar goals:', error);
+      setError(`Erro ao carregar metas: ${error.message}`);
+      return [];
+    }
+  };
+  
+  // Função para carregar dados financeiros
+  const loadFinancialData = async (userId, userCurrency, goalsData) => {
+    try {
+      console.log('Carregando dados financeiros...');
+      const baseCurrency = userCurrency?.code || 'USD'; // Default para USD em vez de EUR
+      console.log(`Moeda base para cálculos: ${baseCurrency}`);
+      
+      // Buscar taxas de câmbio para converter valores se necessário
+      let exchangeRates = null;
+      try {
+        exchangeRates = await fetchExchangeRates(baseCurrency);
+        console.log('Taxas de câmbio carregadas com sucesso');
+      } catch (ratesError) {
+        console.error('Erro ao carregar taxas de câmbio:', ratesError);
+        // Continuar sem conversão se falhar
+      }
+      
+      // 1. Carregar incomes usando a função centralizada
+      const incomes = await fetchIncomesByUser(userId);
+      
+      if (!incomes) {
+        console.error('Erro ao buscar incomes ou nenhum encontrado');
+        return { income: 0, expenses: 0 };
+      }
+      
+      console.log(`${incomes.length || 0} incomes carregados`);
+      
+      // 2. Carregar expenses usando a função centralizada
+      const expenses = await fetchExpensesByUser(userId);
+      
+      if (!expenses) {
+        console.error('Erro ao buscar expenses ou nenhum encontrado');
+        return { income: 0, expenses: 0 };
+      }
+      
+      console.log(`${expenses.length || 0} expenses carregados`);
+      
+      // 3. Calcular valores financeiros
+      let incomeSum = 0;
+      let expenseSum = 0;
+      
+      // Processar incomes
+      if (incomes && incomes.length > 0) {
+        incomeSum = incomes.reduce((sum, income) => {
+          // Obter o valor e a frequência
+          let amount = Number(income.amount) || 0;
+          const days = income.frequencies?.days || 30;
+          
+          // Calcular valor mensal
+          const monthlyAmount = (amount * 30) / days;
+          console.log(`Income: ${income.amount} ${baseCurrency} a cada ${days} dias = ${monthlyAmount.toFixed(2)} ${baseCurrency} por mês`);
+          
+          return sum + monthlyAmount;
+        }, 0);
+      }
+      
+      // Processar expenses
+      if (expenses && expenses.length > 0) {
+        expenseSum = expenses.reduce((sum, expense) => {
+          // Obter o valor e a frequência
+          let amount = Number(expense.amount) || 0;
+          const days = expense.frequencies?.days || 30;
+          
+          // Calcular valor mensal
+          const monthlyAmount = (amount * 30) / days;
+          console.log(`Expense: ${expense.amount} ${baseCurrency} a cada ${days} dias = ${monthlyAmount.toFixed(2)} ${baseCurrency} por mês`);
+          
+          return sum + monthlyAmount;
+        }, 0);
+      }
+      
+      // Calcular balanço e economias
+      const balance = incomeSum - expenseSum;
+      const savings = balance > 0 ? balance : 0;
+      
+      // Atualizar estados financeiros
+      setTotalIncome(incomeSum);
+      setTotalExpenses(expenseSum);
+      setAvailableMoney(balance);
+      setSavingsAmount(savings);
+      
+      console.log(`Dados financeiros calculados:
+        Income: ${incomeSum.toFixed(2)} ${baseCurrency}
+        Expenses: ${expenseSum.toFixed(2)} ${baseCurrency}
+        Balance: ${balance.toFixed(2)} ${baseCurrency}
+        Savings: ${savings.toFixed(2)} ${baseCurrency}`);
+      
+      // Calcular porcentagem de economia alocada para goals
+      await calculateSavingsAllocation(savings, goalsData || [], userId);
+      
+      return { income: incomeSum, expenses: expenseSum };
+    } catch (error) {
+      console.error('Erro ao carregar dados financeiros:', error);
+      setError(`Erro ao calcular dados financeiros: ${error.message}`);
+      return { income: 0, expenses: 0 };
+    }
+  };
+  
+  // Função para calcular a porcentagem de alocação de economias
+  const calculateSavingsAllocation = async (savings, goalsData = [], userId) => {
+    try {
+      // Se não há economias ou goals, buscar valor padrão do Supabase
+      if (savings <= 0 || !goalsData || goalsData.length === 0) {
+        // Usar a função centralizada para buscar configurações do usuário
+        const userSettings = await fetchUserSettings(userId);
+        
+        if (userSettings && userSettings.default_allocation_percentage) {
+          const defaultPercentage = Number(userSettings.default_allocation_percentage);
+          setUsagePercentage(defaultPercentage);
+          console.log(`Usando porcentagem de alocação padrão do usuário: ${defaultPercentage}%`);
+          return;
+        }
+        
+        // Se falhar ou não encontrar config, usar valor padrão do sistema
+        setUsagePercentage(20);
+        return;
+      }
+      
+      // Calcular a soma das porcentagens mínimas de economia de todos os goals
+      const totalAllocation = goalsData.reduce((sum, goal) => {
+        return sum + (Number(goal.goal_saving_minimum) || 0);
+      }, 0);
+      
+      // Limitar a 100% no máximo
+      const finalPercentage = Math.min(totalAllocation, 100);
+      setUsagePercentage(finalPercentage);
+      
+      console.log(`Porcentagem de alocação calculada: ${finalPercentage}%`);
+    } catch (error) {
+      console.error('Erro ao calcular alocação de economias:', error);
+      
+      try {
+        // Usar a função centralizada para buscar configurações do usuário em caso de erro
+        const userSettings = await fetchUserSettings(userId);
+        
+        if (userSettings && userSettings.default_allocation_percentage) {
+          const defaultPercentage = Number(userSettings.default_allocation_percentage);
+          setUsagePercentage(defaultPercentage);
+          return;
+        }
+      } catch (configError) {
+        console.error('Erro ao buscar configuração de alocação:', configError);
+      }
+      
+      // Fallback para valor padrão do sistema
+      setUsagePercentage(20);
     }
   };
 
@@ -72,267 +357,18 @@ const MainMenuPage = ({ navigation }) => {
     dueToday: '#0984e3'     // Azul
   };
 
-  // Função para converter valores financeiros quando a moeda mudar
-  const convertFinancialValues = async (income, expenses, savings, origCurrency) => {
-    try {
-      const sourceCurrency = origCurrency || originalCurrency || 'EUR';
-      console.log(`[MainMenuPage] Convertendo valores financeiros de ${sourceCurrency}`);
-      
-      // Verificar se devemos converter ou apenas exibir na nova moeda
-      const shouldConvert = shouldConvertCurrencyValues();
-      console.log(`[MainMenuPage] Converter valores? ${shouldConvert ? 'SIM' : 'NÃO'}`);
-      
-      if (shouldConvert) {
-        // Converter os valores
-        console.log(`[MainMenuPage] Convertendo: Income=${income}, Expenses=${expenses}, Savings=${savings}`);
-        
-        const convertedIncome = await convertValueToCurrentCurrency(income, sourceCurrency);
-        const convertedExpenses = await convertValueToCurrentCurrency(expenses, sourceCurrency);
-        const convertedSavings = await convertValueToCurrentCurrency(savings, sourceCurrency);
-        
-        console.log(`[MainMenuPage] Valores convertidos: Income=${convertedIncome}, Expenses=${convertedExpenses}, Savings=${convertedSavings}`);
-        
-        // Atualizar os estados com os valores convertidos
-        setTotalIncome(convertedIncome);
-        setTotalExpenses(convertedExpenses);
-        setSavingsAmount(convertedSavings);
-        setAvailableMoney(convertedSavings);
-      }
-      
-      // Forçar atualização da interface
-      setRefreshKey(prev => prev + 1);
-    } catch (error) {
-      console.error('[MainMenuPage] Erro ao converter valores financeiros:', error);
-      // Manter os valores originais em caso de erro
-    }
-  };
-
-  // Ouvinte para mudanças na moeda
-  const handleCurrencyChange = async (newCurrency) => {
-    try {
-      console.log('[MainMenuPage] Moeda alterada:', newCurrency);
-      await convertFinancialValues(originalIncome, originalExpenses, originalSavings, originalCurrency);
-    } catch (error) {
-      console.error('[MainMenuPage] Erro ao lidar com mudança de moeda:', error);
-    }
-  };
-
-  // Função para buscar dados do dashboard
-  const fetchDashboardData = async () => {
-    try {
-      setLoading(true);
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        setLoading(false);
-        return;
-      }
-
-      // Carregar a moeda original
-      const origCurrency = await loadOriginalCurrency();
-
-      // Carregar a moeda global salva
-      try {
-        // Primeiro, tentar carregar da configuração global
-        const savedCurrency = await loadSavedCurrency();
-        
-        if (!savedCurrency) {
-          // Se não encontrar na configuração global, buscar do AsyncStorage diretamente
-          const storedCurrency = await AsyncStorage.getItem('user_preferred_currency');
-          
-          if (storedCurrency) {
-            // Buscar a região do usuário para definir a moeda
-            const { data: userData, error: userError } = await supabase
-              .from('users')
-              .select('region')
-              .eq('id', user.id)
-              .single();
-            
-            if (!userError && userData && userData.region) {
-              // Define a moeda com base na região do usuário
-              await setCurrentCurrency(userData.region);
-              console.log(`Moeda definida para a região: ${userData.region}`);
-            } else {
-              // Define o Euro como moeda padrão se não encontrar região
-              await setCurrentCurrency('EUR');
-              console.log('Moeda definida para o padrão: Euro');
-            }
-          }
-        } else {
-          // Usar a moeda global carregada
-          console.log(`Usando moeda global: ${savedCurrency.code}`);
-        }
-      } catch (currencyError) {
-        console.error('Erro ao carregar moeda:', currencyError);
-      }
-      
-      // Goals status
-      const { data: goals, error: goalsError } = await supabase
-        .from('goals')
-        .select('id, name, amount, deadline, status, created_at, goal_saving_minimum')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-        
-      if (goalsError) {
-        console.error('Error fetching goals:', goalsError);
-        setLoading(false);
-        return;
-      }
-      
-      setGoals(goals || []);
-      
-      if (goals && goals.length > 0) {
-        let ok = 0, warnings = 0, problems = 0, today = 0;
-        // Contar metas por status
-        for (const goal of goals) {
-          const status = Number(goal.status) || 0;
-          if (status === 4) today++;
-          else if (status === 3) problems++;
-          else if (status === 2) warnings++;
-          else if (status === 1) ok++;
-        }
-        
-        setOkCount(ok);
-        setWarningCount(warnings);
-        setProblemCount(problems);
-        setTodayCount(today);
-        
-        // Determinar status dominante para definir a cor do gauge
-        if (warnings > 0) {
-          setDominantGoalStatus('adjustments');
-        } else if (problems > 0) {
-          setDominantGoalStatus('impossible');
-        } else if (today > 0) {
-          setDominantGoalStatus('dueToday');
-        } else if (ok > 0) {
-          setDominantGoalStatus('achievable');
-        } else {
-          setDominantGoalStatus(null);
-        }
-      } else {
-        // Reset counters if no goals found
-        setOkCount(0);
-        setWarningCount(0);
-        setProblemCount(0);
-        setTodayCount(0);
-        setDominantGoalStatus(null);
-      }
-      
-      // Income and Expenses for Savings calculation
-      const { data: incomes, error: incomesError } = await supabase
-        .from('income')
-        .select('amount, frequencies(days)')
-        .eq('user_id', user.id);
-      
-      if (incomesError) {
-        console.error('Error fetching incomes:', incomesError);
-        setLoading(false);
-        return;
-      }
-      
-      const { data: expenses, error: expensesError } = await supabase
-        .from('expenses')
-        .select('amount, frequencies(days)')
-        .eq('user_id', user.id);
-      
-      if (expensesError) {
-        console.error('Error fetching expenses:', expensesError);
-        setLoading(false);
-        return;
-      }
-      
-      // Calculate monthly income
-      let incomeSum = 0;
-      if (incomes && incomes.length > 0) {
-        incomeSum = incomes.reduce((sum, income) => {
-          const days = income.frequencies?.days || 30;
-          return sum + (income.amount * 30) / days;
-        }, 0);
-      }
-      
-      // Calculate monthly expenses
-      let expenseSum = 0;
-      if (expenses && expenses.length > 0) {
-        expenseSum = expenses.reduce((sum, expense) => {
-          const days = expense.frequencies?.days || 30;
-          return sum + (expense.amount * 30) / days;
-        }, 0);
-      }
-      
-      // Calculate available money and savings
-      const savings = incomeSum - expenseSum;
-      
-      // Armazenar os valores originais
-      setOriginalIncome(incomeSum);
-      setOriginalExpenses(expenseSum);
-      setOriginalSavings(savings > 0 ? savings : 0);
-      
-      // Atualizar os valores da UI (possivelmente convertendo)
-      setTotalIncome(incomeSum);
-      setTotalExpenses(expenseSum);
-      setAvailableMoney(savings);
-      setSavingsAmount(savings > 0 ? savings : 0);
-      
-      // Converter valores para a moeda atual, se necessário
-      await convertFinancialValues(incomeSum, expenseSum, savings > 0 ? savings : 0, origCurrency);
-      
-      // Calcular a porcentagem baseada nos goals
-      if (goals && goals.length > 0 && incomeSum > 0) {
-        // Calcular alocação com base nos goals
-        const allocation = calculateAllocationValue(goals, savings);
-        setUsagePercentage(allocation.totalPercentage);
-      } else {
-        // Fallback para 20% se não houver goals
-        setUsagePercentage(20);
-      }
-      
-      // Forçar atualização da interface
-      setRefreshKey(prev => prev + 1);
-      
-      setLoading(false);
-    } catch (error) {
-      console.error('Dashboard data fetch error:', error);
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    // Initial fetch
-    fetchDashboardData();
-    
-    // Adicionar listener para alterações na moeda global
-    addCurrencyChangeListener(handleCurrencyChange);
-    
-    // Limpar listener quando o componente for desmontado
-    return () => {
-      removeCurrencyChangeListener(handleCurrencyChange);
-    };
-  }, []);
-
-  // Adicionar um listener de foco para atualizar quando a tela receber foco
-  useEffect(() => {
-    const unsubscribe = navigation.addListener('focus', () => {
-      fetchDashboardData();
-    });
-    
-    return unsubscribe;
-  }, [navigation]);
-
-  // Reagir apenas quando a moeda for alterada
-  useEffect(() => {
-    if (currentCurrency) {
-      // Atualizar a tela quando a moeda for alterada
-      fetchDashboardData();
-    }
-  }, [currentCurrency]);
-
   // Determinar a cor do gauge com base no status dominante dos goals
   const getGaugeColor = () => {
-    // Se tiver status dominante de goals, usa essa cor
-    if (dominantGoalStatus) {
+    // Se tiver status dominante de goals e ele for válido, usa essa cor
+    if (dominantGoalStatus && statusColors[dominantGoalStatus]) {
       return statusColors[dominantGoalStatus];
     }
     
     // Fallback para o comportamento baseado na porcentagem
+    if (typeof usagePercentage !== 'number' || isNaN(usagePercentage)) {
+      return statusColors.achievable; // Verde como cor padrão
+    }
+    
     if (usagePercentage <= 50) {
       return statusColors.achievable; // Verde
     } else if (usagePercentage <= 80) {
@@ -346,7 +382,6 @@ const MainMenuPage = ({ navigation }) => {
 
   // Mostrar detalhes financeiros ao clicar no gauge
   const handleGaugePress = () => {
-    // Replace alert with modal
     setModalVisible(true);
   };
 
@@ -358,6 +393,11 @@ const MainMenuPage = ({ navigation }) => {
   // Navegar para o mercado de moedas
   const navigateToCurrencyMarket = () => {
     navigation.navigate('CurrencyMarketPage');
+  };
+  
+  // Função para atualizar os dados manualmente
+  const refreshDashboard = () => {
+    loadDashboardData();
   };
 
   // Função para renderizar os itens na FlatList
@@ -381,6 +421,14 @@ const MainMenuPage = ({ navigation }) => {
             </View>
             {loading ? (
               <NetIncomeSkeleton />
+            ) : error ? (
+              <View style={cardStyles.errorCard}>
+                <Ionicons name="alert-circle-outline" size={40} color="#E74C3C" />
+                <Text style={cardStyles.errorText}>{error}</Text>
+                <TouchableOpacity style={cardStyles.retryButton} onPress={refreshDashboard}>
+                  <Text style={cardStyles.retryText}>Tentar Novamente</Text>
+                </TouchableOpacity>
+              </View>
             ) : (
               <View style={cardStyles.card}>
                 <View style={cardStyles.moneyContainer}>
@@ -390,7 +438,7 @@ const MainMenuPage = ({ navigation }) => {
                       cardStyles.moneyValue, 
                       {color: availableMoney >= 0 ? statusColors.achievable : statusColors.impossible}
                     ]}>
-                      {formatCurrency(availableMoney)}
+                      {formatCurrency(availableMoney, userCurrency?.symbol)}
                     </Text>
                   </View>
                 </View>
@@ -402,7 +450,7 @@ const MainMenuPage = ({ navigation }) => {
                 >
                   <GaugeChart 
                     key={`gauge-${refreshKey}-${dominantGoalStatus}`}
-                    value={usagePercentage}
+                    value={typeof usagePercentage === 'number' && !isNaN(usagePercentage) ? usagePercentage : 20}
                     width={200}
                     height={100}
                     startAngle={-90}
@@ -432,6 +480,11 @@ const MainMenuPage = ({ navigation }) => {
             </View>
             {loading ? (
               <GoalOverviewSkeleton />
+            ) : error ? (
+              <View style={cardStyles.errorCard}>
+                <Ionicons name="alert-circle-outline" size={40} color="#E74C3C" />
+                <Text style={cardStyles.errorText}>{error}</Text>
+              </View>
             ) : (
               <TouchableOpacity
                 style={{
@@ -523,6 +576,8 @@ const MainMenuPage = ({ navigation }) => {
         keyExtractor={item => item.key}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{paddingBottom: 24}}
+        refreshing={loading}
+        onRefresh={refreshDashboard}
       />
 
       {/* Financial Details Modal */}
@@ -555,7 +610,7 @@ const MainMenuPage = ({ navigation }) => {
               <View style={styles.financialModal.summaryItem}>
                 <Ionicons name="arrow-down-circle" size={20} color="#00B894" style={styles.financialModal.icon} />
                 <Text style={styles.financialModal.summaryLabel}>Receitas</Text>
-                <Text style={styles.financialModal.summaryValue}>{formatCurrency(totalIncome)}</Text>
+                <Text style={styles.financialModal.summaryValue}>{formatCurrency(totalIncome, userCurrency?.symbol)}</Text>
               </View>
               
               <View style={styles.financialModal.summaryDivider} />
@@ -563,7 +618,7 @@ const MainMenuPage = ({ navigation }) => {
               <View style={styles.financialModal.summaryItem}>
                 <Ionicons name="arrow-up-circle" size={20} color="#E74C3C" style={styles.financialModal.icon} />
                 <Text style={styles.financialModal.summaryLabel}>Despesas</Text>
-                <Text style={styles.financialModal.summaryValue}>{formatCurrency(totalExpenses)}</Text>
+                <Text style={styles.financialModal.summaryValue}>{formatCurrency(totalExpenses, userCurrency?.symbol)}</Text>
               </View>
             </View>
             
@@ -576,7 +631,7 @@ const MainMenuPage = ({ navigation }) => {
                   <Text style={[
                     styles.financialModal.balanceValue, 
                     { color: availableMoney >= 0 ? '#00B894' : '#E74C3C' }
-                  ]}>{formatCurrency(availableMoney)}</Text>
+                  ]}>{formatCurrency(availableMoney, userCurrency?.symbol)}</Text>
                 </View>
               </View>
               
@@ -585,7 +640,7 @@ const MainMenuPage = ({ navigation }) => {
                 
                 <View style={styles.financialModal.allocationCard}>
                   <View style={styles.financialModal.allocationHeader}>
-                    <Text style={styles.financialModal.allocationAmount}>{formatCurrency(savingsAmount)}</Text>
+                    <Text style={styles.financialModal.allocationAmount}>{formatCurrency(savingsAmount, userCurrency?.symbol)}</Text>
                     <View style={styles.financialModal.percentageBadge}>
                       <Text style={styles.financialModal.percentageText}>{Math.round(usagePercentage)}%</Text>
                     </View>
@@ -647,6 +702,39 @@ const cardStyles = StyleSheet.create({
     elevation: 6,
     borderWidth: 1,
     borderColor: 'rgba(0,0,0,0.03)',
+  },
+  errorCard: {
+    backgroundColor: '#FFF5F5',
+    borderRadius: 20,
+    padding: 24,
+    marginBottom: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#1A365D',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    elevation: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(231, 76, 60, 0.2)',
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#E74C3C',
+    textAlign: 'center',
+    marginTop: 12,
+    marginBottom: 16,
+  },
+  retryButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    backgroundColor: 'rgba(231, 76, 60, 0.1)',
+    borderRadius: 8,
+  },
+  retryText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#E74C3C',
   },
   moneyContainer: {
     padding: 20,
