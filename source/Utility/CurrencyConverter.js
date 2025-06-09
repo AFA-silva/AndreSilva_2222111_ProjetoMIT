@@ -32,8 +32,11 @@ export const convertValueToCurrentCurrency = async (value, originalCurrency) => 
     const currentCurrency = getCurrentCurrency();
     console.log('Moeda atual:', currentCurrency);
     
-    // Se originalCurrency não for definida, usar EUR como padrão
-    const fromCurrency = originalCurrency || 'EUR';
+    // We must have an explicit original currency
+    if (!originalCurrency) {
+      throw new Error('Original currency must be specified for conversion');
+    }
+    const fromCurrency = originalCurrency;
     console.log(`Moeda original: ${fromCurrency}`);
     
     // Se já está na moeda atual, retornar o valor sem conversão
@@ -79,27 +82,13 @@ export const convertValueToCurrentCurrency = async (value, originalCurrency) => 
     } catch (apiError) {
       console.error('Erro ao buscar taxas de câmbio:', apiError);
       
-      // Tentar usar cache como fallback
-      if (
-        exchangeRatesCache.rates && 
-        exchangeRatesCache.baseCurrency === fromCurrency &&
-        exchangeRatesCache.rates[currentCurrency.code]
-      ) {
-        const cachedRate = exchangeRatesCache.rates[currentCurrency.code];
-        console.log(`Usando taxa do cache como fallback: ${cachedRate}`);
-        return numValue * cachedRate;
-      }
-      
-      // Se tudo falhar, usar uma taxa fixa para não quebrar a aplicação
-      const emergencyRate = fromCurrency === 'GBP' && currentCurrency.code === 'EUR' ? 1.17 : 
-                          (fromCurrency === 'EUR' && currentCurrency.code === 'GBP' ? 0.85 : 1);
-      
-      console.log(`Usando taxa de emergência: ${emergencyRate}`);
-      return numValue * emergencyRate;
+      // Não há mais fallbacks - simplesmente lançar erro
+      console.error('Currency exchange services are unavailable');
+      throw new Error('Currently our currency exchange services are unavailable. Try again later!');
     }
   } catch (error) {
     console.error('Erro geral ao converter para moeda atual:', error);
-    return value; // Em caso de erro, retorna o valor original
+    throw error; // Propagar o erro em vez de usar fallback
   }
 };
 

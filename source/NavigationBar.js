@@ -28,27 +28,7 @@ const NavigationBar = () => {
   const navbarAnim = useRef(new Animated.Value(1)).current;
   const loadingAnim = useRef(new Animated.Value(0)).current;
 
-  // Função para determinar qual rota está ativa
-  const getCurrentRouteName = () => {
-    try {
-      // Se estamos em um stack navigator
-      if (route.state) {
-        const currentRouteName = route.state.routes[route.state.index].name;
-        return currentRouteName;
-      }
-      
-      // Para nested navigators
-      if (route.params && route.params.screen) {
-        return route.params.screen;
-      }
-      
-      // Fallback para o nome da rota direta
-      return route.name;
-    } catch (error) {
-      console.log('Error getting route name:', error);
-      return 'MainMenuPage'; // Default fallback
-    }
-  };
+  // No longer using getCurrentRouteName function
 
   // Função para fazer refresh da navbar
   const refreshNavbar = () => {
@@ -59,7 +39,7 @@ const NavigationBar = () => {
     loadingAnim.setValue(0);
     
     // Garantir que os valores iniciais sejam visíveis
-    const currentActiveTab = getCurrentRouteName() || 'MainMenuPage';
+    const currentActiveTab = 'MainMenuPage'; // Default to MainMenuPage
     setActiveTab(currentActiveTab);
     
     Object.keys(tabAnimations).forEach(tab => {
@@ -77,7 +57,7 @@ const NavigationBar = () => {
     // Reduzir o tempo de loading para melhorar a experiência do usuário
     setTimeout(() => {
       // Garantir que todos os botões estejam visíveis, independentemente do estado de loading
-      const currentActiveTab = getCurrentRouteName() || 'MainMenuPage';
+      const currentActiveTab = 'MainMenuPage'; // Always default to MainMenuPage when initializing
       setActiveTab(currentActiveTab);
       
       Object.keys(tabAnimations).forEach(tab => {
@@ -117,14 +97,13 @@ const NavigationBar = () => {
     });
     // Iniciar com a navbar visível imediatamente
     navbarAnim.setValue(1);
-    // Timeout curto para permitir que o layout seja calculado corretamente
-    setTimeout(initializeNavbar, 50);
-    // Adicionar um segundo timeout mais longo como fallback para garantir carregamento completo
+    // Single optimized timeout to handle initialization
     setTimeout(() => {
+      initializeNavbar();
       if (isLoading) {
         refreshNavbar();
       }
-    }, 1000);
+    }, 300);
   }, []);
 
   // Efeito para atualizar as animações quando a tab muda
@@ -132,25 +111,10 @@ const NavigationBar = () => {
     if (!isInitialized) return;
     
     try {
-      // Verificar a rota atual a partir dos estados de navegação
+      // Use the direct route name from navigation state
       const state = navigation.getState();
-      let foundActiveRoute = false;
-      
-      // Encontrar qual stack está ativa
-      let activeRouteName = activeTab; // Manter o valor atual como fallback
-      for (const r of state.routes) {
-        if (r.name === 'MainPages' && r.state) {
-          const activeRouteIndex = r.state.index;
-          activeRouteName = r.state.routes[activeRouteIndex].name;
-          foundActiveRoute = true;
-          break;
-        }
-      }
-      
-      // Se não encontrou rota nas stacks, usar o estado atual
-      if (!foundActiveRoute) {
-        activeRouteName = getCurrentRouteName() || activeTab;
-      }
+      const activeRouteIndex = state.index;
+      const activeRouteName = state.routes[activeRouteIndex].name;
       
       setActiveTab(activeRouteName);
       

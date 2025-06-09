@@ -4,6 +4,7 @@ import styles from '../Styles/AccountPageStyles/LoginPageStyle'; // Import do es
 import { supabase } from '../../Supabase'; // Import da Database
 import Alert from '../Utility/Alerts'; // Import dos Alertas customs
 import { updateUser, getSession } from '../Utility/MainQueries'; // Import das queries para atualizar usuário e obter a sessão
+import { loadSavedCurrency } from '../Utility/FetchCountries'; // Import para carregar a moeda
 
 const LoginPage = ({ navigation }) => {
   // Cria as variáveis para os alertas.
@@ -69,6 +70,15 @@ const LoginPage = ({ navigation }) => {
             showAlertMessage('Erro ao sincronizar dados do usuário.', 'error');
             return;
           }
+        }
+
+        // Inicializar as moedas antes de navegar para a tela principal
+        try {
+          console.log('Carregando preferências de moeda...');
+          await loadSavedCurrency();
+        } catch (currencyError) {
+          console.error('Erro ao carregar preferências de moeda:', currencyError);
+          // Continue mesmo com erro de moeda
         }
 
         // Espera de 1.5 segundos antes de ir para a MainPage

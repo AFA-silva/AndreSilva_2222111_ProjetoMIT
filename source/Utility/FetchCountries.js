@@ -1,4 +1,6 @@
 import { fetchUserCurrencyPreference, updateUserCurrencyPreference } from './MainQueries';
+import { supabase } from '../../Supabase';
+import { convertCurrencyForUserData } from './CurrencyService';
 
 export const fetchCountries = async () => {
     try {
@@ -81,135 +83,81 @@ const notifyCurrencyChange = () => {
 // Definir a moeda atual para uso em toda a aplicação
 export const setCurrentCurrency = async (countryCodeOrName) => {
   try {
+    let currencyData = null;
+    
     // Se é uma string, assumimos que é um código ou nome de país
     if (typeof countryCodeOrName === 'string') {
-      currentCurrencyInfo = await getCurrencyByCountryCode(countryCodeOrName);
+      currencyData = await getCurrencyByCountryCode(countryCodeOrName);
     } 
     // Se é um objeto, assumimos que já é um objeto de moeda
     else if (typeof countryCodeOrName === 'object' && countryCodeOrName !== null) {
-      currentCurrencyInfo = countryCodeOrName;
+      currencyData = countryCodeOrName;
     }
     
-    // Salvar a moeda atual no AsyncStorage para persistência
-    if (currentCurrencyInfo) {
-      // Atualizar no AsyncStorage
-      try {
-        const AsyncStorage = require('@react-native-async-storage/async-storage').default;
-        await AsyncStorage.setItem('app_currency', JSON.stringify(currentCurrencyInfo));
-        console.log('Currency saved to AsyncStorage:', currentCurrencyInfo.code);
-      } catch (storageError) {
-        console.error('Error saving currency to AsyncStorage:', storageError);
-      }
-      
-      // Atualizar na Supabase (crucial para sincronização entre dispositivos)
-      try {
-        await updateUserCurrencyPreference(currentCurrencyInfo.code);
-        console.log('Currency saved to Supabase:', currentCurrencyInfo.code);
-      } catch (supabaseError) {
-        console.error('Error saving currency to Supabase:', supabaseError);
-      }
-      
-      // Notificar todos os componentes registrados
-      notifyCurrencyChange();
+    if (!currencyData) {
+      throw new Error('Invalid currency data');
     }
+    
+    // Atualizar na Supabase (única fonte de verdade)
+    await updateUserCurrencyPreference(currencyData);
+    console.log('Currency saved to database:', currencyData.code);
+    
+    // Atualizar o cache local
+    currentCurrencyInfo = currencyData;
+    
+    // Notificar todos os componentes registrados
+    notifyCurrencyChange();
     
     return currentCurrencyInfo;
   } catch (error) {
     console.error('Error setting current currency:', error);
-    return null;
+    throw error;
   }
 };
 
 // Função para carregar a moeda salva no início do aplicativo
 export const loadSavedCurrency = async () => {
   try {
-    // Tentar carregar do Supabase primeiro (prioridade)
-    try {
-      const currencyCode = await fetchUserCurrencyPreference();
-      if (currencyCode) {
-        console.log('Moeda carregada do Supabase:', currencyCode);
-        const currencyInfo = await getCurrencyByCountryCode(currencyCode);
-        if (currencyInfo) {
-          currentCurrencyInfo = currencyInfo;
-          notifyCurrencyChange();
-          return currentCurrencyInfo;
-        }
-      }
-    } catch (supabaseError) {
-      console.error('Erro ao carregar moeda do Supabase:', supabaseError);
-      // Continuar para tentar carregar do AsyncStorage
+    // Carregar diretamente do Supabase
+    const currencyInfo = await fetchUserCurrencyPreference();
+    
+    console.log('Moeda carregada do Supabase:', currencyInfo);
+    
+    // Verificar se a moeda já está definida e é a mesma
+    // Isso evita notificações desnecessárias que podem causar loops
+    const isSameCurrency = currentCurrencyInfo && 
+      currentCurrencyInfo.code === currencyInfo.code;
+    
+    if (!isSameCurrency) {
+      currentCurrencyInfo = currencyInfo;
+      // Só notificar se realmente houve mudança
+      notifyCurrencyChange();
+    } else {
+      // Apenas atualizar a referência sem notificar
+      currentCurrencyInfo = currencyInfo;
     }
     
-    // Carregar do AsyncStorage como fallback
-    const AsyncStorage = require('@react-native-async-storage/async-storage').default;
-    const savedCurrency = await AsyncStorage.getItem('app_currency');
-    
-    // Carregar a preferência de conversão
-    try {
-      const convertValues = await AsyncStorage.getItem('convert_currency_values');
-      if (convertValues !== null) {
-        shouldConvertValues = convertValues === 'true';
-        console.log('Preferência de conversão carregada:', shouldConvertValues);
-      }
-    } catch (error) {
-      console.error('Erro ao carregar preferência de conversão:', error);
-    }
-    
-    if (savedCurrency) {
-      const parsedCurrency = JSON.parse(savedCurrency);
-      console.log('Moeda carregada do AsyncStorage:', parsedCurrency);
-      
-      // Se a moeda global tem uma configuração de conversão, usá-la
-      if (parsedCurrency.hasOwnProperty('convertValues')) {
-        shouldConvertValues = parsedCurrency.convertValues;
-        console.log('Usando preferência de conversão da moeda:', shouldConvertValues);
-      }
-      
-      // Verificar se a moeda já está definida e é a mesma
-      // Isso evita notificações desnecessárias que podem causar loops
-      const isSameCurrency = currentCurrencyInfo && 
-        currentCurrencyInfo.code === parsedCurrency.code;
-      
-      if (!isSameCurrency) {
-        currentCurrencyInfo = parsedCurrency;
-        // Só notificar se realmente houve mudança
-        notifyCurrencyChange();
-      } else {
-        // Apenas atualizar a referência sem notificar
-        currentCurrencyInfo = parsedCurrency;
-      }
-      
-      return currentCurrencyInfo;
-    }
-    
-    return null;
+    return currentCurrencyInfo;
   } catch (error) {
     console.error('Error loading saved currency:', error);
-    return null;
+    throw new Error('Currency service unavailable');
   }
 };
 
 // Obter a moeda atual do cache
 export const getCurrentCurrency = () => {
-  // Valor padrão caso não tenha sido definido
+  // Verificar se temos a moeda em cache
   if (!currentCurrencyInfo) {
-    // Tentar buscar do Supabase em modo síncrono
+    // Se não temos, iniciar uma busca assíncrona e lançar erro
     if (!getCurrentCurrency.fetchingFromSupabase) {
       getCurrentCurrency.fetchingFromSupabase = true;
       
       // Iniciar busca assíncrona
       (async () => {
         try {
-          const currencyCode = await fetchUserCurrencyPreference();
-          if (currencyCode) {
-            console.log('Buscando moeda do Supabase:', currencyCode);
-            const currencyInfo = await getCurrencyByCountryCode(currencyCode);
-            if (currencyInfo) {
-              currentCurrencyInfo = currencyInfo;
-              notifyCurrencyChange();
-              console.log('Moeda atualizada com base no Supabase:', currentCurrencyInfo);
-            }
-          }
+          currentCurrencyInfo = await fetchUserCurrencyPreference();
+          notifyCurrencyChange();
+          console.log('Moeda atualizada com base no Supabase:', currentCurrencyInfo);
         } catch (error) {
           console.error('Erro ao buscar moeda do Supabase:', error);
         } finally {
@@ -218,8 +166,8 @@ export const getCurrentCurrency = () => {
       })();
     }
     
-    // Usar um valor padrão baseado no Supabase (default USD em vez de EUR)
-    return { code: 'USD', name: 'US Dollar', symbol: '$' };
+    // Não temos valor até o carregamento ser concluído
+    throw new Error('Currency not yet loaded. Please initialize currency first with loadSavedCurrency()');
   }
   return currentCurrencyInfo;
 };
@@ -242,22 +190,32 @@ export const formatCurrency = (value, forcedSymbol = null) => {
     return `${forcedSymbol} ${formattedValue}`;
   }
   
-  // Caso contrário, obter do cache atual
-  const currency = getCurrentCurrency();
-  const symbol = currency?.symbol || '$'; // Usar $ como símbolo de fallback em vez de €
-  
-  // Garantir que o valor seja um número
-  const numValue = parseFloat(value);
-  
-  if (isNaN(numValue)) {
-    return `${symbol} 0.00`;
+  // Caso contrário, tentar obter do cache atual
+  try {
+    const currency = getCurrentCurrency();
+    const symbol = currency?.symbol;
+    if (!symbol) {
+      return `$ ${parseFloat(value).toFixed(2)}`;
+    }
+    
+    // Garantir que o valor seja um número
+    const numValue = parseFloat(value);
+    
+    if (isNaN(numValue)) {
+      return `${symbol} 0.00`;
+    }
+    
+    // Formatar o número com 2 casas decimais
+    const formattedValue = numValue.toFixed(2);
+    
+    // Retornar o valor formatado com o símbolo da moeda e um espaço
+    return `${symbol} ${formattedValue}`;
+  } catch (error) {
+    // Se não foi possível obter a moeda, usar $ como padrão
+    console.log('Currency not loaded yet, using default symbol');
+    const numValue = parseFloat(value);
+    return `$ ${isNaN(numValue) ? '0.00' : numValue.toFixed(2)}`;
   }
-  
-  // Formatar o número com 2 casas decimais
-  const formattedValue = numValue.toFixed(2);
-  
-  // Retornar o valor formatado com o símbolo da moeda e um espaço
-  return `${symbol} ${formattedValue}`;
 };
 
 // Armazenar em cache as taxas de câmbio para evitar múltiplas chamadas à API
@@ -271,13 +229,7 @@ let exchangeRatesCache = {
 const EXCHANGE_API_KEY = 'de3d3cc388a2679655798ec7'; // Adicionada chave pública
 const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 horas em milissegundos
 
-// Taxas fixas para uso quando a API falhar
-const FIXED_RATES = {
-  'EUR': { 'USD': 1.09, 'GBP': 0.85, 'BRL': 6.13 },
-  'USD': { 'EUR': 0.92, 'GBP': 0.78, 'BRL': 5.63 },
-  'GBP': { 'EUR': 1.17, 'USD': 1.28, 'BRL': 7.18 },
-  'BRL': { 'EUR': 0.16, 'USD': 0.18, 'GBP': 0.14 }
-};
+// No longer using fixed rates
 
 // Função para buscar taxas de câmbio atualizadas
 export const fetchExchangeRates = async (baseCurrency = 'EUR') => {
@@ -318,31 +270,14 @@ export const fetchExchangeRates = async (baseCurrency = 'EUR') => {
     } catch (apiError) {
       console.error('Erro ao buscar taxas de câmbio da API:', apiError);
       
-      // Se a API falhar, usar taxas fixas de emergência
-      if (FIXED_RATES[baseCurrency]) {
-        console.log(`Usando taxas fixas para ${baseCurrency}`, FIXED_RATES[baseCurrency]);
-        return FIXED_RATES[baseCurrency];
-      }
-      
-      throw apiError;
+      // No longer using fixed rates as a fallback
+      throw new Error('Currently our currency exchange services are unavailable. Try again later!');
     }
   } catch (error) {
     console.error('Erro geral ao buscar taxas de câmbio:', error);
     
-    // Retornar cache expirado se disponível
-    if (exchangeRatesCache.rates && exchangeRatesCache.baseCurrency === baseCurrency) {
-      console.log('Usando cache expirado como fallback');
-      return exchangeRatesCache.rates;
-    }
-    
-    // Ou retornar taxas fixas como último recurso
-    if (FIXED_RATES[baseCurrency]) {
-      console.log('Usando taxas fixas de emergência');
-      return FIXED_RATES[baseCurrency];
-    }
-    
-    // Se tudo falhar, retornar objeto vazio
-    return {};
+    // No longer using cache or fixed rates
+    throw new Error('Currently our currency exchange services are unavailable. Try again later!');
   }
 };
 
@@ -405,4 +340,39 @@ export const formatCurrencyWithCode = async (value, currencyCode = null) => {
 // Função para verificar se os valores devem ser convertidos
 export const shouldConvertCurrencyValues = () => {
   return shouldConvertValues;
+};
+
+// New function to handle currency conversion preference
+export const setCurrencyConversionPreference = async (shouldConvert, userId) => {
+  try {
+    // Update local state
+    shouldConvertValues = shouldConvert;
+    
+    // If true, convert values and update them in the database
+    if (shouldConvert && userId) {
+      // Get current currency
+      const currentCurrency = getCurrentCurrency();
+      
+      // Get previous currency (we need this for conversion)
+      const { data } = await supabase
+        .from('user_currency_preferences')
+        .select('previous_currency')
+        .eq('user_id', userId)
+        .single();
+      
+      const previousCurrency = data?.previous_currency || 'USD';
+      
+      if (currentCurrency.code !== previousCurrency) {
+        // Convert all financial data in database
+        await convertCurrencyForUserData(previousCurrency, currentCurrency.code);
+        console.log('Converted all financial data to', currentCurrency.code);
+      }
+    }
+    
+    // Return the current setting
+    return shouldConvertValues;
+  } catch (error) {
+    console.error('Error setting currency conversion preference:', error);
+    throw new Error('Failed to update currency conversion preference');
+  }
 };

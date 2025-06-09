@@ -78,19 +78,24 @@ export const fetchUserCurrencyPreference = async () => {
 
     if (error) {
       console.error('Error fetching user currency preference:', error);
-      return 'USD'; // Default on error
+      throw new Error('Unable to retrieve currency preferences');
     }
 
     if (data && data.actual_currency) {
-      console.log('User currency preference fetched:', data.actual_currency);
-      return data.actual_currency;
+      console.log('User currency preference fetched:', data);
+      // Return just the currency code since we don't have symbol and name in the database
+      return {
+        code: data.actual_currency,
+        symbol: data.actual_currency, // Use currency code as symbol since we don't have symbol in DB
+        name: data.actual_currency    // Use currency code as name since we don't have name in DB
+      };
     } else {
-      console.log('No currency preference found, using default USD');
-      return 'USD'; // Default currency
+      console.error('No currency preference found');
+      throw new Error('No currency preference found');
     }
   } catch (err) {
     console.error('Error in fetchUserCurrencyPreference:', err);
-    return 'USD'; // Default currency on error
+    throw new Error('Currency service unavailable');
   }
 };
 
@@ -259,10 +264,35 @@ export const fetchUserSettings = async (userId) => {
       .select('count')
       .limit(1);
     
-    // If table doesn't exist, return default values
+    // If table doesn't exist, check if we can get allocation from goals
     if (tableCheckError && tableCheckError.code === '42P01') {
-      console.log('Warning: user_settings table does not exist, returning default values');
-      return { default_allocation_percentage: 20 };
+      console.log('Warning: user_settings table does not exist');
+      
+      try {
+        // Try to get allocation percentage from existing goals
+        const { data: goals } = await supabase
+          .from('goals')
+          .select('goal_saving_minimum')
+          .eq('user_id', userId);
+        
+        if (goals && goals.length > 0) {
+          // Calculate average allocation from existing goals
+          const totalAllocation = goals.reduce((sum, goal) => {
+            return sum + (Number(goal.goal_saving_minimum) || 0);
+          }, 0);
+          
+          // Return average if there are goals, otherwise null
+          return { 
+            default_allocation_percentage: totalAllocation > 0 ? 
+              Math.min(totalAllocation, 100) : null 
+          };
+        }
+      } catch (goalsError) {
+        console.log('Could not fetch goals for allocation percentage:', goalsError);
+      }
+      
+      // If no goals or error fetching goals, return null to let caller decide
+      return { default_allocation_percentage: null };
     }
     
     // If table exists, fetch the user's settings
@@ -274,18 +304,19 @@ export const fetchUserSettings = async (userId) => {
     
     if (error) {
       console.error('Error fetching user settings:', error);
-      return { default_allocation_percentage: 20 }; // Return default on error
+      return { default_allocation_percentage: null };
     }
     
-    // If no data, return default
+    // If no data, return null to let caller decide
     if (!data) {
-      return { default_allocation_percentage: 20 };
+      return { default_allocation_percentage: null };
     }
     
     return data;
   } catch (err) {
     console.error('Error fetching user settings:', err);
-    return { default_allocation_percentage: 20 }; // Return default on error
+    // Return null to let caller decide
+    return { default_allocation_percentage: null };
   }
 };
 
@@ -326,7 +357,7 @@ export const fetchCategoriesByUser = async (userId) => {
 };
 
 // Update user's currency preference in Supabase
-export const updateUserCurrencyPreference = async (currencyCode) => {
+export const updateUserCurrencyPreference = async (currencyInfo) => {
   try {
     // Check if user is authenticated
     const { data: { session } } = await supabase.auth.getSession();
@@ -336,6 +367,7 @@ export const updateUserCurrencyPreference = async (currencyCode) => {
     }
 
     const userId = session.user.id;
+    const currencyCode = typeof currencyInfo === 'object' ? currencyInfo.code : currencyInfo;
     
     // Get current currency to set as previous
     const { data: currentData } = await supabase
@@ -344,7 +376,7 @@ export const updateUserCurrencyPreference = async (currencyCode) => {
       .eq('user_id', userId)
       .single();
       
-    const previousCurrency = currentData?.actual_currency || 'USD';
+    const previousCurrency = currentData?.actual_currency || null;
     
     // First, clean up any existing entries for this user to prevent duplicates
     console.log('Cleaning up existing currency preferences for user:', userId);
@@ -358,16 +390,25 @@ export const updateUserCurrencyPreference = async (currencyCode) => {
       // Continue anyway to try the insert
     }
 
+    // Prepare currency data
+    let currencyData = {
+      user_id: userId,
+      actual_currency: currencyCode,
+      previous_currency: previousCurrency,
+      updated_at: new Date().toISOString()
+    };
+    
+    // If full currency info was provided, include symbol and name
+    if (typeof currencyInfo === 'object') {
+      currencyData.currency_symbol = currencyInfo.symbol || currencyCode;
+      currencyData.currency_name = currencyInfo.name || currencyCode;
+    }
+
     // Insert the new currency preference
-    console.log('Inserting new currency preference:', currencyCode);
+    console.log('Inserting new currency preference:', currencyData);
     const { data, error } = await supabase
       .from('user_currency_preferences')
-      .insert({ 
-        user_id: userId,
-        actual_currency: currencyCode,
-        previous_currency: previousCurrency,
-        updated_at: new Date().toISOString()
-      });
+      .insert(currencyData);
 
     if (error) {
       console.error('Error updating currency preference in Supabase:', error);

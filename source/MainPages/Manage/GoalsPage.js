@@ -965,7 +965,7 @@ const GoalsPage = ({ navigation }) => {
     const containerStyle = inModal ? styles.alertContainerInModal : styles.alertContainer;
     
     return (
-      <View style={containerStyle} pointerEvents="box-none">
+      <View style={[containerStyle, { pointerEvents: 'box-none' }]}>
         <AlertComponent
           type={alertType}
           message={alertMessage}

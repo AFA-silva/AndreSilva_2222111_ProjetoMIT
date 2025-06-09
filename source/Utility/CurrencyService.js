@@ -4,65 +4,55 @@ import { supabase } from '../../Supabase';
 const API_KEY = 'de3d3cc388a2679655798ec7';
 const BASE_URL = 'https://v6.exchangerate-api.com/v6';
 
-// Helper function to check if cached data is older than the specified time
-const isCacheExpired = (timestamp, expiryTimeInHours = 24) => {
-  const now = new Date().getTime();
-  const expiryTime = expiryTimeInHours * 60 * 60 * 1000; // Convert hours to milliseconds
-  return now - timestamp > expiryTime;
-};
+// No longer using cache expiry management
 
 export const fetchLatestRates = async (baseCurrency = 'USD') => {
   try {
-    // Check if we have cached data
-    const cachedData = await AsyncStorage.getItem(`currency_rates_${baseCurrency}`);
-    
-    if (cachedData) {
-      const { timestamp, rates } = JSON.parse(cachedData);
-      
-      // If cache is still valid, return cached data
-      if (!isCacheExpired(timestamp)) {
-        return rates;
-      }
-    }
-    
-    // If no cache or cache expired, fetch new data
+    // Always fetch fresh data from API
     const response = await fetch(`${BASE_URL}/${API_KEY}/latest/${baseCurrency}`);
     const data = await response.json();
     
     if (data.result === 'success') {
-      // Store the new data in cache
-      const cacheData = {
+      // Store the data in AsyncStorage for potential offline use
+      await AsyncStorage.setItem(`currency_rates_${baseCurrency}`, JSON.stringify({
         timestamp: new Date().getTime(),
         rates: data.conversion_rates
-      };
-      
-      await AsyncStorage.setItem(`currency_rates_${baseCurrency}`, JSON.stringify(cacheData));
+      }));
       
       return data.conversion_rates;
     } else {
+      // If API fails, try to get data from AsyncStorage
+      const cachedData = await AsyncStorage.getItem(`currency_rates_${baseCurrency}`);
+      
+      if (cachedData) {
+        const { rates } = JSON.parse(cachedData);
+        return rates;
+      }
+      
       throw new Error(data.error || 'Failed to fetch exchange rates');
     }
   } catch (error) {
     console.error('Error fetching exchange rates:', error);
-    throw error;
+    
+    // Last resort - check if there's any saved data
+    try {
+      const cachedData = await AsyncStorage.getItem(`currency_rates_${baseCurrency}`);
+      
+      if (cachedData) {
+        const { rates } = JSON.parse(cachedData);
+        return rates;
+      }
+    } catch (storageError) {
+      console.error('Failed to read from AsyncStorage:', storageError);
+    }
+    
+    throw new Error('Currently our currency exchange services are unavailable. Try again later!');
   }
 };
 
 export const getSupportedCurrencies = async () => {
   try {
-    // Check if we have cached data
-    const cachedData = await AsyncStorage.getItem('supported_currencies');
-    
-    if (cachedData) {
-      const { timestamp, currencies } = JSON.parse(cachedData);
-      
-      // If cache is still valid, return cached data
-      if (!isCacheExpired(timestamp, 168)) { // Cache for 1 week (168 hours)
-        return currencies;
-      }
-    }
-    
-    // If no cache or cache expired, fetch new data
+    // Always try to fetch fresh data first
     const response = await fetch(`${BASE_URL}/${API_KEY}/codes`);
     const data = await response.json();
     
@@ -76,27 +66,43 @@ export const getSupportedCurrencies = async () => {
           countries: []
         };
         
-        // Remove country information lookup that was causing the error
-        // We'll populate this data from different sources or directly from the API
-        
         return currencyInfo;
       });
       
-      // Store the new data in cache
-      const cacheData = {
+      // Store the data for offline use
+      await AsyncStorage.setItem('supported_currencies', JSON.stringify({
         timestamp: new Date().getTime(),
         currencies
-      };
-      
-      await AsyncStorage.setItem('supported_currencies', JSON.stringify(cacheData));
+      }));
       
       return currencies;
     } else {
+      // If API fails, fall back to AsyncStorage
+      const cachedData = await AsyncStorage.getItem('supported_currencies');
+      
+      if (cachedData) {
+        const { currencies } = JSON.parse(cachedData);
+        return currencies;
+      }
+      
       throw new Error(data.error || 'Failed to fetch supported currencies');
     }
   } catch (error) {
     console.error('Error fetching supported currencies:', error);
-    throw error;
+    
+    // Try to use saved data as last resort
+    try {
+      const cachedData = await AsyncStorage.getItem('supported_currencies');
+      
+      if (cachedData) {
+        const { currencies } = JSON.parse(cachedData);
+        return currencies;
+      }
+    } catch (storageError) {
+      console.error('Failed to read supported currencies from AsyncStorage:', storageError);
+    }
+    
+    throw new Error('Currently our currency service is unavailable. Try again later!');
   }
 };
 
@@ -160,10 +166,13 @@ export const getUserCurrency = async () => {
     
     // If Supabase failed or user not logged in, try local storage
     const currency = await AsyncStorage.getItem('user_preferred_currency');
-    return currency || 'USD'; // Default to USD if not set
+    if (!currency) {
+      throw new Error('No currency preference found');
+    }
+    return currency;
   } catch (error) {
     console.error('Error getting user currency:', error);
-    return 'USD';
+    throw new Error('Currency services unavailable. Try again later.');
   }
 };
 

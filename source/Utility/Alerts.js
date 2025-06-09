@@ -17,7 +17,7 @@ const Alert = ({ message, type = 'info', onClose }) => {
   };
 
   return (
-    <View style={[styles.alertContainer, { backgroundColor: getBackgroundColor() }]} pointerEvents="auto">
+    <View style={[styles.alertContainer, { backgroundColor: getBackgroundColor(), pointerEvents: 'auto' }]}>
       <Text style={styles.alertText}>{message}</Text>
       <TouchableOpacity onPress={onClose} style={styles.closeButton}>
         <Ionicons name="close" size={20} color="white" />

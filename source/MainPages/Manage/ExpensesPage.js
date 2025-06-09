@@ -177,27 +177,30 @@ const ExpensesPage = () => {
     );
   };
 
-  // Carregar a moeda original salva do usuário
-  const loadOriginalCurrency = async () => {
+  // Obter a moeda do usuário diretamente do banco de dados
+  const loadUserCurrency = async () => {
     try {
-      const savedCurrency = await AsyncStorage.getItem('original_app_currency');
-      if (savedCurrency) {
-        console.log('[ExpensesPage] Moeda original carregada:', savedCurrency);
-        setOriginalCurrency(savedCurrency);
-        return savedCurrency;
-      } else {
-        // Se não tiver sido salva ainda, salvar a moeda atual como original
-        const currentCurrency = getCurrentCurrency();
-        console.log('[ExpensesPage] Definindo moeda original:', currentCurrency.code);
-        await AsyncStorage.setItem('original_app_currency', currentCurrency.code);
-        setOriginalCurrency(currentCurrency.code);
-        return currentCurrency.code;
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session || !session.user) {
+        throw new Error('User not authenticated');
       }
+      
+      const { data, error } = await supabase
+        .from('user_currency_preferences')
+        .select('actual_currency')
+        .eq('user_id', session.user.id)
+        .single();
+        
+      if (error || !data) {
+        throw new Error('Failed to load currency preference');
+      }
+      
+      console.log('[ExpensesPage] Moeda carregada direto do banco:', data.actual_currency);
+      setOriginalCurrency(data.actual_currency);
+      return data.actual_currency;
     } catch (error) {
-      console.error('[ExpensesPage] Erro ao carregar moeda original:', error);
-      // Usar EUR como fallback se houver erro
-      setOriginalCurrency('EUR');
-      return 'EUR';
+      console.error('[ExpensesPage] Erro ao carregar moeda do usuário:', error);
+      throw new Error('Cannot determine user currency');
     }
   };
 
@@ -209,7 +212,7 @@ const ExpensesPage = () => {
         return;
       }
       setUserId(user.id);
-      await loadOriginalCurrency(); // Carregar a moeda original
+      await loadUserCurrency(); // Carregar a moeda do usuário
       fetchExpenses(user.id);
       fetchCategoriesAndFrequencies(user.id);
     };
@@ -243,8 +246,8 @@ const ExpensesPage = () => {
       const sourceCurrency = origCurrency || originalCurrency || 'EUR';
       console.log(`[ExpensesPage] Convertendo ${data.length} despesas de ${sourceCurrency}`);
       
-      // Forçar atualização de valor no AsyncStorage para debugging
-      await AsyncStorage.setItem('original_app_currency', sourceCurrency);
+      // Não salva mais no AsyncStorage
+      console.log(`[ExpensesPage] Usando moeda ${sourceCurrency} para conversão`);
       
       const convertedExpenses = await Promise.all(data.map(async (expense, index) => {
         try {
@@ -311,8 +314,8 @@ const ExpensesPage = () => {
       // Armazenar valores originais
       setOriginalExpenses(data || []);
       
-      // Obter a moeda original para usar na conversão
-      const origCurrency = await loadOriginalCurrency();
+      // Obter a moeda do usuário para usar na conversão
+      const origCurrency = await loadUserCurrency();
       
       // Converter para a moeda atual
       await convertExpensesToCurrentCurrency(data || [], origCurrency);

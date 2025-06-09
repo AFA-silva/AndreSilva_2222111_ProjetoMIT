@@ -7,8 +7,7 @@ import { GoalOverviewSkeleton, NetIncomeSkeleton } from '../Utility/SkeletonLoad
 import { GaugeChart } from '../Utility/Chart';
 import Header from '../Utility/Header';
 import { LinearGradient } from 'expo-linear-gradient';
-import { getCurrentCurrency, fetchExchangeRates, formatCurrency, loadSavedCurrency, addCurrencyChangeListener, removeCurrencyChangeListener } from '../Utility/FetchCountries';
-import { convertCurrency } from '../Utility/CurrencyService';
+import { getCurrentCurrency, formatCurrency, loadSavedCurrency, addCurrencyChangeListener, removeCurrencyChangeListener } from '../Utility/FetchCountries';
 import { 
   fetchGoalsByUser, 
   fetchIncomesByUser, 
@@ -18,6 +17,48 @@ import {
   fetchUserCurrencyPreference
 } from '../Utility/MainQueries';
 
+// Sistema de log centralizado para evitar repetições
+const logManager = {
+  lastLogs: {},
+  debounceTimeouts: {},
+  logCount: {},
+  
+  // Log com controle de repetição
+  log: function(key, message, force = false) {
+    const now = Date.now();
+    const lastTime = this.lastLogs[key] || 0;
+    const count = this.logCount[key] || 0;
+    
+    // Evitar logs repetidos em menos de 2 segundos
+    if (force || now - lastTime > 2000) {
+      // Se houve logs repetidos suprimidos, mostrar o contador
+      if (count > 0) {
+        console.log(`[${key}] Mensagem anterior repetida ${count} vezes`);
+        this.logCount[key] = 0;
+      }
+      
+      console.log(`[${key}] ${message}`);
+      this.lastLogs[key] = now;
+    } else {
+      // Incrementar contador de logs suprimidos
+      this.logCount[key] = count + 1;
+    }
+  },
+  
+  // Log com debounce (agrupa logs em um intervalo)
+  debounce: function(key, message, delay = 300) {
+    clearTimeout(this.debounceTimeouts[key]);
+    this.debounceTimeouts[key] = setTimeout(() => {
+      console.log(`[${key}] ${message}`);
+    }, delay);
+  },
+  
+  // Log de erro sempre exibido
+  error: function(key, message, error) {
+    console.error(`[ERRO - ${key}] ${message}`, error);
+  }
+};
+
 const MainMenuPage = ({ navigation }) => {
   // Estados para armazenar dados do dashboard
   const [okCount, setOkCount] = useState(0);
@@ -25,7 +66,7 @@ const MainMenuPage = ({ navigation }) => {
   const [problemCount, setProblemCount] = useState(0);
   const [todayCount, setTodayCount] = useState(0);
   const [availableMoney, setAvailableMoney] = useState(0);
-  const [usagePercentage, setUsagePercentage] = useState(20);
+  const [usagePercentage, setUsagePercentage] = useState(0); // Iniciar com 0%
   const [savingsAmount, setSavingsAmount] = useState(0);
   const [totalIncome, setTotalIncome] = useState(0);
   const [totalExpenses, setTotalExpenses] = useState(0);
@@ -36,6 +77,9 @@ const MainMenuPage = ({ navigation }) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [userCurrency, setUserCurrency] = useState(null);
   const [error, setError] = useState(null);
+  
+  // Rastreador de operações para evitar chamadas duplicadas
+  const operationsInProgress = useRef(new Set()).current;
 
   // Layout sections para renderizar na FlatList
   const sections = [
@@ -45,117 +89,191 @@ const MainMenuPage = ({ navigation }) => {
 
   // Efeito para carregar dados ao montar o componente e garantir que a moeda correta seja usada
   useEffect(() => {
-    // Carregar moeda do usuário do Supabase antes de qualquer coisa
-    const initializeCurrency = async () => {
+    // Identificador único para esta instância do componente
+    const componentId = `MainMenu_${Date.now()}`;
+    logManager.log('Lifecycle', `Componente montado [ID: ${componentId}]`, true);
+    
+    // Inicialização de dados com controle para evitar chamadas duplicadas
+    const loadData = async () => {
+      if (operationsInProgress.has('initialLoad')) {
+        logManager.log('Inicialização', 'Carregamento inicial já em andamento, ignorando chamada duplicada');
+        return;
+      }
+      
+      operationsInProgress.add('initialLoad');
+      logManager.log('Inicialização', 'Iniciando carregamento inicial de dados', true);
+      
       try {
-        await loadSavedCurrency(); // Isso agora prioriza a moeda do Supabase
-        loadDashboardData();
+        await loadSavedCurrency();
+        await loadDashboardData(true); // true indica carregamento inicial
       } catch (error) {
-        console.error('Error initializing currency:', error);
-        loadDashboardData(); // Continuar mesmo se falhar
+        logManager.error('Inicialização', 'Erro ao inicializar moeda', error);
+        loadDashboardData(true);
+      } finally {
+        operationsInProgress.delete('initialLoad');
       }
     };
     
-    initializeCurrency();
+    loadData();
+    
+    // Carregar moeda do usuário diretamente da base de dados
+    const loadUserCurrency = async () => {
+      if (operationsInProgress.has('loadCurrency')) {
+        logManager.log('Moeda', 'Carregamento de moeda já em andamento');
+        return;
+      }
+      
+      operationsInProgress.add('loadCurrency');
+      
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session && session.user) {
+          const { data, error } = await supabase
+            .from('user_currency_preferences')
+            .select('actual_currency')
+            .eq('user_id', session.user.id)
+            .single();
+            
+          if (!error && data) {
+            const currencyInfo = {
+              code: data.actual_currency,
+              symbol: data.actual_currency,
+              name: data.actual_currency
+            };
+            setUserCurrency(currencyInfo);
+            logManager.log('Moeda', `Moeda carregada diretamente da base: ${currencyInfo.code}`, true);
+          }
+        }
+      } catch (error) {
+        logManager.error('Moeda', 'Erro ao carregar moeda do usuário', error);
+      } finally {
+        operationsInProgress.delete('loadCurrency');
+      }
+    };
+    
+    loadUserCurrency();
     
     // Adicionar listener para mudanças de moeda
     const handleCurrencyChange = (newCurrency) => {
-      console.log('Currency change detected in MainMenuPage:', newCurrency?.code);
+      if (!newCurrency) return;
+      
+      logManager.log('Moeda', `Moeda alterada para: ${newCurrency.code}`, true);
       setUserCurrency(newCurrency);
       setRefreshKey(prev => prev + 1);
-      loadDashboardData();
     };
     
     // Registrar listener de moeda
     addCurrencyChangeListener(handleCurrencyChange);
     
-    // Adicionar listener de foco para recarregar dados quando retornar à tela
+    // Adicionar listener de foco com debounce para evitar recarregamentos excessivos
+    let focusDebounceTimeout;
     const unsubscribe = navigation.addListener('focus', () => {
-      if (!loading) {
-        console.log('Tela recebeu foco, recarregando moeda e dados...');
-        initializeCurrency();
-      }
+      clearTimeout(focusDebounceTimeout);
+      focusDebounceTimeout = setTimeout(() => {
+        if (!loading && !operationsInProgress.has('loadDashboard')) {
+          logManager.log('Navegação', 'Tela recebeu foco, recarregando dados', true);
+          loadDashboardData();
+        } else {
+          logManager.log('Navegação', 'Tela recebeu foco, mas dados já estão sendo carregados');
+        }
+      }, 300); // Debounce de 300ms para evitar múltiplas chamadas
     });
     
     // Remover listeners ao desmontar
     return () => {
+      logManager.log('Lifecycle', `Componente desmontado [ID: ${componentId}]`, true);
       unsubscribe();
       removeCurrencyChangeListener(handleCurrencyChange);
+      clearTimeout(focusDebounceTimeout);
     };
   }, [navigation]);
 
   // Função principal para carregar todos os dados do dashboard
-  const loadDashboardData = async () => {
-    if (loading) {
-      console.log('Já está carregando dados, ignorando chamada duplicada');
+  const loadDashboardData = async (isInitialLoad = false) => {
+    if (loading || operationsInProgress.has('loadDashboard')) {
+      logManager.log('Dashboard', 'Já está carregando dados, ignorando chamada duplicada');
       return;
     }
     
+    operationsInProgress.add('loadDashboard');
     setLoading(true);
     setError(null);
-    console.log('Iniciando carregamento de dados do dashboard');
+    
+    const loadStartTime = Date.now();
+    logManager.log('Dashboard', `${isInitialLoad ? 'Carregamento inicial' : 'Atualizando'} dados do dashboard`, true);
     
     // Safety timeout para evitar loading infinito
     const safetyTimeout = setTimeout(() => {
-      console.log('Tempo limite de carregamento atingido, forçando reset');
+      logManager.log('Dashboard', 'Tempo limite de carregamento atingido (8s), forçando reset', true);
       setLoading(false);
       setError('Tempo limite de carregamento excedido');
+      operationsInProgress.delete('loadDashboard');
     }, 8000);
     
     try {
       // 1. Verificar autenticação usando a função de MainQueries
       const session = await getSession();
       if (!session || !session.session?.user) {
-        console.log('Usuário não autenticado');
-        clearTimeout(safetyTimeout);
-        setLoading(false);
+        logManager.log('Autenticação', 'Usuário não autenticado', true);
         setError('Usuário não autenticado');
         return;
       }
       
       const userId = session.session.user.id;
+      logManager.debounce('Autenticação', `Usuário autenticado: ${userId.substr(0, 8)}...`);
 
-      // 2. Carregar moeda atual do usuário - agora sempre do Supabase
-      // Carregar primeiro a moeda para garantir que os dados sejam mostrados corretamente
-      const currency = getCurrentCurrency(); // Agora usa USD como default em vez de EUR
-      setUserCurrency(currency);
-      console.log('Moeda atual do usuário:', currency);
+      // 2. Usar moeda atual do usuário se já estiver carregada, ou continuar sem ela
+      if (!userCurrency) {
+        logManager.log('Dashboard', 'Processando sem dados da moeda - serão atualizados posteriormente');
+      } else {
+        logManager.debounce('Dashboard', `Usando moeda: ${userCurrency.code}`);
+      }
       
       // 3. Carregar goals e processar estatísticas
       const goalsData = await loadGoals(userId);
       
       // 4. Carregar dados financeiros (income e expenses)
-      await loadFinancialData(userId, currency, goalsData);
+      await loadFinancialData(userId, userCurrency, goalsData);
       
-      console.log('Carregamento de dados concluído com sucesso');
+      const loadEndTime = Date.now();
+      const loadTime = (loadEndTime - loadStartTime) / 1000;
+      logManager.log('Dashboard', `Carregamento concluído em ${loadTime.toFixed(2)}s`, true);
+      
       // Incrementar refreshKey para forçar atualização do componente GaugeChart
       setRefreshKey(prevKey => prevKey + 1);
       
     } catch (error) {
-      console.error('Erro ao carregar dados do dashboard:', error);
+      logManager.error('Dashboard', 'Erro ao carregar dados do dashboard', error);
       setError(`Erro ao carregar dados: ${error.message}`);
     } finally {
       clearTimeout(safetyTimeout);
       setLoading(false);
+      operationsInProgress.delete('loadDashboard');
     }
   };
   
   // Função para carregar goals e calcular estatísticas
   const loadGoals = async (userId) => {
     try {
-      console.log('Carregando goals...');
+      if (operationsInProgress.has('loadGoals')) {
+        logManager.log('Goals', 'Carregamento de goals já em andamento');
+        return [];
+      }
+      
+      operationsInProgress.add('loadGoals');
+      logManager.log('Goals', 'Carregando goals');
       
       // Usar a função centralizada de consulta em vez da consulta direta
       const goals = await fetchGoalsByUser(userId);
       
       if (!goals) {
-        console.log('Nenhum goal encontrado ou ocorreu um erro');
+        logManager.log('Goals', 'Nenhum goal encontrado ou ocorreu um erro');
         setGoals([]);
         return [];
       }
       
       setGoals(goals);
-      console.log(`${goals.length || 0} goals carregados`);
+      logManager.log('Goals', `${goals.length} goals carregados`);
       
       // Calcular contadores de status
       let ok = 0, warnings = 0, problems = 0, today = 0;
@@ -168,6 +286,8 @@ const MainMenuPage = ({ navigation }) => {
           else if (status === 2) warnings++;
           else if (status === 1) ok++;
         });
+        
+        logManager.debounce('Goals', `Distribuição: ${ok} ok, ${warnings} avisos, ${problems} problemas, ${today} hoje`);
       }
       
       // Atualizar contadores
@@ -190,52 +310,63 @@ const MainMenuPage = ({ navigation }) => {
       }
       
       setDominantGoalStatus(dominantStatus);
-      console.log(`Status dominante: ${dominantStatus}`);
+      logManager.debounce('Goals', `Status dominante: ${dominantStatus}`);
       
       return goals;
     } catch (error) {
-      console.error('Erro ao carregar goals:', error);
+      logManager.error('Goals', 'Erro ao carregar goals', error);
       setError(`Erro ao carregar metas: ${error.message}`);
       return [];
+    } finally {
+      operationsInProgress.delete('loadGoals');
     }
   };
   
   // Função para carregar dados financeiros
   const loadFinancialData = async (userId, userCurrency, goalsData) => {
     try {
-      console.log('Carregando dados financeiros...');
-      const baseCurrency = userCurrency?.code || 'USD'; // Default para USD em vez de EUR
-      console.log(`Moeda base para cálculos: ${baseCurrency}`);
-      
-      // Buscar taxas de câmbio para converter valores se necessário
-      let exchangeRates = null;
-      try {
-        exchangeRates = await fetchExchangeRates(baseCurrency);
-        console.log('Taxas de câmbio carregadas com sucesso');
-      } catch (ratesError) {
-        console.error('Erro ao carregar taxas de câmbio:', ratesError);
-        // Continuar sem conversão se falhar
+      if (operationsInProgress.has('loadFinancial')) {
+        logManager.log('Financial', 'Carregamento financeiro já em andamento');
+        return { income: 0, expenses: 0 };
       }
+      
+      operationsInProgress.add('loadFinancial');
+      logManager.log('Financial', 'Carregando dados financeiros');
+      
+      // Obter a moeda do usuário diretamente do banco de dados
+      const { data: currencyData } = await supabase
+        .from('user_currency_preferences')
+        .select('actual_currency')
+        .eq('user_id', userId)
+        .single();
+      
+      if (!currencyData || !currencyData.actual_currency) {
+        throw new Error('Moeda do usuário não encontrada no banco de dados');
+      }
+      
+      // Usar apenas a moeda do banco de dados
+      const baseCurrency = currencyData.actual_currency;
+      logManager.log('Financial', `Moeda base para cálculos: ${baseCurrency}`);
       
       // 1. Carregar incomes usando a função centralizada
       const incomes = await fetchIncomesByUser(userId);
       
       if (!incomes) {
-        console.error('Erro ao buscar incomes ou nenhum encontrado');
+        logManager.log('Financial', 'Nenhum income encontrado');
         return { income: 0, expenses: 0 };
       }
       
-      console.log(`${incomes.length || 0} incomes carregados`);
+      logManager.debounce('Financial', `${incomes.length} incomes carregados`);
       
       // 2. Carregar expenses usando a função centralizada
       const expenses = await fetchExpensesByUser(userId);
       
       if (!expenses) {
-        console.error('Erro ao buscar expenses ou nenhum encontrado');
+        logManager.log('Financial', 'Nenhum expense encontrado');
         return { income: 0, expenses: 0 };
       }
       
-      console.log(`${expenses.length || 0} expenses carregados`);
+      logManager.debounce('Financial', `${expenses.length} expenses carregados`);
       
       // 3. Calcular valores financeiros
       let incomeSum = 0;
@@ -250,10 +381,12 @@ const MainMenuPage = ({ navigation }) => {
           
           // Calcular valor mensal
           const monthlyAmount = (amount * 30) / days;
-          console.log(`Income: ${income.amount} ${baseCurrency} a cada ${days} dias = ${monthlyAmount.toFixed(2)} ${baseCurrency} por mês`);
           
           return sum + monthlyAmount;
         }, 0);
+        
+        // Log resumido no final
+        logManager.debounce('Financial', `Income total: ${incomeSum.toFixed(2)} ${baseCurrency}/mês`);
       }
       
       // Processar expenses
@@ -265,10 +398,12 @@ const MainMenuPage = ({ navigation }) => {
           
           // Calcular valor mensal
           const monthlyAmount = (amount * 30) / days;
-          console.log(`Expense: ${expense.amount} ${baseCurrency} a cada ${days} dias = ${monthlyAmount.toFixed(2)} ${baseCurrency} por mês`);
           
           return sum + monthlyAmount;
         }, 0);
+        
+        // Log resumido no final
+        logManager.debounce('Financial', `Expense total: ${expenseSum.toFixed(2)} ${baseCurrency}/mês`);
       }
       
       // Calcular balanço e economias
@@ -281,71 +416,59 @@ const MainMenuPage = ({ navigation }) => {
       setAvailableMoney(balance);
       setSavingsAmount(savings);
       
-      console.log(`Dados financeiros calculados:
-        Income: ${incomeSum.toFixed(2)} ${baseCurrency}
-        Expenses: ${expenseSum.toFixed(2)} ${baseCurrency}
-        Balance: ${balance.toFixed(2)} ${baseCurrency}
-        Savings: ${savings.toFixed(2)} ${baseCurrency}`);
+      logManager.log('Financial', `Resumo financeiro: 
+  Income: ${incomeSum.toFixed(2)} ${baseCurrency}
+  Expenses: ${expenseSum.toFixed(2)} ${baseCurrency}
+  Balance: ${balance.toFixed(2)} ${baseCurrency}
+  Savings: ${savings.toFixed(2)} ${baseCurrency}`);
       
       // Calcular porcentagem de economia alocada para goals
       await calculateSavingsAllocation(savings, goalsData || [], userId);
       
       return { income: incomeSum, expenses: expenseSum };
     } catch (error) {
-      console.error('Erro ao carregar dados financeiros:', error);
+      logManager.error('Financial', 'Erro ao carregar dados financeiros', error);
       setError(`Erro ao calcular dados financeiros: ${error.message}`);
       return { income: 0, expenses: 0 };
+    } finally {
+      operationsInProgress.delete('loadFinancial');
     }
   };
   
   // Função para calcular a porcentagem de alocação de economias
   const calculateSavingsAllocation = async (savings, goalsData = [], userId) => {
     try {
-      // Se não há economias ou goals, buscar valor padrão do Supabase
-      if (savings <= 0 || !goalsData || goalsData.length === 0) {
-        // Usar a função centralizada para buscar configurações do usuário
-        const userSettings = await fetchUserSettings(userId);
-        
-        if (userSettings && userSettings.default_allocation_percentage) {
-          const defaultPercentage = Number(userSettings.default_allocation_percentage);
-          setUsagePercentage(defaultPercentage);
-          console.log(`Usando porcentagem de alocação padrão do usuário: ${defaultPercentage}%`);
-          return;
-        }
-        
-        // Se falhar ou não encontrar config, usar valor padrão do sistema
-        setUsagePercentage(20);
+      if (operationsInProgress.has('calculateAllocation')) {
+        logManager.log('Allocation', 'Cálculo de alocação já em andamento');
         return;
       }
       
-      // Calcular a soma das porcentagens mínimas de economia de todos os goals
-      const totalAllocation = goalsData.reduce((sum, goal) => {
-        return sum + (Number(goal.goal_saving_minimum) || 0);
-      }, 0);
+      operationsInProgress.add('calculateAllocation');
+      logManager.log('Allocation', 'Calculando porcentagem de alocação de economias');
       
-      // Limitar a 100% no máximo
-      const finalPercentage = Math.min(totalAllocation, 100);
-      setUsagePercentage(finalPercentage);
-      
-      console.log(`Porcentagem de alocação calculada: ${finalPercentage}%`);
-    } catch (error) {
-      console.error('Erro ao calcular alocação de economias:', error);
-      
-      try {
-        // Usar a função centralizada para buscar configurações do usuário em caso de erro
-        const userSettings = await fetchUserSettings(userId);
+      // Se tem goals, soma suas porcentagens de alocação
+      if (goalsData && goalsData.length > 0) {
+        // Calcular a soma das porcentagens mínimas de economia de todos os goals
+        const totalAllocation = goalsData.reduce((sum, goal) => {
+          return sum + (Number(goal.goal_saving_minimum) || 0);
+        }, 0);
         
-        if (userSettings && userSettings.default_allocation_percentage) {
-          const defaultPercentage = Number(userSettings.default_allocation_percentage);
-          setUsagePercentage(defaultPercentage);
-          return;
-        }
-      } catch (configError) {
-        console.error('Erro ao buscar configuração de alocação:', configError);
+        // Limitar a 100% no máximo
+        const finalPercentage = Math.min(totalAllocation, 100);
+        setUsagePercentage(finalPercentage);
+        
+        logManager.log('Allocation', `Porcentagem de alocação calculada: ${finalPercentage}% (${goalsData.length} goals)`);
+      } else {
+        // Se não tem goals, a alocação é 0%
+        setUsagePercentage(0);
+        logManager.log('Allocation', 'Sem goals definidos, alocação 0%');
       }
-      
-      // Fallback para valor padrão do sistema
-      setUsagePercentage(20);
+    } catch (error) {
+      logManager.error('Allocation', 'Erro ao calcular alocação de economias', error);
+      // Se ocorrer erro, alocação é 0%
+      setUsagePercentage(0);
+    } finally {
+      operationsInProgress.delete('calculateAllocation');
     }
   };
 
@@ -492,10 +615,7 @@ const MainMenuPage = ({ navigation }) => {
                   borderRadius: 16,
                   padding: 20,
                   marginBottom: 24,
-                  shadowColor: '#1A365D',
-                  shadowOffset: { width: 0, height: 3 },
-                  shadowOpacity: 0.1,
-                  shadowRadius: 8,
+                  boxShadow: '0px 3px 8px rgba(26, 54, 93, 0.1)',
                   elevation: 4,
                 }}
                 onPress={navigateToGoals}
@@ -695,10 +815,7 @@ const cardStyles = StyleSheet.create({
     borderRadius: 20,
     overflow: 'hidden',
     marginBottom: 20,
-    shadowColor: '#1A365D',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 10,
+    boxShadow: '0px 4px 10px rgba(26, 54, 93, 0.12)',
     elevation: 6,
     borderWidth: 1,
     borderColor: 'rgba(0,0,0,0.03)',
@@ -710,10 +827,7 @@ const cardStyles = StyleSheet.create({
     marginBottom: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#1A365D',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 10,
+    boxShadow: '0px 4px 10px rgba(26, 54, 93, 0.12)',
     elevation: 6,
     borderWidth: 1,
     borderColor: 'rgba(231, 76, 60, 0.2)',
