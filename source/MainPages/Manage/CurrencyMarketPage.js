@@ -30,6 +30,119 @@ import { supabase } from '../../../Supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { fetchUserCurrencyPreference, updateUserCurrencyPreference, convertAllFinancialData } from '../../Utility/MainQueries';
 
+// Adicionar os novos estilos ao objeto styles existente
+Object.assign(styles, {
+  loadMoreButton: {
+    flexDirection: 'row',
+    backgroundColor: '#FF9800',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 16,
+    marginBottom: 24,
+    alignSelf: 'center',
+    shadowColor: '#FF8F00',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 5,
+    elevation: 4,
+  },
+  loadMoreButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  
+  // Ajustes para os botões existentes
+  currencySelectorButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F7FAFC',
+    padding: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    minWidth: 90,
+    shadowColor: '#718096',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  
+  swapButton: {
+    backgroundColor: '#FFF5E6',
+    padding: 8,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: 10,
+    borderWidth: 1,
+    borderColor: '#FFE0B2',
+    shadowColor: '#FF8F00',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  
+  searchButton: {
+    backgroundColor: '#FFF5E6',
+    padding: 10,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#FFE0B2',
+    shadowColor: '#FF8F00',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  
+  popularCurrencyChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F7FAFC',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    marginRight: 8,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#718096',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  
+  selectedPopularCurrency: {
+    backgroundColor: '#FF9800',
+    borderColor: '#F57C00',
+    shadowColor: '#FF8F00',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+
+  actionButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    width: '100%',
+  }
+});
+
 const { width, height } = Dimensions.get('window');
 const ITEM_HEIGHT = 90; // Altura aproximada de cada item de moeda
 const CARD_HEIGHT = 220; // Altura do card do conversor
@@ -468,12 +581,12 @@ const CurrencyMarketPage = ({ navigation }) => {
       // Obter a moeda atual para usar como moeda anterior
       const currentCurrency = getCurrentCurrency();
       console.log(`---------------------------------------`);
-      console.log(`MUDANDO MOEDA: ${currentCurrency.code} → ${pendingCurrencyChange.code}`);
-      console.log(`Converter valores? ${convertValues ? 'SIM' : 'NÃO'}`);
+      console.log(`CHANGING CURRENCY: ${currentCurrency.code} → ${pendingCurrencyChange.code}`);
+      console.log(`Convert values? ${convertValues ? 'YES' : 'NO'}`);
       
       // Verificar se já não está usando a mesma moeda
       if (currentCurrency.code === pendingCurrencyChange.code) {
-        console.log('Mesma moeda selecionada, nenhuma mudança necessária');
+        console.log('Same currency selected, no change needed');
         setIsUpdatingGlobal(false);
         Alert.alert('Info', 'This currency is already selected.');
         return;
@@ -484,92 +597,34 @@ const CurrencyMarketPage = ({ navigation }) => {
       
       // Se a opção de converter valores estiver marcada, converter todos os dados financeiros
       if (convertValues) {
-        console.log('Convertendo todos os dados financeiros...');
+        console.log('Converting all financial data...');
         try {
-          // Usar importação direta em vez de dinâmica para evitar problemas
+          // Usar a função centralizada para conversão
           const result = await convertAllFinancialData(
             currentCurrency.code, 
             pendingCurrencyChange.code
           );
           
-          console.log(`Resultado da conversão de dados financeiros: ${result ? 'Sucesso' : 'Falha'}`);
-          
-          // Forçar atualização dos dados no banco de dados se a conversão falhar
-          if (!result) {
-            // Obter sessão do usuário
-            const { data: { session } } = await supabase.auth.getSession();
-            if (session && session.user) {
-              // Buscar taxas de câmbio manualmente
-              const response = await fetch(`https://v6.exchangerate-api.com/v6/de3d3cc388a2679655798ec7/latest/${currentCurrency.code}`);
-              const data = await response.json();
-              
-              if (data.result === 'success') {
-                const rate = data.conversion_rates[pendingCurrencyChange.code] || 1;
-                console.log(`Taxa manual: 1 ${currentCurrency.code} = ${rate} ${pendingCurrencyChange.code}`);
-                
-                // Buscar e atualizar rendas (incomes)
-                const { data: incomes } = await supabase
-                  .from('income')
-                  .select('*')
-                  .eq('user_id', session.user.id);
-                
-                if (incomes && incomes.length > 0) {
-                  for (const income of incomes) {
-                    const originalAmount = parseFloat(income.amount) || 0;
-                    const convertedAmount = originalAmount * rate;
-                    
-                    console.log(`Conversão manual de renda: ${originalAmount} ${currentCurrency.code} → ${convertedAmount.toFixed(2)} ${pendingCurrencyChange.code}`);
-                    
-                    // Atualizar no banco de dados
-                    await supabase
-                      .from('income')
-                      .update({ 
-                        amount: convertedAmount.toFixed(2),
-                        last_currency: currentCurrency.code,
-                        last_converted_at: new Date().toISOString()
-                      })
-                      .eq('id', income.id);
-                  }
-                  console.log(`Conversão manual de ${incomes.length} rendas concluída`);
-                }
-                
-                // Buscar e atualizar despesas (expenses)
-                const { data: expenses } = await supabase
-                  .from('expenses')
-                  .select('*')
-                  .eq('user_id', session.user.id);
-                
-                if (expenses && expenses.length > 0) {
-                  for (const expense of expenses) {
-                    const originalAmount = parseFloat(expense.amount) || 0;
-                    const convertedAmount = originalAmount * rate;
-                    
-                    console.log(`Conversão manual de despesa: ${originalAmount} ${currentCurrency.code} → ${convertedAmount.toFixed(2)} ${pendingCurrencyChange.code}`);
-                    
-                    // Atualizar no banco de dados
-                    await supabase
-                      .from('expenses')
-                      .update({ 
-                        amount: convertedAmount.toFixed(2),
-                        last_currency: currentCurrency.code,
-                        last_converted_at: new Date().toISOString()
-                      })
-                      .eq('id', expense.id);
-                  }
-                  console.log(`Conversão manual de ${expenses.length} despesas concluída`);
-                }
-              }
-            }
+          if (result) {
+            console.log('Financial data conversion successful');
+          } else {
+            console.error('Financial data conversion failed');
+            Alert.alert(
+              'Conversion Warning',
+              'There was an issue converting your financial data. Some values may not have been updated correctly.',
+              [{ text: 'OK' }]
+            );
           }
         } catch (conversionError) {
-          console.error('Erro ao converter dados financeiros:', conversionError);
-          // Continuamos mesmo com erro, apenas notificamos o usuário
+          console.error('Error converting financial data:', conversionError);
           Alert.alert(
-            'Conversion Warning',
-            'There was an issue converting some of your financial data. You may need to manually update some values.',
+            'Conversion Error',
+            'Failed to convert financial data. You may need to manually update your values.',
             [{ text: 'OK' }]
           );
         }
+      } else {
+        console.log('Currency change without value conversion');
       }
       
       // Atualizar a moeda global do aplicativo
@@ -584,7 +639,7 @@ const CurrencyMarketPage = ({ navigation }) => {
         };
         
         // Atualizar a moeda global
-        console.log('Atualizando moeda global:', globalCurrency);
+        console.log('Updating global currency:', globalCurrency);
         await setCurrentCurrency(globalCurrency); // Isso agora atualiza TANTO AsyncStorage QUANTO Supabase
         setUserCurrencyName(currencyDetails.name);
       }
@@ -608,10 +663,10 @@ const CurrencyMarketPage = ({ navigation }) => {
       // Atualizar as moedas populares para mostrar a nova moeda do usuário
       updatePopularCurrencies();
     } catch (error) {
+      console.error('Error changing currency:', error);
       setIsUpdatingGlobal(false);
       setConfirmModalVisible(false);
       Alert.alert('Error', 'Failed to set primary currency.');
-      console.error(error);
     }
   };
 
@@ -1364,122 +1419,5 @@ const CurrencyMarketPage = ({ navigation }) => {
     </KeyboardAvoidingView>
   );
 };
-
-// Adicionar os novos estilos
-const styles = StyleSheet.create({
-  // ... existing styles ...
-  
-  loadMoreButton: {
-    flexDirection: 'row',
-    backgroundColor: '#FF9800',
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 16,
-    marginBottom: 24,
-    alignSelf: 'center',
-    shadowColor: '#FF8F00',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 5,
-    elevation: 4,
-  },
-  loadMoreButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  
-  // Ajustes para os botões existentes
-  currencySelectorButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#F7FAFC',
-    padding: 10,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    minWidth: 90,
-    shadowColor: '#718096',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  
-  swapButton: {
-    backgroundColor: '#FFF5E6',
-    padding: 8,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginHorizontal: 10,
-    borderWidth: 1,
-    borderColor: '#FFE0B2',
-    shadowColor: '#FF8F00',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  
-  searchButton: {
-    backgroundColor: '#FFF5E6',
-    padding: 10,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#FFE0B2',
-    shadowColor: '#FF8F00',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  
-  popularCurrencyChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F7FAFC',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 20,
-    marginRight: 8,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    shadowColor: '#718096',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  
-  selectedPopularCurrency: {
-    backgroundColor: '#FF9800',
-    borderColor: '#F57C00',
-    shadowColor: '#FF8F00',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-
-  actionButtonGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 12,
-    width: '100%',
-  },
-  
-  // ... existing styles ...
-});
 
 export default CurrencyMarketPage; 

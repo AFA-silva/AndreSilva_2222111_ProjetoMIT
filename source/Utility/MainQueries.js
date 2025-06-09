@@ -477,37 +477,33 @@ export const updateIncomesWithConvertedValues = async (userId, conversionRates, 
     let successCount = 0;
     for (const income of incomes) {
       try {
-        // Convert amount
-        const originalAmount = parseFloat(income.amount) || 0;
+        // Convert amount - ensure we have a valid number
+        const originalAmount = typeof income.amount === 'string' ? 
+          parseFloat(income.amount.replace(/,/g, '')) : 
+          parseFloat(income.amount) || 0;
+        
+        if (isNaN(originalAmount)) {
+          console.error(`Invalid original amount for income ${income.id}: ${income.amount}`);
+          continue;
+        }
+        
         const conversionRate = conversionRates[toCurrency] || 1;
         const convertedAmount = originalAmount * conversionRate;
         
         console.log(`Converting income: ${originalAmount} ${fromCurrency} → ${convertedAmount.toFixed(2)} ${toCurrency}`);
         
-        // Verificar se o valor é válido antes de salvar
-        if (isNaN(convertedAmount)) {
-          console.error(`Valor convertido inválido para income ${income.id}: ${convertedAmount}`);
-          continue;
-        }
-        
-        // Update in database - extraímos o comando para debug
-        const updateData = { 
-          amount: parseFloat(convertedAmount.toFixed(2)).toString(),
-          last_currency: fromCurrency,  // Track the previous currency
-          last_converted_at: new Date().toISOString()
-        };
-        
-        console.log(`Atualizando income ${income.id} com dados:`, updateData);
-        
-        const { data, error: updateError } = await supabase
+        // Only update the amount field - don't try to update non-existent columns
+        const { error: updateError } = await supabase
           .from('income')
-          .update(updateData)
+          .update({ 
+            amount: convertedAmount
+          })
           .eq('id', income.id);
           
         if (updateError) {
           console.error(`Error updating income ${income.id}:`, updateError);
         } else {
-          console.log(`Income ${income.id} atualizado com sucesso`);
+          console.log(`Income ${income.id} updated successfully`);
           successCount++;
         }
       } catch (conversionError) {
@@ -550,37 +546,33 @@ export const updateExpensesWithConvertedValues = async (userId, conversionRates,
     let successCount = 0;
     for (const expense of expenses) {
       try {
-        // Convert amount
-        const originalAmount = parseFloat(expense.amount) || 0;
+        // Convert amount - ensure we have a valid number
+        const originalAmount = typeof expense.amount === 'string' ? 
+          parseFloat(expense.amount.replace(/,/g, '')) : 
+          parseFloat(expense.amount) || 0;
+        
+        if (isNaN(originalAmount)) {
+          console.error(`Invalid original amount for expense ${expense.id}: ${expense.amount}`);
+          continue;
+        }
+        
         const conversionRate = conversionRates[toCurrency] || 1;
         const convertedAmount = originalAmount * conversionRate;
         
         console.log(`Converting expense: ${originalAmount} ${fromCurrency} → ${convertedAmount.toFixed(2)} ${toCurrency}`);
         
-        // Verificar se o valor é válido antes de salvar
-        if (isNaN(convertedAmount)) {
-          console.error(`Valor convertido inválido para expense ${expense.id}: ${convertedAmount}`);
-          continue;
-        }
-        
-        // Update in database - extraímos o comando para debug
-        const updateData = { 
-          amount: parseFloat(convertedAmount.toFixed(2)).toString(),
-          last_currency: fromCurrency,  // Track the previous currency
-          last_converted_at: new Date().toISOString()
-        };
-        
-        console.log(`Atualizando expense ${expense.id} com dados:`, updateData);
-        
-        const { data, error: updateError } = await supabase
+        // Only update the amount field - don't try to update non-existent columns
+        const { error: updateError } = await supabase
           .from('expenses')
-          .update(updateData)
+          .update({ 
+            amount: convertedAmount
+          })
           .eq('id', expense.id);
           
         if (updateError) {
           console.error(`Error updating expense ${expense.id}:`, updateError);
         } else {
-          console.log(`Expense ${expense.id} atualizado com sucesso`);
+          console.log(`Expense ${expense.id} updated successfully`);
           successCount++;
         }
       } catch (conversionError) {
@@ -623,37 +615,33 @@ export const updateGoalsWithConvertedValues = async (userId, conversionRates, fr
     let successCount = 0;
     for (const goal of goals) {
       try {
-        // Convert amount
-        const originalAmount = parseFloat(goal.amount) || 0;
+        // Convert amount - ensure we have a valid number
+        const originalAmount = typeof goal.amount === 'string' ? 
+          parseFloat(goal.amount.replace(/,/g, '')) : 
+          parseFloat(goal.amount) || 0;
+        
+        if (isNaN(originalAmount)) {
+          console.error(`Invalid original amount for goal ${goal.id}: ${goal.amount}`);
+          continue;
+        }
+        
         const conversionRate = conversionRates[toCurrency] || 1;
         const convertedAmount = originalAmount * conversionRate;
         
         console.log(`Converting goal: ${originalAmount} ${fromCurrency} → ${convertedAmount.toFixed(2)} ${toCurrency}`);
         
-        // Verificar se o valor é válido antes de salvar
-        if (isNaN(convertedAmount)) {
-          console.error(`Valor convertido inválido para goal ${goal.id}: ${convertedAmount}`);
-          continue;
-        }
-        
-        // Update in database - extraímos o comando para debug
-        const updateData = { 
-          amount: parseFloat(convertedAmount.toFixed(2)).toString(),
-          last_currency: fromCurrency,  // Track the previous currency
-          last_converted_at: new Date().toISOString()
-        };
-        
-        console.log(`Atualizando goal ${goal.id} com dados:`, updateData);
-        
-        const { data, error: updateError } = await supabase
+        // Only update the amount field - don't try to update non-existent columns
+        const { error: updateError } = await supabase
           .from('goals')
-          .update(updateData)
+          .update({ 
+            amount: convertedAmount
+          })
           .eq('id', goal.id);
           
         if (updateError) {
           console.error(`Error updating goal ${goal.id}:`, updateError);
         } else {
-          console.log(`Goal ${goal.id} atualizado com sucesso`);
+          console.log(`Goal ${goal.id} updated successfully`);
           successCount++;
         }
       } catch (conversionError) {
@@ -674,6 +662,12 @@ export const convertAllFinancialData = async (fromCurrency, toCurrency) => {
   try {
     console.log(`Starting conversion of all financial data from ${fromCurrency} to ${toCurrency}`);
     
+    // If currencies are the same, no conversion needed
+    if (fromCurrency === toCurrency) {
+      console.log('Source and target currencies are the same, no conversion needed');
+      return true;
+    }
+    
     // Check if user is authenticated
     const { data: { session } } = await supabase.auth.getSession();
     if (!session || !session.user) {
@@ -682,9 +676,9 @@ export const convertAllFinancialData = async (fromCurrency, toCurrency) => {
     }
     
     const userId = session.user.id;
-    console.log('Usuário autenticado para conversão:', userId);
+    console.log('User authenticated for conversion:', userId);
     
-    // Get conversion rates
+    // Get conversion rates from exchange rate API
     console.log('Fetching conversion rates...');
     let conversionRates = null;
     
@@ -699,7 +693,7 @@ export const convertAllFinancialData = async (fromCurrency, toCurrency) => {
       if (data.result === 'success') {
         conversionRates = data.conversion_rates;
         
-        // If the target currency isn't in the rates (unlikely but possible)
+        // Verify target currency is available in rates
         if (!conversionRates[toCurrency]) {
           console.error(`Conversion rate not available for ${toCurrency}`);
           return false;
@@ -707,46 +701,58 @@ export const convertAllFinancialData = async (fromCurrency, toCurrency) => {
         
         console.log(`Conversion rate: 1 ${fromCurrency} = ${conversionRates[toCurrency]} ${toCurrency}`);
       } else {
-        console.error('Error fetching exchange rates:', data.error_type);
-        return false;
+        throw new Error(`API error: ${data.error_type || 'Unknown error'}`);
       }
     } catch (apiError) {
       console.error('API error fetching exchange rates:', apiError);
+      
+      // Try alternative API as backup
+      try {
+        console.log('Trying alternative exchange rate API...');
+        const altResponse = await fetch(`https://open.er-api.com/v6/latest/${fromCurrency}`);
+        
+        if (!altResponse.ok) {
+          throw new Error(`Alternative API HTTP error! Status: ${altResponse.status}`);
+        }
+        
+        const altData = await altResponse.json();
+        
+        if (altData.rates && altData.rates[toCurrency]) {
+          conversionRates = altData.rates;
+          console.log(`Alternative API rate: 1 ${fromCurrency} = ${conversionRates[toCurrency]} ${toCurrency}`);
+        } else {
+          throw new Error('Alternative API missing target currency rate');
+        }
+      } catch (altApiError) {
+        console.error('Alternative API also failed:', altApiError);
+        return false;
+      }
+    }
+    
+    if (!conversionRates || !conversionRates[toCurrency]) {
+      console.error('Failed to obtain valid conversion rates');
       return false;
     }
     
-    if (!conversionRates) {
-      console.error('Failed to obtain conversion rates');
-      return false;
-    }
+    console.log('Conversion rates obtained successfully. Starting data updates...');
     
-    // Verifica se realmente temos os dados antes de continuar
-    if (!conversionRates[toCurrency]) {
-      console.error(`Não foi possível obter a taxa de conversão para ${toCurrency}`);
-      return false;
-    }
+    // Convert all financial data in parallel for efficiency
+    const [incomesUpdated, expensesUpdated, goalsUpdated] = await Promise.all([
+      updateIncomesWithConvertedValues(userId, conversionRates, fromCurrency, toCurrency),
+      updateExpensesWithConvertedValues(userId, conversionRates, fromCurrency, toCurrency),
+      updateGoalsWithConvertedValues(userId, conversionRates, fromCurrency, toCurrency)
+    ]);
     
-    console.log('Taxas de conversão obtidas com sucesso. Iniciando atualização de dados...');
+    console.log('Data update results:');
+    console.log('- Incomes updated:', incomesUpdated);
+    console.log('- Expenses updated:', expensesUpdated);
+    console.log('- Goals updated:', goalsUpdated);
     
-    // Garantir que os updates no banco de dados são atômicos
-    try {
-      // Convert all financial data
-      const incomesUpdated = await updateIncomesWithConvertedValues(userId, conversionRates, fromCurrency, toCurrency);
-      console.log('Incomes updated result:', incomesUpdated);
-      
-      const expensesUpdated = await updateExpensesWithConvertedValues(userId, conversionRates, fromCurrency, toCurrency);
-      console.log('Expenses updated result:', expensesUpdated);
-      
-      const goalsUpdated = await updateGoalsWithConvertedValues(userId, conversionRates, fromCurrency, toCurrency);
-      console.log('Goals updated result:', goalsUpdated);
-      
-      console.log('Financial data conversion complete!');
-      
-      return true;
-    } catch (updateError) {
-      console.error('Error updating financial data:', updateError);
-      return false;
-    }
+    // Consider conversion successful if at least one type of data was updated
+    const isSuccessful = incomesUpdated || expensesUpdated || goalsUpdated;
+    
+    console.log(`Financial data conversion ${isSuccessful ? 'completed successfully' : 'failed'}`);
+    return isSuccessful;
   } catch (error) {
     console.error('Error in convertAllFinancialData:', error);
     return false;

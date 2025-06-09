@@ -102,35 +102,45 @@ export const getSupportedCurrencies = async () => {
 
 export const convertCurrency = (amount, fromCurrency, toCurrency, rates) => {
   // Validate inputs
-  if (!amount || isNaN(parseFloat(amount))) {
+  if (amount === null || amount === undefined || isNaN(parseFloat(amount))) {
     console.warn('Invalid amount for currency conversion:', amount);
     return 0;
   }
   
+  // Ensure amount is a number
+  const numAmount = typeof amount === 'string' ? parseFloat(amount.replace(/,/g, '')) : parseFloat(amount);
+  
   if (!fromCurrency || !toCurrency) {
     console.warn('Invalid currencies for conversion:', { from: fromCurrency, to: toCurrency });
-    return parseFloat(amount);
+    return numAmount;
   }
   
-  if (!rates) {
-    console.warn('No rates provided for currency conversion');
-    return parseFloat(amount);
+  if (!rates || typeof rates !== 'object') {
+    console.warn('No valid rates provided for currency conversion');
+    return numAmount;
   }
   
   // If same currency, no conversion needed
   if (fromCurrency === toCurrency) {
-    return parseFloat(amount);
+    return numAmount;
   }
   
   // Direct conversion if rates are based on fromCurrency
   if (rates[toCurrency]) {
-    const convertedAmount = parseFloat(amount) * rates[toCurrency];
-    console.log(`Converted ${amount} ${fromCurrency} to ${convertedAmount.toFixed(2)} ${toCurrency} (rate: ${rates[toCurrency]})`);
+    const rate = rates[toCurrency];
+    // Validate the rate is a valid number
+    if (isNaN(parseFloat(rate)) || parseFloat(rate) <= 0) {
+      console.warn(`Invalid conversion rate for ${fromCurrency} to ${toCurrency}: ${rate}`);
+      return numAmount;
+    }
+    
+    const convertedAmount = numAmount * parseFloat(rate);
+    console.log(`Converted ${numAmount} ${fromCurrency} to ${convertedAmount.toFixed(2)} ${toCurrency} (rate: ${rate})`);
     return convertedAmount;
   }
   
   console.warn(`Conversion rate not found for ${fromCurrency} to ${toCurrency}`);
-  return parseFloat(amount);
+  return numAmount;
 };
 
 // Get user's preferred currency from Supabase or AsyncStorage
