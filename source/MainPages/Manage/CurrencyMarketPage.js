@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   View, 
   Text, 
@@ -162,7 +162,10 @@ const CurrencyMarketPage = ({ navigation }) => {
   const [isUpdatingGlobal, setIsUpdatingGlobal] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [currencySelectionType, setCurrencySelectionType] = useState('base'); // 'base' ou 'target'
-  const [convertedResult, setConvertedResult] = useState(null);
+  const [convertedResult, setConvertedResult] = useState({
+    from: { code: 'USD', amount: 1, symbol: '$' },
+    to: { code: 'EUR', amount: 0, symbol: '€' }
+  });
   const [userPreferredCurrency, setUserPreferredCurrency] = useState(null);
   const [currencyLimit, setCurrencyLimit] = useState(10); // Novo estado para controlar o limite de moedas
   const [isLoadingMore, setIsLoadingMore] = useState(false); // Estado para controlar carregamento adicional
@@ -442,14 +445,23 @@ const CurrencyMarketPage = ({ navigation }) => {
 
   // Função para calcular o resultado da conversão
   const updateConversion = () => {
-    if (!rates || !amount || isNaN(amount)) {
-      setConvertedResult(null);
-      return;
-    }
+    if (!amount || isNaN(parseFloat(amount))) return;
     
-    const numAmount = parseFloat(amount);
-    const result = convertCurrency(numAmount, baseCurrency, targetCurrency, rates);
-    setConvertedResult(result);
+    // No need to reload the whole screen, just update the conversion result
+    // without causing a full re-render
+    const value = parseFloat(amount);
+    setConvertedResult({
+      from: {
+        code: baseCurrency,
+        amount: value,
+        symbol: getCurrencySymbol(baseCurrency)
+      },
+      to: {
+        code: targetCurrency,
+        amount: convertCurrency(value, baseCurrency, targetCurrency, rates) || 0,
+        symbol: getCurrencySymbol(targetCurrency)
+      }
+    });
   };
 
   const loadData = async () => {
@@ -700,11 +712,43 @@ const CurrencyMarketPage = ({ navigation }) => {
 
   // Selecionar moeda do modal
   const selectCurrencyFromModal = (currency) => {
+    // Don't reload if selecting the same currency
+    if (currencySelectionType === 'base' && currency.code === baseCurrency) {
+      setModalVisible(false);
+      return;
+    }
+    if (currencySelectionType === 'target' && currency.code === targetCurrency) {
+      setModalVisible(false);
+      return;
+    }
+    
     if (currencySelectionType === 'base') {
       setBaseCurrency(currency.code);
+      
+      // Instead of fetching rates immediately (which causes reload),
+      // use a debounced approach or fetch only when needed
+      setTimeout(() => {
+        if (rates && rates[currency.code]) {
+          // If we already have rates for this currency, just update the UI
+          updateConversion();
+        } else {
+          // Only fetch new rates if we don't have them
+          fetchExchangeRates(currency.code)
+            .then(newRates => {
+              setRates(newRates);
+              updateConversion();
+            })
+            .catch(error => {
+              console.error('Error fetching rates for new base currency:', error);
+            });
+        }
+      }, 100);
     } else {
       setTargetCurrency(currency.code);
+      // Just update the UI for target currency changes
+      setTimeout(updateConversion, 100);
     }
+    
     setModalVisible(false);
   };
 
@@ -821,6 +865,17 @@ const CurrencyMarketPage = ({ navigation }) => {
     );
   };
   
+  // Add a memoized convertedAmount function to prevent recalculations
+  const memoizedConvertedAmount = useMemo(() => {
+    return (targetCurrencyCode) => {
+      if (!rates || !amount || isNaN(amount)) return '0.00';
+      
+      const convertedValue = convertCurrency(parseFloat(amount), baseCurrency, targetCurrencyCode, rates);
+      return convertedValue ? convertedValue.toFixed(2) : '0.00';
+    };
+  }, [rates, amount, baseCurrency]);
+
+  // Update the renderCurrencyItem to use the memoized function
   const renderCurrencyItem = ({ item, index }) => {
     const isSelected = selectedCurrency && selectedCurrency.code === item.code;
     const isBaseCurrency = baseCurrency === item.code;
@@ -913,7 +968,7 @@ const CurrencyMarketPage = ({ navigation }) => {
           </View>
           <View style={styles.rateContainer}>
             <Text style={styles.rateValue}>
-              {convertedAmount(item.code)}
+              {memoizedConvertedAmount(item.code)}
             </Text>
             <Text style={styles.baseAmount}>
               {amount} {baseCurrency} =
@@ -937,14 +992,6 @@ const CurrencyMarketPage = ({ navigation }) => {
         </TouchableOpacity>
       </Animated.View>
     );
-  };
-
-  // Converter valor para exibição
-  const convertedAmount = (targetCurrencyCode) => {
-    if (!rates || !amount || isNaN(amount)) return '0.00';
-    
-    const convertedValue = convertCurrency(parseFloat(amount), baseCurrency, targetCurrencyCode, rates);
-    return convertedValue ? convertedValue.toFixed(2) : '0.00';
   };
 
   const renderModalItem = ({ item }) => {
@@ -1145,16 +1192,14 @@ const CurrencyMarketPage = ({ navigation }) => {
               </View>
               
               {/* Resultado da conversão */}
-              {convertedResult !== null && (
-                <View style={styles.conversionResultContainer}>
-                  <Text style={styles.conversionResultText}>
-                    {parseFloat(amount).toFixed(2)} {baseCurrency} = 
-                  </Text>
-                  <Text style={styles.conversionResultValue}>
-                    {convertedResult.toFixed(2)} {targetCurrency}
-                  </Text>
-                </View>
-              )}
+              <View style={styles.conversionResultContainer}>
+                <Text style={styles.conversionResultText}>
+                  {parseFloat(amount).toFixed(2)} {baseCurrency} = 
+                </Text>
+                <Text style={styles.conversionResultValue}>
+                  {convertedResult.to.amount.toFixed(2)} {targetCurrency}
+                </Text>
+              </View>
             </View>
             
             {/* Moedas salvas */}

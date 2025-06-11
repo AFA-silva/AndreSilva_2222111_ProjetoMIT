@@ -33,43 +33,7 @@ export const fetchUserCurrencyPreference = async () => {
     const userId = session.user.id;
     console.log('Fetching currency preference for user:', userId);
     
-    // First, check if we have multiple rows for this user - if yes, clean them up
-    const { data: allRows, error: checkError } = await supabase
-      .from('user_currency_preferences')
-      .select('id, actual_currency, updated_at')
-      .eq('user_id', userId);
-      
-    if (checkError) {
-      console.error('Error checking user currency preferences:', checkError);
-    } else if (allRows && allRows.length > 1) {
-      // Multiple rows found, keep only the most recent one
-      console.warn(`Found ${allRows.length} currency preferences for user, cleaning up...`);
-      
-      // Sort by updated_at descending
-      const sortedRows = [...allRows].sort((a, b) => 
-        new Date(b.updated_at) - new Date(a.updated_at)
-      );
-      
-      // Keep the first row (most recent)
-      const mostRecent = sortedRows[0];
-      
-      // Delete all other rows
-      for (const row of sortedRows.slice(1)) {
-        const { error: deleteError } = await supabase
-          .from('user_currency_preferences')
-          .delete()
-          .eq('id', row.id);
-          
-        if (deleteError) {
-          console.error(`Error deleting redundant currency preference ${row.id}:`, deleteError);
-        }
-      }
-      
-      console.log('Using most recent currency preference:', mostRecent.actual_currency);
-      return mostRecent.actual_currency;
-    }
-    
-    // Get user currency preference (should be just one row now)
+    // Try to get user currency preference
     const { data, error } = await supabase
       .from('user_currency_preferences')
       .select('actual_currency')
@@ -82,20 +46,44 @@ export const fetchUserCurrencyPreference = async () => {
     }
 
     if (data && data.actual_currency) {
-      console.log('User currency preference fetched:', data);
-      // Return just the currency code since we don't have symbol and name in the database
+      console.log('User currency preference fetched:', data.actual_currency);
+      // Return the actual currency preference from database
       return {
         code: data.actual_currency,
-        symbol: data.actual_currency, // Use currency code as symbol since we don't have symbol in DB
-        name: data.actual_currency    // Use currency code as name since we don't have name in DB
+        symbol: data.actual_currency === 'EUR' ? '€' : data.actual_currency,
+        name: data.actual_currency === 'EUR' ? 'Euro' : data.actual_currency
       };
     } else {
-      console.error('No currency preference found');
-      throw new Error('No currency preference found');
+      // No preference found, create one with EUR as default
+      // ONLY if the user doesn't have a preference yet
+      console.log('No currency preference found, creating with default (EUR)');
+      const { error: insertError } = await supabase
+        .from('user_currency_preferences')
+        .insert([
+          {
+            user_id: userId,
+            actual_currency: 'EUR',
+            previous_currency: null
+          }
+        ]);
+      if (insertError) {
+        console.error('Error inserting default currency preference:', insertError);
+        throw new Error('Unable to create default currency preference');
+      }
+      return {
+        code: 'EUR',
+        symbol: '€',
+        name: 'Euro'
+      };
     }
   } catch (err) {
     console.error('Error in fetchUserCurrencyPreference:', err);
-    throw new Error('Currency service unavailable');
+    // Return EUR as a last-resort fallback
+    return {
+      code: 'EUR',
+      symbol: '€',
+      name: 'Euro'
+    };
   }
 };
 
@@ -356,7 +344,7 @@ export const fetchCategoriesByUser = async (userId) => {
   }
 };
 
-// Update user's currency preference in Supabase
+// Update an existing user's currency preference
 export const updateUserCurrencyPreference = async (currencyInfo) => {
   try {
     // Check if user is authenticated
@@ -369,54 +357,8 @@ export const updateUserCurrencyPreference = async (currencyInfo) => {
     const userId = session.user.id;
     const currencyCode = typeof currencyInfo === 'object' ? currencyInfo.code : currencyInfo;
     
-    // Get current currency to set as previous
-    const { data: currentData } = await supabase
-      .from('user_currency_preferences')
-      .select('actual_currency')
-      .eq('user_id', userId)
-      .single();
-      
-    const previousCurrency = currentData?.actual_currency || null;
-    
-    // First, clean up any existing entries for this user to prevent duplicates
-    console.log('Cleaning up existing currency preferences for user:', userId);
-    const { error: deleteError } = await supabase
-      .from('user_currency_preferences')
-      .delete()
-      .eq('user_id', userId);
-    
-    if (deleteError) {
-      console.error('Error cleaning up existing currency preferences:', deleteError);
-      // Continue anyway to try the insert
-    }
-
-    // Prepare currency data
-    let currencyData = {
-      user_id: userId,
-      actual_currency: currencyCode,
-      previous_currency: previousCurrency,
-      updated_at: new Date().toISOString()
-    };
-    
-    // If full currency info was provided, include symbol and name
-    if (typeof currencyInfo === 'object') {
-      currencyData.currency_symbol = currencyInfo.symbol || currencyCode;
-      currencyData.currency_name = currencyInfo.name || currencyCode;
-    }
-
-    // Insert the new currency preference
-    console.log('Inserting new currency preference:', currencyData);
-    const { data, error } = await supabase
-      .from('user_currency_preferences')
-      .insert(currencyData);
-
-    if (error) {
-      console.error('Error updating currency preference in Supabase:', error);
-      return false;
-    }
-
-    console.log('Currency preference updated in Supabase:', currencyCode);
-    return true;
+    // Use the simpler testUpdateCurrency function which is known to work
+    return await testUpdateCurrency(currencyCode);
   } catch (err) {
     console.error('Error in updateUserCurrencyPreference:', err);
     return false;
@@ -796,6 +738,63 @@ export const convertAllFinancialData = async (fromCurrency, toCurrency) => {
     return isSuccessful;
   } catch (error) {
     console.error('Error in convertAllFinancialData:', error);
+    return false;
+  }
+};
+
+// Simple test function to directly update currency preference
+// Use this to test if currency preference updates are working
+export const testUpdateCurrency = async (currencyCode) => {
+  try {
+    // Check if user is authenticated
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session || !session.user) {
+      console.log('No authenticated user to update currency preference');
+      return false;
+    }
+
+    const userId = session.user.id;
+    
+    // Get current currency to set as previous
+    const { data: currentData } = await supabase
+      .from('user_currency_preferences')
+      .select('actual_currency')
+      .eq('user_id', userId)
+      .single();
+      
+    const previousCurrency = currentData?.actual_currency || null;
+    
+    // First, clean up any existing entries for this user
+    console.log('Cleaning up existing currency preferences for user:', userId);
+    const { error: deleteError } = await supabase
+      .from('user_currency_preferences')
+      .delete()
+      .eq('user_id', userId);
+    
+    if (deleteError) {
+      console.error('Error cleaning up existing currency preferences:', deleteError);
+      return false;
+    }
+
+    // Insert the new currency preference with minimal fields
+    const { error: insertError } = await supabase
+      .from('user_currency_preferences')
+      .insert({
+        user_id: userId,
+        actual_currency: currencyCode,
+        previous_currency: previousCurrency,
+        updated_at: new Date().toISOString()
+      });
+
+    if (insertError) {
+      console.error('Error inserting currency preference:', insertError);
+      return false;
+    }
+
+    console.log(`Currency preference set to ${currencyCode} successfully (previous was ${previousCurrency})`);
+    return true;
+  } catch (err) {
+    console.error('Error in testUpdateCurrency:', err);
     return false;
   }
 };

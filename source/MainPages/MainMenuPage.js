@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Modal, Animated, FlatList, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import styles from '../Styles/MainPageStyles/MainMenuPageStyle';
@@ -80,6 +80,16 @@ const MainMenuPage = ({ navigation }) => {
   
   // Rastreador de operações para evitar chamadas duplicadas
   const operationsInProgress = useRef(new Set()).current;
+
+  // Add new state for modal accessibility
+  const [modalAccessibility, setModalAccessibility] = useState({
+    isVisible: false,
+    shouldHideContent: false
+  });
+
+  // Add data caching
+  const [lastLoadTime, setLastLoadTime] = useState(0);
+  const CACHE_DURATION = 30000; // 30 seconds cache
 
   // Layout sections para renderizar na FlatList
   const sections = [
@@ -190,6 +200,13 @@ const MainMenuPage = ({ navigation }) => {
 
   // Função principal para carregar todos os dados do dashboard
   const loadDashboardData = async (isInitialLoad = false) => {
+    // Check if cache is still valid
+    const now = Date.now();
+    if (!isInitialLoad && now - lastLoadTime < CACHE_DURATION && !loading) {
+      logManager.log('Dashboard', 'Using cached data (less than 30s old)', true);
+      return;
+    }
+    
     if (loading || operationsInProgress.has('loadDashboard')) {
       logManager.log('Dashboard', 'Já está carregando dados, ignorando chamada duplicada');
       return;
@@ -202,17 +219,20 @@ const MainMenuPage = ({ navigation }) => {
     const loadStartTime = Date.now();
     logManager.log('Dashboard', `${isInitialLoad ? 'Carregamento inicial' : 'Atualizando'} dados do dashboard`, true);
     
-    // Safety timeout para evitar loading infinito
+    // Reduce safety timeout to 5 seconds
     const safetyTimeout = setTimeout(() => {
-      logManager.log('Dashboard', 'Tempo limite de carregamento atingido (8s), forçando reset', true);
+      logManager.log('Dashboard', 'Tempo limite de carregamento atingido (5s), forçando reset', true);
       setLoading(false);
       setError('Tempo limite de carregamento excedido');
       operationsInProgress.delete('loadDashboard');
-    }, 8000);
+    }, 5000);
     
     try {
-      // 1. Verificar autenticação usando a função de MainQueries
-      const session = await getSession();
+      // 1. Verificar autenticação usando a função de MainQueries - use Promise.all for parallel loading
+      const sessionPromise = getSession();
+      
+      // Start loading goals and financial data in parallel when possible
+      const session = await sessionPromise;
       if (!session || !session.session?.user) {
         logManager.log('Autenticação', 'Usuário não autenticado', true);
         setError('Usuário não autenticado');
@@ -221,23 +241,33 @@ const MainMenuPage = ({ navigation }) => {
       
       const userId = session.session.user.id;
       logManager.debounce('Autenticação', `Usuário autenticado: ${userId.substr(0, 8)}...`);
-
-      // 2. Usar moeda atual do usuário se já estiver carregada, ou continuar sem ela
-      if (!userCurrency) {
-        logManager.log('Dashboard', 'Processando sem dados da moeda - serão atualizados posteriormente');
+      
+      // 2. Load goals and financial data in parallel
+      const [goalsData, currencyData] = await Promise.all([
+        loadGoals(userId),
+        supabase
+          .from('user_currency_preferences')
+          .select('actual_currency')
+          .eq('user_id', userId)
+          .single()
+      ]);
+      
+      // Process currency data
+      if (!currencyData.data || !currencyData.data.actual_currency) {
+        logManager.log('Financial', 'No currency preference found, will use default');
       } else {
-        logManager.debounce('Dashboard', `Usando moeda: ${userCurrency.code}`);
+        logManager.log('Financial', `Currency loaded: ${currencyData.data.actual_currency}`);
       }
       
-      // 3. Carregar goals e processar estatísticas
-      const goalsData = await loadGoals(userId);
-      
-      // 4. Carregar dados financeiros (income e expenses)
+      // 4. Load financial data with the currency we have
       await loadFinancialData(userId, userCurrency, goalsData);
       
       const loadEndTime = Date.now();
       const loadTime = (loadEndTime - loadStartTime) / 1000;
       logManager.log('Dashboard', `Carregamento concluído em ${loadTime.toFixed(2)}s`, true);
+      
+      // Update cache timestamp
+      setLastLoadTime(now);
       
       // Incrementar refreshKey para forçar atualização do componente GaugeChart
       setRefreshKey(prevKey => prevKey + 1);
@@ -333,40 +363,23 @@ const MainMenuPage = ({ navigation }) => {
       operationsInProgress.add('loadFinancial');
       logManager.log('Financial', 'Carregando dados financeiros');
       
-      // Obter a moeda do usuário diretamente do banco de dados
-      const { data: currencyData } = await supabase
-        .from('user_currency_preferences')
-        .select('actual_currency')
-        .eq('user_id', userId)
-        .single();
-      
-      if (!currencyData || !currencyData.actual_currency) {
-        throw new Error('Moeda do usuário não encontrada no banco de dados');
-      }
-      
-      // Usar apenas a moeda do banco de dados
-      const baseCurrency = currencyData.actual_currency;
-      logManager.log('Financial', `Moeda base para cálculos: ${baseCurrency}`);
-      
-      // 1. Carregar incomes usando a função centralizada
-      const incomes = await fetchIncomesByUser(userId);
+      // Load income and expenses in parallel
+      const [incomes, expenses] = await Promise.all([
+        fetchIncomesByUser(userId),
+        fetchExpensesByUser(userId)
+      ]);
       
       if (!incomes) {
         logManager.log('Financial', 'Nenhum income encontrado');
-        return { income: 0, expenses: 0 };
+      } else {
+        logManager.debounce('Financial', `${incomes.length} incomes carregados`);
       }
-      
-      logManager.debounce('Financial', `${incomes.length} incomes carregados`);
-      
-      // 2. Carregar expenses usando a função centralizada
-      const expenses = await fetchExpensesByUser(userId);
       
       if (!expenses) {
         logManager.log('Financial', 'Nenhum expense encontrado');
-        return { income: 0, expenses: 0 };
+      } else {
+        logManager.debounce('Financial', `${expenses.length} expenses carregados`);
       }
-      
-      logManager.debounce('Financial', `${expenses.length} expenses carregados`);
       
       // 3. Calcular valores financeiros
       let incomeSum = 0;
@@ -386,7 +399,7 @@ const MainMenuPage = ({ navigation }) => {
         }, 0);
         
         // Log resumido no final
-        logManager.debounce('Financial', `Income total: ${incomeSum.toFixed(2)} ${baseCurrency}/mês`);
+        logManager.debounce('Financial', `Income total: ${incomeSum.toFixed(2)} ${userCurrency?.symbol}/mês`);
       }
       
       // Processar expenses
@@ -403,7 +416,7 @@ const MainMenuPage = ({ navigation }) => {
         }, 0);
         
         // Log resumido no final
-        logManager.debounce('Financial', `Expense total: ${expenseSum.toFixed(2)} ${baseCurrency}/mês`);
+        logManager.debounce('Financial', `Expense total: ${expenseSum.toFixed(2)} ${userCurrency?.symbol}/mês`);
       }
       
       // Calcular balanço e economias
@@ -417,10 +430,10 @@ const MainMenuPage = ({ navigation }) => {
       setSavingsAmount(savings);
       
       logManager.log('Financial', `Resumo financeiro: 
-  Income: ${incomeSum.toFixed(2)} ${baseCurrency}
-  Expenses: ${expenseSum.toFixed(2)} ${baseCurrency}
-  Balance: ${balance.toFixed(2)} ${baseCurrency}
-  Savings: ${savings.toFixed(2)} ${baseCurrency}`);
+  Income: ${incomeSum.toFixed(2)} ${userCurrency?.symbol}
+  Expenses: ${expenseSum.toFixed(2)} ${userCurrency?.symbol}
+  Balance: ${balance.toFixed(2)} ${userCurrency?.symbol}
+  Savings: ${savings.toFixed(2)} ${userCurrency?.symbol}`);
       
       // Calcular porcentagem de economia alocada para goals
       await calculateSavingsAllocation(savings, goalsData || [], userId);
@@ -428,8 +441,7 @@ const MainMenuPage = ({ navigation }) => {
       return { income: incomeSum, expenses: expenseSum };
     } catch (error) {
       logManager.error('Financial', 'Erro ao carregar dados financeiros', error);
-      setError(`Erro ao calcular dados financeiros: ${error.message}`);
-      return { income: 0, expenses: 0 };
+      throw error;
     } finally {
       operationsInProgress.delete('loadFinancial');
     }
@@ -521,6 +533,15 @@ const MainMenuPage = ({ navigation }) => {
   // Função para atualizar os dados manualmente
   const refreshDashboard = () => {
     loadDashboardData();
+  };
+
+  // Modify modal visibility handling
+  const handleModalVisibility = (visible) => {
+    setModalVisible(visible);
+    setModalAccessibility({
+      isVisible: visible,
+      shouldHideContent: visible
+    });
   };
 
   // Função para renderizar os itens na FlatList
@@ -685,6 +706,16 @@ const MainMenuPage = ({ navigation }) => {
     }
   };
 
+  // Use memoization for expensive calculations
+  const financialSummary = useMemo(() => {
+    // Calculate any expensive values here that depend on financial data
+    return {
+      availablePercentage: usagePercentage,
+      savingsPercentage: totalIncome > 0 ? (savingsAmount / totalIncome) * 100 : 0,
+      netIncomeLabel: `${formatCurrency(availableMoney)}`
+    };
+  }, [availableMoney, usagePercentage, savingsAmount, totalIncome]);
+
   return (
     <View style={styles.mainContainer}>
       <Header title="Dashboard" />
@@ -700,32 +731,24 @@ const MainMenuPage = ({ navigation }) => {
         onRefresh={refreshDashboard}
       />
 
-      {/* Financial Details Modal */}
+      {/* Modal with proper accessibility */}
       <Modal
-        animationType="fade"
-        transparent={true}
         visible={modalVisible}
-        onRequestClose={() => setModalVisible(false)}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => handleModalVisibility(false)}
       >
-        <View style={styles.financialModal.centeredView}>
-          <Animated.View style={styles.financialModal.modalView}>
-            <LinearGradient
-              colors={['#FF9800', '#F57C00']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.financialModal.headerGradient}
-            >
-              <View style={styles.financialModal.header}>
-                <Text style={styles.financialModal.headerTitle}>Detalhes Financeiros</Text>
-                <TouchableOpacity 
-                  style={styles.financialModal.closeButton}
-                  onPress={() => setModalVisible(false)}
-                >
-                  <Ionicons name="close-circle" size={28} color="#FFFFFF" />
-                </TouchableOpacity>
-              </View>
-            </LinearGradient>
-            
+        <View style={styles.modalOverlay}>
+          <View 
+            style={styles.modalContent}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="modal-title"
+          >
+            {/* Modal content */}
+            <Text id="modal-title" style={styles.modalTitle}>
+              Detalhes Financeiros
+            </Text>
             <View style={styles.financialModal.summaryBox}>
               <View style={styles.financialModal.summaryItem}>
                 <Ionicons name="arrow-down-circle" size={20} color="#00B894" style={styles.financialModal.icon} />
@@ -791,7 +814,7 @@ const MainMenuPage = ({ navigation }) => {
             
             <TouchableOpacity
               style={styles.financialModal.okButton}
-              onPress={() => setModalVisible(false)}
+              onPress={() => handleModalVisibility(false)}
             >
               <LinearGradient
                 colors={['#FF9800', '#F57C00']}
@@ -802,7 +825,7 @@ const MainMenuPage = ({ navigation }) => {
                 <Text style={styles.financialModal.okButtonText}>Fechar</Text>
               </LinearGradient>
             </TouchableOpacity>
-          </Animated.View>
+          </View>
         </View>
       </Modal>
     </View>
