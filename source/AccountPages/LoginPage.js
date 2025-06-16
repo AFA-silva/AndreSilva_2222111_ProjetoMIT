@@ -1,5 +1,6 @@
-import React, { useState } from 'react'; // Import de componentes do React
-import { View, Text, TextInput, TouchableOpacity } from 'react-native'; // Import de componentes do react native
+import React, { useState, useEffect, useRef } from 'react'; // Import de componentes do React
+import { View, Text, TextInput, TouchableOpacity, Platform, Keyboard } from 'react-native'; // Import de componentes do react native
+import { useFocusEffect } from '@react-navigation/native';
 import styles from '../Styles/AccountPageStyles/LoginPageStyle'; // Import do estilo para a página de login
 import { supabase } from '../../Supabase'; // Import da Database
 import Alert from '../Utility/Alerts'; // Import dos Alertas customs
@@ -15,6 +16,45 @@ const LoginPage = ({ navigation }) => {
   // Cria as variáveis para o login (email e password)
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  
+  // Refs para os inputs
+  const emailInputRef = useRef(null);
+  const passwordInputRef = useRef(null);
+  const containerRef = useRef(null);
+
+  // Helper para remover o foco de qualquer elemento na tela
+  const clearFocus = () => {
+    if (Platform.OS === 'web') {
+      // Dismiss keyboard only, don't try to manipulate focus directly
+      Keyboard.dismiss();
+    } else {
+      Keyboard.dismiss();
+    }
+  };
+
+  // Corrige o problema de aria-hidden remova manipulação direta de foco
+  useFocusEffect(
+    React.useCallback(() => {
+      // Apenas esconde o teclado virtual se necessário
+      Keyboard.dismiss();
+      
+      // Limpa o foco quando a tela perde foco
+      return () => {
+        Keyboard.dismiss();
+      };
+    }, [])
+  );
+  
+  // Limpar foco quando a tela não estiver mais focada
+  useEffect(() => {
+    const unsubscribeBeforeRemove = navigation.addListener('beforeRemove', () => {
+      Keyboard.dismiss();
+    });
+    
+    return () => {
+      unsubscribeBeforeRemove();
+    };
+  }, [navigation]);
 
   // Função para mostrar o alerta
   const showAlertMessage = (message, type) => {
@@ -98,7 +138,8 @@ const LoginPage = ({ navigation }) => {
 
   // Front-end da Login Page
   return (
-    <View style={styles.container}>
+    <View style={styles.container} ref={containerRef} accessibilityViewIsModal={true}>
+      {/* Renderizar o alerta apenas quando visível */}
       {showAlert && (
         <Alert message={alertMessage} type={alertType} onClose={() => setShowAlert(false)} />
       )}
@@ -107,29 +148,43 @@ const LoginPage = ({ navigation }) => {
       <Text style={styles.subtitle}>Faça login com suas credenciais</Text>
 
       <TextInput
+        ref={emailInputRef}
         style={styles.input}
         placeholder="Email"
         value={email}
         onChangeText={setEmail}
         keyboardType="email-address"
         autoCapitalize="none"
+        accessibilityLabel="Email input field"
       />
 
       <TextInput
+        ref={passwordInputRef}
         style={styles.input}
         placeholder="Password"
         value={password}
         onChangeText={setPassword}
         secureTextEntry
+        accessibilityLabel="Password input field"
       />
 
-      <TouchableOpacity style={styles.button} onPress={handleLogin}>
+      <TouchableOpacity 
+        style={styles.button} 
+        onPress={handleLogin}
+        accessibilityRole="button"
+        accessibilityLabel="Login button"
+      >
         <Text style={styles.buttonText}>Login</Text>
       </TouchableOpacity>
 
       <Text style={styles.registerText}>
         Não tem uma conta?{' '}
-        <Text style={styles.registerLink} onPress={() => navigation.navigate('Register')}>
+        <Text 
+          style={styles.registerLink} 
+          onPress={() => navigation.navigate('Register')}
+          accessibilityRole="link"
+          accessibilityLabel="Create account"
+        >
           Crie uma Conta
         </Text>
       </Text>

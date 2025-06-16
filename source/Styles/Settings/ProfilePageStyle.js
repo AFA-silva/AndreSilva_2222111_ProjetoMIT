@@ -229,10 +229,7 @@ const styles = StyleSheet.create({
   inputWrapperFocused: {
     borderColor: '#F9A825',
     backgroundColor: '#FFFDF8',
-    shadowColor: '#F9A825',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.2,
-    shadowRadius: 5,
+    boxShadow: '0px 0px 5px rgba(249, 168, 37, 0.2)',
     elevation: 2,
   },
   datePickerWrapper: {

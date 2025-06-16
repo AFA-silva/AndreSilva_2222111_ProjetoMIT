@@ -63,30 +63,26 @@ const SettingsPage = ({ navigation }) => {
         <Text style={styles.sectionHeader}>Preferences</Text>
 
         {/* Notifications Section */}
-        <TouchableOpacity style={[styles.menuItem, { borderLeftColor: '#CBD5E0' }]}>
+        <TouchableOpacity 
+          style={styles.menuItem}
+          onPress={() => navigation.navigate('NotificationsPage')}
+        >
           <View style={styles.menuRow}>
             <View style={{
               width: 42,
               height: 42,
               borderRadius: 12,
-              backgroundColor: 'rgba(203, 213, 224, 0.15)',
+              backgroundColor: 'rgba(255, 152, 0, 0.1)',
               justifyContent: 'center',
               alignItems: 'center',
             }}>
-              <Ionicons name="notifications-outline" size={24} color="#718096" />
+              <Ionicons name="notifications-outline" size={24} color="#FF9800" />
             </View>
             <View style={styles.menuTextContainer}>
               <Text style={styles.menuItemTitle}>Notifications</Text>
-              <Text style={styles.menuItemSubtitle}>Coming soon...</Text>
+              <Text style={styles.menuItemSubtitle}>Configure your notification preferences</Text>
             </View>
-            <View style={{
-              paddingHorizontal: 8,
-              paddingVertical: 4,
-              backgroundColor: 'rgba(203, 213, 224, 0.2)',
-              borderRadius: 6,
-            }}>
-              <Text style={{ fontSize: 10, color: '#718096' }}>SOON</Text>
-            </View>
+            <Ionicons name="chevron-forward" size={22} color="#CBD5E0" />
           </View>
         </TouchableOpacity>
 

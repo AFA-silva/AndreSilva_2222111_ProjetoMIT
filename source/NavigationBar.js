@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Animated, Dimensions, Platform, AppState } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 
 const { width } = Dimensions.get('window');
 
@@ -22,6 +22,7 @@ const NavigationBar = () => {
   const tabAnimations = {
     MainMenuPage: useRef(new Animated.Value(1)).current,
     ManagerPage: useRef(new Animated.Value(0.8)).current,
+    CalendarPage: useRef(new Animated.Value(0.8)).current,
     SettingsPage: useRef(new Animated.Value(0.8)).current
   };
   
@@ -106,39 +107,22 @@ const NavigationBar = () => {
     }, 300);
   }, []);
 
-  // Efeito para atualizar as animações quando a tab muda
-  useEffect(() => {
-    if (!isInitialized) return;
-    
-    try {
-      // Use the direct route name from navigation state
+  // Sincroniza o activeTab com a navegação usando evento de foco
+  useFocusEffect(
+    React.useCallback(() => {
       const state = navigation.getState();
       const activeRouteIndex = state.index;
       const activeRouteName = state.routes[activeRouteIndex].name;
-      
       setActiveTab(activeRouteName);
-      
-      // Animar as tabs
-      const animateTab = (tab, toValue) => {
+      Object.keys(tabAnimations).forEach(tab => {
         Animated.timing(tabAnimations[tab], {
-          toValue,
+          toValue: tab === activeRouteName ? 1 : 0.8,
           duration: 250,
           useNativeDriver: Platform.OS !== 'web',
         }).start();
-      };
-      
-      // Ativar a tab correta e definir as outras para semifaded
-      Object.keys(tabAnimations).forEach(tab => {
-        animateTab(tab, tab === activeRouteName ? 1 : 0.8);
       });
-    } catch (error) {
-      console.log('Error updating tab animations:', error);
-      // Garantir que todos os botões permaneçam visíveis em caso de erro
-      Object.keys(tabAnimations).forEach(tab => {
-        tabAnimations[tab].setValue(tab === activeTab ? 1 : 0.8);
-      });
-    }
-  }, [navigation.getState(), isInitialized, forceRender]);
+    }, [navigation])
+  );
 
   // Função para navegar para uma tab
   const navigateToTab = (tabName) => {
@@ -150,13 +134,8 @@ const NavigationBar = () => {
   const renderTabButton = (tabName, iconName, label) => {
     const isActive = activeTab === tabName;
     const animValue = tabAnimations[tabName];
-    
-    // Renderizar sempre com valores de estilo completos para evitar problemas de formatação
     const baseIconScale = 1;
     const baseIconTranslate = isActive ? -6 : 0;
-    const baseTextOpacity = isActive ? 1 : 0;
-    const baseTextTranslate = isActive ? 0 : 10;
-    
     return (
       <TouchableOpacity 
         style={[styles.navItem, isActive && styles.activeNavItem]} 
@@ -165,7 +144,6 @@ const NavigationBar = () => {
         disabled={isLoading}
       >
         {isLoading ? (
-          // Skeleton loading do botão
           <View style={styles.skeletonContainer}>
             <View style={styles.skeletonCircle} />
             <View style={styles.skeletonText} />
@@ -184,7 +162,7 @@ const NavigationBar = () => {
                 style={[
                   styles.iconBackground,
                   {
-                    backgroundColor: isActive ? 'rgba(249, 168, 37, 0.15)' : '#FFECB3'
+                    backgroundColor: '#FFECB3'
                   }
                 ]}
               >
@@ -195,27 +173,23 @@ const NavigationBar = () => {
                 />
               </Animated.View>
             </Animated.View>
-            
             {isActive && (
-              <Text 
+              <Animated.Text 
                 style={[
                   styles.navText, 
                   styles.activeNavText,
                   {
-                    opacity: baseTextOpacity,
+                    color: '#000',
+                    opacity: animValue,
                     transform: [
-                      { translateY: baseTextTranslate }
+                      { translateY: Animated.multiply(Animated.subtract(1, animValue), 10) }
                     ]
                   }
                 ]}
                 numberOfLines={1}
               >
                 {label}
-              </Text>
-            )}
-            
-            {isActive && (
-              <View style={styles.activeIndicator} />
+              </Animated.Text>
             )}
           </>
         )}
@@ -232,6 +206,7 @@ const NavigationBar = () => {
       <View style={styles.navbar}>
         {renderTabButton('MainMenuPage', 'home', 'Home')}
         {renderTabButton('ManagerPage', 'briefcase', 'Manager')}
+        {renderTabButton('CalendarPage', 'calendar', 'Calendar')}
         {renderTabButton('SettingsPage', 'settings', 'Settings')}
       </View>
     </View>
@@ -298,7 +273,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(249, 168, 37, 0.15)',
+    backgroundColor: '#FFECB3',
     shadowColor: '#F9A825',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -309,7 +284,7 @@ const styles = StyleSheet.create({
   navText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#6B5B3D',
+    color: '#000',
     marginTop: 0,
     textAlign: 'center',
     position: 'absolute',
@@ -323,14 +298,6 @@ const styles = StyleSheet.create({
   activeNavText: {
     color: '#F9A825',
     fontWeight: '700',
-  },
-  activeIndicator: {
-    position: 'absolute',
-    width: 16,
-    height: 3,
-    backgroundColor: '#F9A825',
-    bottom: 0,
-    borderRadius: 2,
   },
   skeletonContainer: {
     alignItems: 'center',
