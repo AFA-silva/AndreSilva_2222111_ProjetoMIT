@@ -11,7 +11,7 @@ import ExpensesPage from './MainPages/Manage/ExpensesPage';
 import IncomePage from './MainPages/Manage/IncomePage';
 import GoalsPage from './MainPages/Manage/GoalsPage';
 import CurrencyMarketPage from './MainPages/Manage/CurrencyMarketPage';
-import CalendarPage from './MainPages/Manage/CalendarPage';
+import CalendarPage from './MainPages/CalendarPage';
 import NotificationsPage from './MainPages/Settings/NotificationsPage';
 
 const Stack = createStackNavigator();

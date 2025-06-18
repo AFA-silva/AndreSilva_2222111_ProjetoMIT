@@ -148,19 +148,36 @@ const styles = StyleSheet.create({
     color: '#666666',
   },
   eventDetailsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    marginTop: 4,
   },
   eventName: {
     fontSize: 15,
     fontWeight: '500',
     color: '#333333',
-    flex: 1,
+    marginBottom: 6,
+  },
+  eventInfoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  eventInfoColumn: {
+    flexDirection: 'column',
+  },
+  eventCategory: {
+    fontSize: 12,
+    color: '#666666',
+    marginBottom: 2,
+  },
+  eventFrequency: {
+    fontSize: 11,
+    color: '#757575',
+    fontStyle: 'italic',
   },
   eventAmount: {
     fontSize: 15,
-    fontWeight: 'bold',
+    fontWeight: '700',
+    textAlign: 'right',
   },
   deleteButton: {
     padding: 4,
@@ -203,7 +220,7 @@ const styles = StyleSheet.create({
     color: '#555555',
   },
   summaryValue: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: 'bold',
   },
   buttonRow: {
@@ -303,22 +320,30 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     color: '#333',
-    marginBottom: 4,
+    marginBottom: 6,
   },
-  recordDetails: {
+  recordInfoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 4,
+    alignItems: 'center',
+  },
+  recordInfoColumn: {
+    flexDirection: 'column',
   },
   recordCategory: {
     fontSize: 12,
+    color: '#666666',
+    marginBottom: 2,
+  },
+  recordFrequency: {
+    fontSize: 11,
     color: '#757575',
-    flex: 1,
+    fontStyle: 'italic',
   },
   recordAmount: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
-    color: '#3F51B5',
+    textAlign: 'right',
   },
   noRecordsContainer: {
     alignItems: 'center',
@@ -434,12 +459,17 @@ const styles = StyleSheet.create({
   },
   upcomingEvent: {
     flexDirection: 'row',
-    padding: 10,
+    padding: 12,
     marginBottom: 10,
-    backgroundColor: '#FAFAFA',
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#EEEEEE',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
   },
   upcomingDate: {
     width: 50,
@@ -462,7 +492,7 @@ const styles = StyleSheet.create({
   },
   upcomingDetail: {
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: 'space-between',
   },
   upcomingName: {
     fontSize: 15,
@@ -470,9 +500,19 @@ const styles = StyleSheet.create({
     color: '#333333',
     marginBottom: 4,
   },
+  upcomingMetadata: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  upcomingRecurring: {
+    fontSize: 12,
+    color: '#757575',
+    fontStyle: 'italic',
+  },
   upcomingAmount: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 15,
+    fontWeight: '700',
   },
   noUpcomingEvents: {
     alignItems: 'center',
@@ -487,6 +527,216 @@ const styles = StyleSheet.create({
     color: '#757575',
     fontSize: 14,
     textAlign: 'center',
+  },
+  // Estilos para opções de recorrência
+  recurringOptionContainer: {
+    backgroundColor: '#F5F7FA',
+    borderRadius: 12,
+    padding: 15,
+    marginBottom: 15,
+    borderWidth: 1,
+    borderColor: '#EEEEEE',
+  },
+  recurringCheckboxRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  recurringLabel: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#333333',
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: '#3F51B5',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkboxChecked: {
+    backgroundColor: '#3F51B5',
+  },
+  frequencyNote: {
+    fontSize: 13,
+    fontStyle: 'italic',
+    color: '#666666',
+    marginTop: 5,
+  },
+  // Estilo para eventos filtrados
+  filteredEventsContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'white',
+    zIndex: 100,
+    padding: 20,
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  filteredEventsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#EEEEEE',
+    paddingBottom: 15,
+  },
+  filteredEventsTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  filteredEventsSubtitle: {
+    fontSize: 14,
+    color: '#757575',
+    marginTop: 3,
+  },
+  filteredEventsListContent: {
+    paddingBottom: 80,
+  },
+  closeFilterButton: {
+    padding: 5,
+  },
+  // Estilo para indicar evento recorrente
+  eventRecurring: {
+    fontSize: 12,
+    fontStyle: 'italic',
+    backgroundColor: '#F5F7FA',
+    paddingVertical: 2,
+    paddingHorizontal: 6,
+    borderRadius: 10,
+  },
+  // Estilo para botão delete padrão
+  deleteButton: {
+    padding: 4,
+  },
+  // Estilo específico para o botão delete em ambiente web
+  webDeleteButton: {
+    backgroundColor: '#F44336',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  webDeleteButtonText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  // Estilo para linha de metadados do evento (recorrência e valor)
+  eventMetadataRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  // Estilos para eventos filtrados melhorados
+  filteredEventItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    padding: 14,
+    borderRadius: 12,
+    marginVertical: 8,
+    borderWidth: 1,
+    borderColor: '#EEEEEE',
+    borderLeftWidth: 4,
+  },
+  filteredEventContent: {
+    flex: 1,
+  },
+  filteredEventTypeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  filteredEventDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginRight: 8,
+  },
+  filteredEventTypeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#666666',
+  },
+  filteredEventName: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#333333',
+    marginBottom: 6,
+  },
+  filteredEventRecurring: {
+    fontSize: 12,
+  },
+  recurringText: {
+    color: '#3F51B5',
+    fontStyle: 'italic',
+  },
+  oneTimeText: {
+    color: '#757575',
+  },
+  deleteButtonFiltered: {
+    backgroundColor: '#F44336',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  deleteButtonText: {
+    color: 'white',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  // Adicionar novos estilos para eventos filtrados
+  filteredEventMetadataRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 3,
+  },
+  filteredEventAmount: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  // Adicionar estilos para o sumário simplificado
+  simplifiedSummaryContainer: {
+    backgroundColor: '#F8F9FA',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 15,
+    borderLeftWidth: 4,
+    borderLeftColor: '#3F51B5',
+    alignItems: 'flex-start',
+  },
+  simplifiedSummaryText: {
+    fontSize: 16,
+    color: '#333333',
+    fontWeight: '500',
+  },
+  // Adicionar estilo para a frequência nos itens de registro
+  recordFrequency: {
+    fontSize: 11,
+    color: '#757575',
+    fontStyle: 'italic',
+    marginTop: 4,
   },
 });
 
