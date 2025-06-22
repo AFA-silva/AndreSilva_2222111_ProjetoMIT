@@ -99,6 +99,58 @@ const CalendarPage = () => {
     ]).start();
   };
 
+  // Helper function to generate recurring dates based on frequency
+  const generateRecurringDates = (startDateStr, endDateStr, frequencyInfo) => {
+    const dates = [];
+    const startDate = new Date(startDateStr);
+    const endDate = endDateStr ? new Date(endDateStr) : null;
+    
+    // Default to monthly if no frequency info
+    let frequencyDays = 30;
+    
+    // If we have frequency info with days, use that
+    if (frequencyInfo && frequencyInfo.days) {
+      frequencyDays = frequencyInfo.days;
+    }
+    
+    let currentDate = new Date(startDate);
+    
+    // Add the start date
+    dates.push(startDate.toISOString().split('T')[0]);
+    
+    // If no end date or invalid end date, return just the start date
+    if (!endDate) return dates;
+    
+    // Generate all dates between start and end based on frequency
+    while (true) {
+      // Advance to the next date based on frequency
+      if (frequencyDays === 30 || frequencyDays === 31) {
+        currentDate.setMonth(currentDate.getMonth() + 1);
+      } else if (frequencyDays === 7) {
+        currentDate.setDate(currentDate.getDate() + 7);
+      } else if (frequencyDays === 14) {
+        currentDate.setDate(currentDate.getDate() + 14);
+      } else if (frequencyDays === 90) {
+        currentDate.setMonth(currentDate.getMonth() + 3);
+      } else if (frequencyDays === 180) {
+        currentDate.setMonth(currentDate.getMonth() + 6);
+      } else if (frequencyDays === 365) {
+        currentDate.setFullYear(currentDate.getFullYear() + 1);
+      } else {
+        // Default to monthly
+        currentDate.setMonth(currentDate.getMonth() + 1);
+      }
+      
+      // Check if we've gone beyond the end date
+      if (currentDate > endDate) break;
+      
+      // Add the date to our list
+      dates.push(currentDate.toISOString().split('T')[0]);
+    }
+    
+    return dates;
+  };
+
   const fetchEvents = async (selectedMonth = null) => {
     setLoading(true);
     try {
@@ -116,7 +168,8 @@ const CalendarPage = () => {
           type,
           date,
           is_recurring,
-          record_id
+          event_id,
+          end_date
         `)
         .eq('user_id', user.id);
 
@@ -129,13 +182,13 @@ const CalendarPage = () => {
 
       // Identificar quais IDs precisamos buscar
       calendarEvents?.forEach(event => {
-        if (event.record_id) {
+        if (event.event_id) {
           if (event.type === 'income') {
-            incomeIds.push(event.record_id);
+            incomeIds.push(event.event_id);
           } else if (event.type === 'expense') {
-            expenseIds.push(event.record_id);
+            expenseIds.push(event.event_id);
           } else if (event.type === 'goal') {
-            goalIds.push(event.record_id);
+            goalIds.push(event.event_id);
           }
         }
       });
@@ -239,19 +292,51 @@ const CalendarPage = () => {
       let expenseCount = 0;
       let goalCount = 0;
       
+      // Definir o período relevante para visualização
+      const viewMonthStart = new Date(now.getFullYear(), now.getMonth(), 1); // Primeiro dia do mês atual
+      const viewMonthLastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0); // Último dia do mês atual
+      const nextMonthLastDay = new Date(now.getFullYear(), now.getMonth() + 2, 0); // Último dia do próximo mês
+      
+      // Processar cada evento do calendário
       calendarEvents?.forEach(event => {
-        const eventDate = new Date(event.date);
-        const date = eventDate.toISOString().split('T')[0];
+        // Lista de datas para processar
+        let datesToProcess = [];
+        
+        // Se for recorrente e tem data final, gerar as datas intermediárias usando a frequência do evento vinculado
+        if (event.is_recurring && event.end_date) {
+          let eventDetails = null;
+          
+          // Obter os detalhes do evento para acessar as informações de frequência
+          if (event.type === 'income') {
+            eventDetails = incomeDetails[event.event_id];
+          } else if (event.type === 'expense') {
+            eventDetails = expenseDetails[event.event_id];
+          } else if (event.type === 'goal') {
+            eventDetails = goalDetails[event.event_id];
+          }
+          
+          // Se tivermos detalhes e frequência, usar para gerar as datas
+          if (eventDetails && eventDetails.frequencies) {
+            datesToProcess = generateRecurringDates(event.date, event.end_date, eventDetails.frequencies);
+            console.log(`Evento recorrente ${event.id}: geradas ${datesToProcess.length} datas entre ${event.date} e ${event.end_date}`);
+          } else {
+            // Se não temos informações de frequência, usar apenas a data original
+            datesToProcess = [event.date];
+          }
+        } else {
+          // Evento não recorrente - usar apenas a data original
+          datesToProcess = [event.date];
+        }
         
         // Enriquecer o evento com detalhes, se disponíveis
         let details = null;
-        if (event.record_id) {
+        if (event.event_id) {
           if (event.type === 'income') {
-            details = incomeDetails[event.record_id];
+            details = incomeDetails[event.event_id];
           } else if (event.type === 'expense') {
-            details = expenseDetails[event.record_id];
+            details = expenseDetails[event.event_id];
           } else if (event.type === 'goal') {
-            details = goalDetails[event.record_id];
+            details = goalDetails[event.event_id];
           }
         }
         
@@ -263,80 +348,77 @@ const CalendarPage = () => {
           event.category_id = details.category_id || null;
           event.frequency_id = details.frequency_id || null;
           event.frequencies = details.frequencies || null;
-          
-          // Para debug
-          console.log(`Evento ${event.id} preenchido:`, { 
-            type: event.type,
-            name: event.name,
-            amount: event.amount,
-            date,
-            is_recurring: event.is_recurring,
-            frequency: event.frequencies?.name
-          });
         } else {
           // Valores padrão se detalhes não estiverem disponíveis
           event.name = event.type.charAt(0).toUpperCase() + event.type.slice(1) + ' Event';
           event.amount = 0;
-          
-          // Log de debug para eventos sem detalhes
-          console.log(`Evento ${event.id} sem detalhes associados:`, {
-            type: event.type,
-            record_id: event.record_id,
-            date
-          });
         }
         
-        // Track assigned records by date
+        // Processar cada data gerada para este evento
+        datesToProcess.forEach(dateStr => {
+          const eventDate = new Date(dateStr);
+          
+          // Verificar se esta data está dentro do intervalo visualizado ou próximo mês
+          const isInCurrentViewPeriod = 
+            (eventDate >= viewMonthStart && eventDate <= nextMonthLastDay);
+          
+          if (!isInCurrentViewPeriod) return; // Pular datas fora do período relevante
+          
+          const date = dateStr;
+          
+                  // Track assigned records by date
         if (!assignedRecordsMap[date]) {
           assignedRecordsMap[date] = new Set();
         }
-        assignedRecordsMap[date].add(`${event.type}-${event.record_id}`);
-        
-        // Count events for current month
-        if (eventDate.getMonth() === currentMonth && eventDate.getFullYear() === currentYear) {
-          if (event.type === 'income') incomeCount++;
-          else if (event.type === 'expense') expenseCount++;
-          else if (event.type === 'goal') goalCount++;
-        }
-        
-        // Collect upcoming events (apenas para o mês atual e o próximo)
-        const today = new Date();
-        const currentMonthLastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-        const nextMonthLastDay = new Date(today.getFullYear(), today.getMonth() + 2, 0);
-
-        // Definir o início do mês atual para comparação
-        const currentMonthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-        const nextMonthStart = new Date(today.getFullYear(), today.getMonth() + 1, 1);
-
-        // Coletar eventos para exibição nos upcoming events (apenas mês atual e próximo)
-        if (eventDate >= today && eventDate <= nextMonthLastDay) {
-          upcomingEventsList.push({
+        assignedRecordsMap[date].add(`${event.type}-${event.event_id}`);
+          
+          // Count events for current month only
+          if (eventDate.getMonth() === currentMonth && eventDate.getFullYear() === currentYear) {
+            if (event.type === 'income') incomeCount++;
+            else if (event.type === 'expense') expenseCount++;
+            else if (event.type === 'goal') goalCount++;
+          }
+          
+          // Collect upcoming events for viewed month and next month
+          if (eventDate >= viewMonthStart && eventDate <= nextMonthLastDay) {
+            // Criar cópia do evento para esta data específica
+            const eventCopy = {
+              ...event,
+              date: dateStr,
+              formattedDate: eventDate
+            };
+            
+            upcomingEventsList.push(eventCopy);
+          }
+          
+          // Format calendar marked dates
+          if (!markedDates[date]) {
+            markedDates[date] = {
+              marked: true,
+              dotColor: getEventColor(event.type),
+              events: [],
+              dots: []
+            };
+          }
+          
+          // Add dot for each event type if not already added
+          const hasDotOfType = markedDates[date].dots.some(dot => dot.color === getEventColor(event.type));
+          if (!hasDotOfType) {
+            markedDates[date].dots.push({
+              color: getEventColor(event.type),
+              key: event.type
+            });
+          }
+          
+          // Criar cópia do evento para esta data específica
+          const eventForDate = {
             ...event,
-            formattedDate: eventDate
-          });
-        }
-        
-        // Format calendar marked dates
-        if (!markedDates[date]) {
-          markedDates[date] = {
-            marked: true,
-            dotColor: getEventColor(event.type),
-            events: [],
-            dots: []
+            date: dateStr
           };
-        }
-        
-        // Add dot for each event type if not already added
-        const hasDotOfType = markedDates[date].dots.some(dot => dot.color === getEventColor(event.type));
-        if (!hasDotOfType) {
-          markedDates[date].dots.push({
-            color: getEventColor(event.type),
-            key: event.type
-          });
-        }
-        
-        // Push event to the date's events array
-        markedDates[date].events.push(event);
+          
+          // Push event to the date's events array
+          markedDates[date].events.push(eventForDate);
+        });
       });
       
       // Sort upcoming events by date
@@ -526,8 +608,8 @@ const CalendarPage = () => {
       if (!user) return;
 
       // Verificar se este registro já está atribuído à data selecionada
-      const recordKey = `${recordType}-${record.id}`;
-      if (assignedRecords[selectedDate] && assignedRecords[selectedDate].has(recordKey)) {
+      const eventKey = `${recordType}-${record.id}`;
+      if (assignedRecords[selectedDate] && assignedRecords[selectedDate].has(eventKey)) {
         Alert.alert('Duplicate Event', 'This record is already added to this date');
         setLoading(false);
         return;
@@ -547,68 +629,25 @@ const CalendarPage = () => {
       // Array para armazenar todos os eventos a serem criados
       const eventsToCreate = [];
       
-      // Se for recorrente, criar eventos para vários meses
+      // Se for recorrente, criar apenas o primeiro e o último evento da série
       if (isRecurring) {
         // Determinar a frequência em dias
-        let frequencyDays = 30; // Padrão mensal
-        
-        // Se o registro tiver uma frequência específica, usá-la
-        if (record.frequencies && record.frequencies.days) {
-          frequencyDays = record.frequencies.days;
-        }
-        
-        console.log(`Criando eventos recorrentes com frequência de ${frequencyDays} dias`);
-        
-        // Criar eventos recorrentes para os próximos 12 meses
+        // Definir datas de início e fim (12 meses à frente)
         const startDate = new Date(selectedDate);
-        const endDate = new Date();
-        endDate.setMonth(endDate.getMonth() + 12); // 12 meses à frente
+        const endDate = new Date(startDate);
+        endDate.setMonth(endDate.getMonth() + 12);
         
-        console.log(`Criando eventos recorrentes de ${startDate.toISOString()} até ${endDate.toISOString()}`);
+        console.log(`Criando evento recorrente de ${startDate.toISOString()} até ${endDate.toISOString()}`);
         
-        let currentDate = new Date(startDate);
-        
-        // Adicionar o evento inicial
+        // Com o novo modelo, criamos apenas um evento com data de início e fim
         eventsToCreate.push({
           user_id: user.id,
           type: recordType,
-          date: currentDate.toISOString().split('T')[0],
-          record_id: record.id,
-          is_recurring: true
+          date: startDate.toISOString().split('T')[0],
+          event_id: record.id,
+          is_recurring: true,
+          end_date: endDate.toISOString().split('T')[0]
         });
-        
-        // Adicionar eventos futuros com base na frequência
-        while (true) {
-          // Avançar para a próxima data com base na frequência
-          if (frequencyDays === 30 || frequencyDays === 31) {
-            currentDate.setMonth(currentDate.getMonth() + 1);
-          } else if (frequencyDays === 7) {
-            currentDate.setDate(currentDate.getDate() + 7);
-          } else if (frequencyDays === 14) {
-            currentDate.setDate(currentDate.getDate() + 14);
-          } else if (frequencyDays === 90) {
-            currentDate.setMonth(currentDate.getMonth() + 3);
-          } else if (frequencyDays === 180) {
-            currentDate.setMonth(currentDate.getMonth() + 6);
-          } else if (frequencyDays === 365) {
-            currentDate.setFullYear(currentDate.getFullYear() + 1);
-          } else {
-            // Padrão para frequência mensal
-            currentDate.setMonth(currentDate.getMonth() + 1);
-          }
-          
-          // Verificar se ultrapassou o limite de 12 meses
-          if (currentDate > endDate) break;
-          
-          // Adicionar o evento recorrente
-          eventsToCreate.push({
-            user_id: user.id,
-            type: recordType,
-            date: currentDate.toISOString().split('T')[0],
-            record_id: record.id,
-            is_recurring: true
-          });
-        }
         
         console.log(`Total de ${eventsToCreate.length} eventos recorrentes criados`);
       } else {
@@ -617,7 +656,7 @@ const CalendarPage = () => {
           user_id: user.id,
           type: recordType,
           date: selectedDate,
-          record_id: record.id,
+          event_id: record.id,
           is_recurring: false
         });
       }
@@ -637,7 +676,7 @@ const CalendarPage = () => {
       if (!updatedAssigned[selectedDate]) {
         updatedAssigned[selectedDate] = new Set();
       }
-      updatedAssigned[selectedDate].add(recordKey);
+      updatedAssigned[selectedDate].add(eventKey);
       setAssignedRecords(updatedAssigned);
       
       // Remove the added record from the existing records list
@@ -657,7 +696,7 @@ const CalendarPage = () => {
 
       // Mostrar mensagem de sucesso com informação de recorrência
       const successMessage = isRecurring 
-        ? `Recurring ${recordType} added to calendar (${eventsToCreate.length} occurrences)` 
+        ? `Recurring ${recordType} added to calendar (for the next 12 months)` 
         : `${recordType.charAt(0).toUpperCase() + recordType.slice(1)} added to calendar`;
       
       Alert.alert('Success', successMessage);
@@ -688,7 +727,7 @@ const CalendarPage = () => {
       console.log("Evento encontrado para deleção:", eventToDelete);
       
       // Se o evento for recorrente, perguntar se deseja excluir todas as ocorrências
-      if (eventToDelete.is_recurring && eventToDelete.record_id) {
+      if (eventToDelete.is_recurring && eventToDelete.event_id) {
         // No ambiente web, usar confirm
         if (isWeb) {
           const deleteAll = confirm('This is a recurring event. Do you want to delete all future occurrences?');
@@ -699,11 +738,10 @@ const CalendarPage = () => {
             // Deletar apenas o evento atual e os futuros com o mesmo record_id
             const { error } = await supabase
               .from('calendar_events')
-              .delete()
-              .eq('record_id', eventToDelete.record_id)
+              .update({ end_date: new Date(eventDate.getTime() - 86400000).toISOString().split('T')[0] })
+              .eq('event_id', eventToDelete.event_id)
               .eq('type', eventToDelete.type)
-              .eq('is_recurring', true)
-              .gte('date', eventDate.toISOString().split('T')[0]);
+              .eq('is_recurring', true);
             
             if (error) {
               console.error('Erro ao deletar eventos recorrentes:', error);
@@ -744,11 +782,10 @@ const CalendarPage = () => {
                       // Deletar apenas o evento atual e os futuros com o mesmo record_id
                       const { error } = await supabase
                         .from('calendar_events')
-                        .delete()
-                        .eq('record_id', eventToDelete.record_id)
+                        .update({ end_date: new Date(eventDate.getTime() - 86400000).toISOString().split('T')[0] })
+                        .eq('event_id', eventToDelete.event_id)
                         .eq('type', eventToDelete.type)
-                        .eq('is_recurring', true)
-                        .gte('date', eventDate.toISOString().split('T')[0]);
+                        .eq('is_recurring', true);
                       
                       if (error) {
                         console.error('Erro ao deletar eventos recorrentes:', error);
@@ -826,11 +863,11 @@ const CalendarPage = () => {
       const eventDate = new Date(eventToDelete.date).toISOString().split('T')[0];
       if (assignedRecords[eventDate]) {
         const updatedAssigned = {...assignedRecords};
-        const recordKey = `${eventToDelete.type}-${eventToDelete.record_id}`;
-        updatedAssigned[eventDate].delete(recordKey);
+        const eventKey = `${eventToDelete.type}-${eventToDelete.event_id}`;
+        updatedAssigned[eventDate].delete(eventKey);
         setAssignedRecords(updatedAssigned);
         
-        console.log(`Removido registro ${recordKey} da data ${eventDate}`);
+        console.log(`Removido evento ${eventKey} da data ${eventDate}`);
       }
       
       // Atualizar os eventos do calendário
@@ -1386,15 +1423,8 @@ const CalendarPage = () => {
     const currentMonthName = currentViewMonth.toLocaleString('en-US', { month: 'long' });
     const currentMonthYear = currentViewMonth.getFullYear();
     
-    // Calcular o início e fim do mês visualizado e do próximo mês
-    const viewMonthStart = new Date(currentViewMonth.getFullYear(), currentViewMonth.getMonth(), 1);
-    const viewMonthEnd = new Date(currentViewMonth.getFullYear(), currentViewMonth.getMonth() + 2, 0);
-    
-    // Filtrar upcoming events apenas para o mês visualizado e o próximo
-    const relevantUpcomingEvents = upcomingEvents.filter(event => {
-      const eventDate = new Date(event.date);
-      return eventDate >= viewMonthStart && eventDate <= viewMonthEnd;
-    });
+    // Upcoming events já são filtrados corretamente na função fetchEvents
+    // usando o mês visualizado como base, então não precisamos filtrar novamente
     
     return (
       <View style={styles.monthlyStatsContainer}>
@@ -1431,8 +1461,8 @@ const CalendarPage = () => {
         <View style={styles.upcomingContainer}>
           <Text style={styles.upcomingTitle}>Upcoming Events</Text>
           
-          {relevantUpcomingEvents.length > 0 ? (
-            relevantUpcomingEvents.map((event, index) => {
+          {upcomingEvents.length > 0 ? (
+            upcomingEvents.map((event, index) => {
               // Usar o nome real do evento
               const displayText = getEventDisplayText(event);
               
@@ -1476,7 +1506,7 @@ const CalendarPage = () => {
             })
           ) : (
             <View style={styles.noUpcomingEvents}>
-              <Text style={styles.noUpcomingText}>No upcoming events for {currentMonthName} and next month</Text>
+              <Text style={styles.noUpcomingText}>No upcoming events for {currentMonthName} and the following month</Text>
             </View>
           )}
         </View>
