@@ -1294,6 +1294,10 @@ const CalendarPage = () => {
     const currentMonthName = currentViewMonth.toLocaleString('en-US', { month: 'long' });
     const currentYear = currentViewMonth.getFullYear();
     
+    // Calcular totais e ordenar eventos por data
+    const totalAmount = filteredEvents.reduce((sum, event) => sum + Number(event.amount || 0), 0);
+    const sortedEvents = [...filteredEvents].sort((a, b) => new Date(a.date) - new Date(b.date));
+    
     return (
       <View style={styles.filteredEventsContainer}>
         <View style={styles.filteredEventsHeader}>
@@ -1309,24 +1313,33 @@ const CalendarPage = () => {
             style={styles.closeFilterButton}
             onPress={() => setShowFilteredEvents(false)}
           >
-            <Ionicons name="close-circle" size={28} color="#757575" />
+            <Ionicons name="close" size={24} color="#555555" />
           </TouchableOpacity>
         </View>
         
+        {/* Summary section for total amount */}
+        {filteredEvents.length > 0 && (
+          <View style={styles.simplifiedSummaryContainer}>
+            <Text style={styles.simplifiedSummaryText}>
+              Total: <Text style={{ 
+                fontWeight: 'bold', 
+                color: filteredEventType === 'income' ? '#4CAF50' : '#F44336' 
+              }}>
+                {totalAmount.toFixed(2)}{userCurrency}
+              </Text>
+              <Text style={{fontSize: 14, color: '#757575'}}> • {filteredEvents.length} events</Text>
+            </Text>
+          </View>
+        )}
+        
         {filteredEvents.length > 0 ? (
           <FlatList
-            data={filteredEvents}
+            data={sortedEvents}
             renderItem={({item}) => {
-              // Obter o texto de exibição para o evento
               const displayText = getEventDisplayText(item);
-              
-              // Para debug
-              console.log('Filtered event item:', {
-                id: item.id,
-                name: item.name,
-                displayText,
-                amount: item.amount
-              });
+              const eventDate = new Date(item.date);
+              const day = eventDate.getDate();
+              const month = eventDate.toLocaleString('en-US', { month: 'short' });
               
               return (
                 <View style={[
@@ -1341,8 +1354,32 @@ const CalendarPage = () => {
                       <Text style={styles.filteredEventTypeText}>
                         {item.type.toUpperCase()}
                       </Text>
+                      
+                      {/* Date badge */}
+                      <View style={{
+                        backgroundColor: '#F0F2FF', 
+                        borderRadius: 10,
+                        paddingVertical: 1,
+                        paddingHorizontal: 5,
+                        marginLeft: 6
+                      }}>
+                        <Text style={{fontSize: 10, color: '#333', fontWeight: '500'}}>
+                          {day} {month}
+                        </Text>
+                      </View>
                     </View>
                     <Text style={styles.filteredEventName}>{displayText}</Text>
+                    
+                    {/* Display category if available */}
+                    {item.category && (
+                      <Text style={{
+                        fontSize: 11,
+                        color: '#666',
+                        marginBottom: 4,
+                      }}>
+                        Category: {item.category}
+                      </Text>
+                    )}
                     
                     <View style={styles.filteredEventMetadataRow}>
                       <Text style={[
