@@ -1,26 +1,22 @@
-import { StyleSheet } from 'react-native';
+import { StyleSheet, Platform } from 'react-native';
 
 const styles = StyleSheet.create({
-  scrollView: {
-    flex: 1,
-    backgroundColor: '#FCFCFD',
-  },
   container: {
     flex: 1,
-    padding: 0,
+    backgroundColor: '#F7F9FC',
   },
   // Loading Screen
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#FCFCFD',
+    backgroundColor: '#F7F9FC',
     padding: 20,
   },
   loadingText: {
     marginTop: 20,
     fontSize: 16,
-    color: '#4A5568',
+    color: '#666666',
     fontWeight: '500',
   },
   // Error Screen
@@ -28,29 +24,32 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#FCFCFD',
+    backgroundColor: '#F7F9FC',
     padding: 40,
   },
   errorTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#E74C3C',
+    color: '#F44336',
     marginTop: 16,
     marginBottom: 8,
   },
   errorText: {
     fontSize: 16,
-    color: '#4A5568',
+    color: '#666666',
     textAlign: 'center',
     marginBottom: 24,
     lineHeight: 22,
   },
   retryButton: {
-    backgroundColor: '#F9A825',
+    backgroundColor: '#FF9800',
     paddingVertical: 14,
     paddingHorizontal: 24,
     borderRadius: 12,
-    boxShadow: '0px 4px 8px rgba(249, 168, 37, 0.3)',
+    shadowColor: '#FF9800',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
     elevation: 4,
   },
   retryButtonText: {
@@ -58,381 +57,490 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#FFFFFF',
   },
+  
+  // Header - Beautiful hero section
   headerContainer: {
-    backgroundColor: '#F9A825',
-    paddingTop: 40,
-    paddingBottom: 50,
+    backgroundColor: '#FFFFFF',
+    paddingTop: 60,
+    paddingBottom: 40,
+    paddingHorizontal: 24,
+    alignItems: 'center',
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
-    boxShadow: '0px 10px 20px rgba(22, 23, 34, 0.15)',
-    elevation: 10,
-    zIndex: 1,
+    ...(Platform.OS === 'web' ? {
+      boxShadow: '0px 8px 16px rgba(0, 0, 0, 0.1)'
+    } : {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.1,
+      shadowRadius: 16,
+      elevation: 8,
+    }),
   },
-  headerContent: {
+  
+  // Profile avatar section
+  avatarSection: {
     alignItems: 'center',
-    paddingHorizontal: 24,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#FFFFFF',
     marginBottom: 24,
-    letterSpacing: -0.5,
-    textAlign: 'center',
   },
-  profileImageWrapper: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: '#FFFFFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
-    boxShadow: '0px 5px 10px rgba(0, 0, 0, 0.2)',
-    elevation: 8,
+  avatarContainer: {
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    marginBottom: 20,
     position: 'relative',
+    ...(Platform.OS === 'web' ? {
+      boxShadow: '0px 12px 24px rgba(255, 152, 0, 0.2)'
+    } : {
+      shadowColor: '#FF9800',
+      shadowOffset: { width: 0, height: 12 },
+      shadowOpacity: 0.2,
+      shadowRadius: 24,
+      elevation: 12,
+    }),
   },
-  profileImageWrapperEditing: {
-    borderWidth: 3,
-    borderColor: 'rgba(255, 255, 255, 0.7)',
-    boxShadow: '0px 0px 12px rgba(255, 255, 255, 0.5)',
-  },
-  profileImagePlaceholder: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+  avatarPlaceholder: {
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    backgroundColor: '#FF9800',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 2,
-    borderColor: 'rgba(249, 168, 37, 0.2)',
+    borderWidth: 4,
+    borderColor: '#FFFFFF',
   },
-  profileInitials: {
-    fontSize: 40,
+  avatarImage: {
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    borderWidth: 4,
+    borderColor: '#FFFFFF',
+  },
+  avatarInitials: {
+    fontSize: 56,
     fontWeight: 'bold',
-    color: '#F9A825',
+    color: '#FFFFFF',
+    letterSpacing: 2,
   },
-  profileImage: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-  },
-  cameraIconWrapper: {
+  editAvatarButton: {
     position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#F9A825',
+    bottom: 5,
+    right: 5,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#FF9800',
     justifyContent: 'center',
     alignItems: 'center',
-    boxShadow: '0px 2px 5px rgba(22, 23, 34, 0.2)',
-    elevation: 4,
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
+    ...(Platform.OS === 'web' ? {
+      boxShadow: '0px 4px 8px rgba(0, 0, 0, 0.2)'
+    } : {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.2,
+      shadowRadius: 8,
+      elevation: 6,
+    }),
   },
-  cameraIconDisabled: {
-    backgroundColor: '#CBD5E0',
-    opacity: 0.7,
+  
+  // User info section
+  userInfoSection: {
+    alignItems: 'center',
   },
   userName: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    marginBottom: 4,
-    letterSpacing: 0.2,
+    fontSize: 32,
+    fontWeight: '800',
+    color: '#2D3748',
+    marginBottom: 8,
+    letterSpacing: -0.5,
   },
   userEmail: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.8)',
-    marginBottom: 16,
-  },
-  editButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 50,
-    gap: 8,
-  },
-  saveButton: {
-    backgroundColor: 'rgba(0, 184, 148, 0.8)',
-  },
-  editButtonText: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  successMessage: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 184, 148, 0.2)',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 50,
-    marginTop: 16,
-    gap: 8,
-  },
-  successMessageText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#00B894',
-  },
-  sectionContainer: {
-    backgroundColor: '#FFFFFF',
-    marginHorizontal: 20,
+    color: '#718096',
     marginBottom: 24,
-    borderRadius: 20,
-    padding: 20,
-    boxShadow: '0px 2px 10px rgba(22, 23, 34, 0.06)',
-    elevation: 3,
+    fontWeight: '500',
   },
-  personalInfoContainer: {
-    marginTop: -30,
-    paddingTop: 25,
-    zIndex: 2,
-    boxShadow: '0px 3px 10px rgba(0, 0, 0, 0.1)',
-    elevation: 6,
+  
+  // Content sections
+  contentContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 20,
+  },
+  
+  // Information sections
+  infoSection: {
+    marginBottom: 32,
+  },
+  actionsSection: {
+    marginBottom: 32,
+  },
+  appInfoSection: {
+    marginBottom: 24,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 22,
     fontWeight: '700',
-    color: '#161722',
+    color: '#2D3748',
     marginBottom: 20,
     letterSpacing: -0.3,
   },
-  inputContainer: {
-    marginBottom: 20,
-  },
-  inputLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#4A5568',
-    marginBottom: 8,
-  },
-  inputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F8FAFD',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E4E6EF',
-    paddingHorizontal: 16,
-    overflow: 'hidden',
-  },
-  inputWrapperDisabled: {
-    backgroundColor: '#F8FAFD',
-    borderColor: '#E4E6EF',
-    opacity: 0.9,
-  },
-  inputWrapperFocused: {
-    borderColor: '#F9A825',
-    backgroundColor: '#FFFDF8',
-    boxShadow: '0px 0px 5px rgba(249, 168, 37, 0.2)',
-    elevation: 2,
-  },
-  datePickerWrapper: {
-    position: 'relative',
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  datePickerWebContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    width: '100%',
-    height: '100%',
-    position: 'relative',
-  },
-  datePickerWebIcon: {
-    marginLeft: 16,
-    marginRight: 12,
-  },
-  datePickerValue: {
-    paddingLeft: 46,
-    fontSize: 16,
-    color: '#161722',
-    height: 50,
-    textAlignVertical: 'center',
-  },
-  datePickerValueEmpty: {
-    color: '#A0AEC0',
-  },
-  textAreaWrapper: {
-    backgroundColor: '#F8FAFD',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E4E6EF',
-    paddingHorizontal: 16,
-    overflow: 'hidden',
-  },
-  inputIcon: {
-    marginRight: 12,
-  },
-  input: {
-    flex: 1,
-    paddingVertical: 16,
-    fontSize: 16,
-    color: '#161722',
-  },
-  inputDisabled: {
-    color: '#718096',
-    backgroundColor: '#F8FAFD',
-  },
-  textArea: {
-    width: '100%',
-    paddingVertical: 16,
-    fontSize: 16,
-    color: '#161722',
-    textAlignVertical: 'top',
-    minHeight: 120,
-  },
-  preferenceItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F3F9',
-  },
-  preferenceIconContainer: {
-    width: 42,
-    height: 42,
-    borderRadius: 12,
-    backgroundColor: 'rgba(249, 168, 37, 0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 16,
-  },
-  preferenceContent: {
-    flex: 1,
-  },
-  preferenceLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#161722',
-    marginBottom: 4,
-  },
-  preferenceValue: {
-    fontSize: 14,
-    color: '#718096',
-  },
-  preferenceDescription: {
-    fontSize: 14,
-    color: '#718096',
-  },
-  preferenceEditButton: {
-    padding: 8,
-  },
-  privacyOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F3F9',
-  },
-  privacyOptionIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 12,
-    backgroundColor: 'rgba(249, 168, 37, 0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 16,
-  },
-  privacyOptionContent: {
-    flex: 1,
-  },
-  privacyOptionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#161722',
-    marginBottom: 4,
-  },
-  privacyOptionDescription: {
-    fontSize: 14,
-    color: '#718096',
-  },
-  logoutButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#E74C3C',
-    marginHorizontal: 20,
-    paddingVertical: 16,
-    borderRadius: 12,
-    marginBottom: 12,
-    shadowColor: '#E74C3C',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 5,
-    gap: 10,
-  },
-  logoutButtonText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  footerSpace: {
-    height: 40,
-  },
-  datePickerModalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  datePickerModalContainer: {
-    width: '90%',
+  
+  // Info cards
+  infoCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
     padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-    elevation: 10,
+    marginBottom: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: '#FF9800',
+    ...(Platform.OS === 'web' ? {
+      boxShadow: '0px 3px 8px rgba(26, 54, 93, 0.1)'
+    } : {
+      shadowColor: '#1A365D',
+      shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.1,
+      shadowRadius: 8,
+      elevation: 4,
+    }),
   },
-  datePickerHeader: {
+  infoCardHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
-    paddingBottom: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E4E6EF',
+    marginBottom: 12,
   },
-  datePickerTitle: {
+  infoIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 152, 0, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  infoLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#2D3748',
+    flex: 1,
+  },
+  infoInput: {
+    backgroundColor: '#F7F9FC',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    fontSize: 16,
+    color: '#2D3748',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  infoInputDisabled: {
+    opacity: 0.6,
+    backgroundColor: '#F0F0F0',
+  },
+  infoHint: {
+    fontSize: 12,
+    color: '#718096',
+    marginTop: 6,
+    fontStyle: 'italic',
+  },
+  infoSelector: {
+    backgroundColor: '#F7F9FC',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  infoSelectorText: {
+    fontSize: 16,
+    color: '#2D3748',
+    flex: 1,
+  },
+  versionText: {
+    fontSize: 16,
+    color: '#718096',
+    fontWeight: '500',
+  },
+  
+  // Action buttons
+  actionButtonsContainer: {
+    gap: 16,
+  },
+  actionButton: {
+    backgroundColor: '#FF9800',
+    borderRadius: 16,
+    overflow: 'hidden',
+    ...(Platform.OS === 'web' ? {
+      boxShadow: '0px 4px 12px rgba(255, 152, 0, 0.3)'
+    } : {
+      shadowColor: '#FF9800',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.3,
+      shadowRadius: 12,
+      elevation: 6,
+    }),
+  },
+  secondaryActionButton: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: 'rgba(255, 152, 0, 0.2)',
+    ...(Platform.OS === 'web' ? {
+      boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.06)'
+    } : {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.06,
+      shadowRadius: 8,
+      elevation: 3,
+    }),
+  },
+  actionButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 20,
+  },
+  actionIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  secondaryActionIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255, 152, 0, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  actionTextContainer: {
+    flex: 1,
+  },
+  actionText: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#161722',
+    color: '#FFFFFF',
+    marginBottom: 4,
   },
-  datePicker: {
-    marginBottom: 20,
+  secondaryActionText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#2D3748',
+    marginBottom: 4,
   },
-  datePickerConfirmButton: {
-    backgroundColor: '#F9A825',
+  actionSubtext: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.8)',
+    lineHeight: 18,
+  },
+  
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContainer: {
+    width: '90%',
+    maxWidth: 400,
+    maxHeight: '80%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 0,
+    overflow: 'hidden',
+    ...(Platform.OS === 'web' ? {
+      boxShadow: '0px 20px 40px rgba(0, 0, 0, 0.2)'
+    } : {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 20 },
+      shadowOpacity: 0.2,
+      shadowRadius: 40,
+      elevation: 20,
+    }),
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 24,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F7F9FC',
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#2D3748',
+    flex: 1,
+  },
+  modalCloseButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F7F9FC',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalDescription: {
+    fontSize: 16,
+    color: '#718096',
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 22,
+    paddingHorizontal: 24,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+    padding: 24,
+    paddingTop: 0,
+  },
+  modalButton: {
+    flex: 1,
     paddingVertical: 14,
     borderRadius: 12,
     alignItems: 'center',
-    shadowColor: '#F9A825',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 3,
   },
-  datePickerConfirmText: {
-    color: '#FFFFFF',
+  modalButtonCancel: {
+    backgroundColor: '#F7F9FC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  modalButtonConfirm: {
+    backgroundColor: '#FF9800',
+  },
+  modalButtonTextCancel: {
     fontSize: 16,
     fontWeight: '600',
+    color: '#718096',
   },
-  pickerContainer: {
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: '#E4E6EF',
+  modalButtonTextConfirm: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  
+  // Country search styles
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F7F9FC',
     borderRadius: 12,
-    backgroundColor: '#F8FAFD',
-    overflow: 'hidden',
+    marginHorizontal: 24,
+    marginVertical: 16,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  searchIcon: {
+    marginRight: 12,
+  },
+  searchInput: {
+    flex: 1,
+    paddingVertical: 16,
+    fontSize: 16,
+    color: '#2D3748',
+  },
+  clearSearchButton: {
+    padding: 4,
+  },
+  
+  // Countries list styles
+  countriesContainer: {
+    flex: 1,
+    paddingHorizontal: 24,
+    paddingBottom: 24,
+  },
+  clearCountryOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    backgroundColor: '#FEF2F2',
+    borderRadius: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  clearIcon: {
+    marginRight: 12,
+  },
+  clearCountryText: {
+    fontSize: 16,
+    color: '#DC2626',
+    fontWeight: '600',
+  },
+  countriesList: {
+    flex: 1,
+  },
+  countryItem: {
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#F7F9FC',
+    ...(Platform.OS === 'web' ? {
+      boxShadow: '0px 1px 3px rgba(0, 0, 0, 0.05)'
+    } : {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.05,
+      shadowRadius: 3,
+      elevation: 1,
+    }),
+  },
+  countryText: {
+    fontSize: 16,
+    color: '#2D3748',
+    fontWeight: '500',
+  },
+  countrySeparator: {
+    height: 1,
+    backgroundColor: 'transparent',
+  },
+  
+  // Logout button
+  logoutSection: {
+    paddingHorizontal: 16,
+    marginBottom: 40,
+  },
+  logoutButton: {
+    backgroundColor: '#F44336',
+    borderRadius: 16,
+    paddingVertical: 18,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    ...(Platform.OS === 'web' ? {
+      boxShadow: '0px 4px 12px rgba(244, 67, 54, 0.3)'
+    } : {
+      shadowColor: '#F44336',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.3,
+      shadowRadius: 12,
+      elevation: 6,
+    }),
+  },
+  logoutText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginLeft: 8,
   },
 });
 

@@ -158,7 +158,7 @@ const AnimatedText = Animated.createAnimatedComponent(SvgText);
 // Componente AnimatedView para animações do contenedor do gráfico
 const AnimatedView = Animated.createAnimatedComponent(View);
 
-// Componente simplificado sem interatividade de clique
+// Componente simplificado com interatividade de clique
 const AnimatedBar3D = ({
   x,
   y,
@@ -172,16 +172,19 @@ const AnimatedBar3D = ({
   topEffect = 4,
   delay = 0,
   isTextOnly = false,
-  periodKey = "default", // Adicionar um prop para forçar animação quando período mudar
+  periodKey = "default",
+  onBarPress = () => {},
+  isSelected = false,
 }) => {
   const animatedHeight = useSharedValue(0);
+  const scaleValue = useSharedValue(1);
 
   useEffect(() => {
     animatedHeight.value = 0;
 
     const timeout = setTimeout(() => {
       animatedHeight.value = withTiming(height, { 
-        duration: 800, // Animação mais rápida
+        duration: 800,
         easing: Easing.bezier(0.25, 0.1, 0.25, 1)
       });
     }, delay);
@@ -190,7 +193,15 @@ const AnimatedBar3D = ({
       clearTimeout(timeout);
       animatedHeight.value = 0;
     };
-  }, [height, delay, periodKey]); // Adicionar periodKey às dependências
+  }, [height, delay, periodKey]);
+
+  // Animação de seleção
+  useEffect(() => {
+    scaleValue.value = withTiming(isSelected ? 1.05 : 1, {
+      duration: 200,
+      easing: Easing.out(Easing.quad)
+    });
+  }, [isSelected]);
 
   // Estilo animado para o texto
   const animatedTextStyle = useAnimatedStyle(() => {
@@ -202,6 +213,7 @@ const AnimatedBar3D = ({
       width: 30,
       alignItems: 'center',
       backgroundColor: 'transparent',
+      transform: [{ scale: scaleValue.value }],
     };
   });
 
@@ -236,6 +248,11 @@ const AnimatedBar3D = ({
     };
   });
 
+  // Função para lidar com o clique
+  const handlePress = () => {
+    onBarPress(label, index);
+  };
+
   if (isTextOnly) {
     return (
       <Animated.View style={animatedTextStyle}>
@@ -243,9 +260,12 @@ const AnimatedBar3D = ({
           style={{
             fontSize: 12,
             fontWeight: 'bold',
-            color: '#333',
+            color: isSelected ? '#FF6F00' : '#4A5568',
             textAlign: 'center',
             backgroundColor: 'transparent',
+            textShadowColor: 'rgba(255,255,255,0.8)',
+            textShadowOffset: {width: 0, height: 1},
+            textShadowRadius: 1,
           }}
         >
           {Math.round(value)}
@@ -258,22 +278,23 @@ const AnimatedBar3D = ({
     <G key={index}>
       <Defs>
         <LinearGradient id={`gradient-${index}`} x1="0" y1="0" x2="0" y2="1">
-          <Stop offset="0" stopColor={colors[0]} stopOpacity="1" />
-          <Stop offset="1" stopColor={colors[1]} stopOpacity="0.8" />
+          <Stop offset="0" stopColor={colors[0]} stopOpacity={isSelected ? "1" : "0.9"} />
+          <Stop offset="1" stopColor={colors[1]} stopOpacity={isSelected ? "0.9" : "0.7"} />
         </LinearGradient>
         <LinearGradient id={`gradient-top-${index}`} x1="0" y1="0" x2="1" y2="0">
-          <Stop offset="0" stopColor={colors[0]} stopOpacity="1" />
-          <Stop offset="1" stopColor={colors[1]} stopOpacity="0.9" />
+          <Stop offset="0" stopColor={colors[0]} stopOpacity={isSelected ? "1" : "0.9"} />
+          <Stop offset="1" stopColor={colors[1]} stopOpacity={isSelected ? "0.95" : "0.8"} />
         </LinearGradient>
         <LinearGradient id={`gradient-side-${index}`} x1="0" y1="0" x2="1" y2="0">
-          <Stop offset="0" stopColor={colors[1]} stopOpacity="0.4" />
-          <Stop offset="1" stopColor={colors[1]} stopOpacity="0.1" />
+          <Stop offset="0" stopColor={colors[1]} stopOpacity={isSelected ? "0.6" : "0.4"} />
+          <Stop offset="1" stopColor={colors[1]} stopOpacity={isSelected ? "0.3" : "0.1"} />
         </LinearGradient>
       </Defs>
 
       <AnimatedPath
         animatedProps={sideAnimatedProps}
         fill={`url(#gradient-side-${index})`}
+        onPress={handlePress}
       />
 
       <AnimatedRect
@@ -283,22 +304,43 @@ const AnimatedBar3D = ({
         ry={4}
         fill={`url(#gradient-${index})`}
         animatedProps={frontAnimatedProps}
+        onPress={handlePress}
       />
 
       <AnimatedPath
         animatedProps={topAnimatedProps}
         fill={`url(#gradient-top-${index})`}
+        onPress={handlePress}
       />
 
-      <SvgText
-        x={x + width / 2}
-        y={y + height + 16}
-        fontSize="11"
-        fill="#666"
-        textAnchor="middle"
-      >
-        {label}
-      </SvgText>
+      {/* Label da categoria com estilo melhorado */}
+      <G onPress={handlePress}>
+        {/* Fundo do label */}
+        <Rect
+          x={x + width / 2 - 20}
+          y={y + height + 8}
+          width={40}
+          height={20}
+          rx={10}
+          ry={10}
+          fill={isSelected ? colors[0] : '#FFFFFF'}
+          stroke={isSelected ? '#FFFFFF' : colors[0]}
+          strokeWidth={1.5}
+          opacity={0.95}
+        />
+        
+        {/* Texto do label */}
+        <SvgText
+          x={x + width / 2}
+          y={y + height + 20}
+          fontSize="10"
+          fill={isSelected ? '#FFFFFF' : colors[0]}
+          textAnchor="middle"
+          fontWeight={isSelected ? "bold" : "600"}
+        >
+          {label}
+        </SvgText>
+      </G>
     </G>
   );
 };
@@ -309,7 +351,9 @@ const renderCustomBarChart = ({
   width,
   height,
   style,
-  periodKey, // Adicionar periodKey como parâmetro
+  periodKey,
+  onCategorySelect = () => {},
+  selectedCategory = null,
 }) => {
   const barCount = data.length;
   const maxValue = Math.max(...data, 1);
@@ -318,11 +362,22 @@ const renderCustomBarChart = ({
   
   const barColors = [
     ['#FF9800', '#FFB74D'], // Laranja
-    ['#FF5722', '#FF8A65'], // Laranja profundo
-    ['#FFEB3B', '#FFF176'], // Amarelo
-    ['#F44336', '#E57373'], // Vermelho
-    ['#FF9500', '#FFC06A'], // Laranja claro
+    ['#F44336', '#EF5350'], // Vermelho 
+    ['#FFC107', '#FFD54F'], // Amarelo
+    ['#FF5722', '#FF8A65'], // Vermelho-laranja profundo
+    ['#FF6F00', '#FFA726'], // Âmbar escuro
+    ['#D84315', '#FF7043'], // Vermelho tijolo
   ];
+
+  // Função para lidar com clique na barra
+  const handleBarPress = (label, index) => {
+    const categoryData = {
+      name: label,
+      index: index,
+      value: data[index]
+    };
+    onCategorySelect(categoryData);
+  };
 
   return (
     <View style={[styles.customBarChartWrapper, style]}>
@@ -342,10 +397,11 @@ const renderCustomBarChart = ({
             const barHeight = (value / maxValue) * (chartHeight - 40);
             const x = 50 + i * (barWidth * 1.5);
             const y = chartHeight - barHeight;
+            const isSelected = selectedCategory && selectedCategory.index === i;
             
             return (
               <AnimatedBar3D
-                key={`text-${i}-${periodKey}`} // Adicionar periodKey para forçar reanimação
+                key={`text-${i}-${periodKey}`}
                 x={x}
                 y={y}
                 width={barWidth}
@@ -355,7 +411,9 @@ const renderCustomBarChart = ({
                 label={labels[i]}
                 index={i}
                 isTextOnly={true}
-                periodKey={periodKey} // Passar periodKey como prop
+                periodKey={periodKey}
+                onBarPress={handleBarPress}
+                isSelected={isSelected}
               />
             );
           })}
@@ -371,7 +429,7 @@ const renderCustomBarChart = ({
                 y1={y}
                 x2={width - 20}
                 y2={y}
-                stroke="#E0E0E0"
+                stroke="#FFE0B2"
                 strokeWidth="1"
                 strokeDasharray="5,5"
               />
@@ -382,9 +440,10 @@ const renderCustomBarChart = ({
             const barHeight = (value / maxValue) * (chartHeight - 40);
             const x = 50 + i * (barWidth * 1.5);
             const y = chartHeight - barHeight;
+            const isSelected = selectedCategory && selectedCategory.index === i;
             
             return (
-              <G key={`bar-${i}-${periodKey}`}> {/* Adicionar periodKey para forçar reanimação */}
+              <G key={`bar-${i}-${periodKey}`}>
                 {renderCustomBar3D({
                   x,
                   y,
@@ -395,7 +454,9 @@ const renderCustomBarChart = ({
                   label: labels[i],
                   index: i,
                   isTextOnly: false,
-                  periodKey: periodKey, // Passar periodKey como prop
+                  periodKey: periodKey,
+                  onBarPress: handleBarPress,
+                  isSelected: isSelected,
                 })}
               </G>
             );
@@ -435,12 +496,12 @@ const SimplePie3D = ({
   
   // Paleta de cores melhorada para maior harmonia e contraste
   const colors = [
-    '#FF9500', // Laranja principal
-    '#E53935', // Vermelho vibrante
-    '#FFD54F', // Amarelo dourado
-    '#FF6D00', // Laranja escuro
-    '#FFC107', // Amber
-    '#FF3D00', // Vermelho alaranjado
+    '#FF9800', // Laranja principal
+    '#F44336', // Vermelho vibrante
+    '#FFC107', // Amarelo dourado
+    '#FF5722', // Vermelho-laranja
+    '#FF6F00', // Âmbar escuro
+    '#D84315', // Vermelho tijolo
   ];
   
   // Animação de entrada ao montar o componente
@@ -1274,7 +1335,25 @@ const Chart = ({
   const screenWidth = Dimensions.get('window').width;
   const screenHeight = Dimensions.get('window').height;
   
-  const dynamicChartHeight = screenHeight < 700 ? 150 : chartHeight;
+  // Improved dynamic chart height calculation based on screen ratio
+  const calculateDynamicHeight = () => {
+    const baseHeight = 170;
+    const minHeight = 120;
+    const maxHeight = 250;
+    
+    // Calculate ratio based on screen dimensions
+    if (screenHeight < 600) {
+      return minHeight;
+    } else if (screenHeight < 700) {
+      return Math.round(screenHeight * 0.20); // 20% of screen height for small screens
+    } else if (screenHeight < 800) {
+      return Math.round(screenHeight * 0.22); // 22% for medium screens
+    } else {
+      return Math.min(Math.round(screenHeight * 0.25), maxHeight); // 25% for large screens, capped at maxHeight
+    }
+  };
+  
+  const dynamicChartHeight = calculateDynamicHeight();
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -1294,69 +1373,142 @@ const Chart = ({
     }, [])
   );
   
-  // Componente para botões modernos com ícones
-  const TimeButton = ({ label, value, icon, compact = false }) => {
-    const isActive = period === value;
+  // Componente para botões modernos com animação
+  const ModernButton = ({ label, value, icon, isActive, onPress, compact = false, colorScheme = 'orange' }) => {
+    const animatedScale = useSharedValue(1);
+    const animatedOpacity = useSharedValue(1);
+    
+    // Cores baseadas no esquema selecionado
+    const colors = {
+      orange: {
+        inactive: { bg: '#FFF8E1', border: '#FFE082', text: '#F57C00' },
+        active: { bg: '#FF9800', border: '#F57C00', text: '#FFFFFF' }
+      },
+      red: {
+        inactive: { bg: '#FFEBEE', border: '#FFCDD2', text: '#D32F2F' },
+        active: { bg: '#F44336', border: '#D32F2F', text: '#FFFFFF' }
+      },
+      yellow: {
+        inactive: { bg: '#FFFDE7', border: '#FFECB3', text: '#F9A825' },
+        active: { bg: '#FFC107', border: '#F9A825', text: '#000000' }
+      }
+    };
+    
+    const currentColors = colors[colorScheme] || colors.orange;
+    const activeColors = isActive ? currentColors.active : currentColors.inactive;
+    
+    const handlePress = () => {
+      // Animação de feedback tátil
+      animatedScale.value = withSequence(
+        withTiming(0.95, { duration: 100 }),
+        withTiming(1, { duration: 150 })
+      );
+      
+      onPress(value);
+    };
+    
+    const animatedStyle = useAnimatedStyle(() => ({
+      transform: [{ scale: animatedScale.value }],
+      opacity: animatedOpacity.value,
+    }));
+    
+    const buttonStyle = compact ? styles.periodButtonCompact : styles.button;
+    const activeButtonStyle = compact ? styles.activePeriodButtonCompact : styles.activeButton;
+    const textStyle = compact ? styles.periodButtonTextCompact : styles.buttonText;
+    const activeTextStyle = compact ? styles.activePeriodButtonTextCompact : styles.activeButtonText;
+    
     return (
-      <TouchableOpacity
-        style={[
-          compact ? styles.periodButtonCompact : styles.periodButton, 
-          isActive && (compact ? styles.activePeriodButtonCompact : styles.activePeriodButton),
-        ]}
-        onPress={() => setPeriod(value)}
-        activeOpacity={0.8}
-      >
-        <Ionicons 
-          name={icon} 
-          size={compact ? 14 : 16} 
-          color={isActive ? '#FFFFFF' : '#FF8F00'} 
-          style={{marginRight: compact ? 4 : 6}}
-        />
-        <Text style={[
-          compact ? styles.periodButtonTextCompact : styles.periodButtonText, 
-          isActive && (compact ? styles.activePeriodButtonTextCompact : styles.activePeriodButtonText)
-        ]}>
-          {label}
-        </Text>
-      </TouchableOpacity>
+      <Animated.View style={animatedStyle}>
+        <TouchableOpacity
+          style={[
+            buttonStyle,
+            {
+              backgroundColor: activeColors.bg,
+              borderColor: activeColors.border,
+              shadowColor: activeColors.border,
+            },
+            isActive && activeButtonStyle,
+          ]}
+          onPress={handlePress}
+          activeOpacity={0.8}
+        >
+          <Ionicons 
+            name={icon} 
+            size={compact ? 14 : 16} 
+            color={activeColors.text} 
+            style={{marginRight: compact ? 4 : 6}}
+          />
+          <Text style={[
+            textStyle,
+            { color: activeColors.text },
+            isActive && activeTextStyle
+          ]}>
+            {label}
+          </Text>
+        </TouchableOpacity>
+      </Animated.View>
     );
   };
-  
-  // Componente para botões de tipo de gráfico com ícones
-  const ChartTypeButton = ({ label, value, icon }) => {
-    const isActive = chartType === value.toLowerCase();
+
+  // Componente para botões de tipo de gráfico
+  const ChartTypeButtons = ({ chartType, setChartType, chartTypes }) => {
+    const getIcon = (type) => {
+      const typeLower = type.toLowerCase();
+      if (typeLower === 'pie') return 'pie-chart-outline';
+      if (typeLower === 'line') return 'trending-up-outline';
+      if (typeLower === 'categories') return 'list-outline';
+      return 'bar-chart-outline';
+    };
+    
     return (
-      <TouchableOpacity
-        style={[
-          styles.button, 
-          isActive && styles.activeButton,
-        ]}
-        onPress={() => setChartType(value.toLowerCase())}
-        activeOpacity={0.8}
-      >
-        <Ionicons 
-          name={icon} 
-          size={18} 
-          color={isActive ? '#FFFFFF' : '#FF8F00'} 
-          style={{marginRight: 6}}
-        />
-        <Text style={[
-          styles.buttonText, 
-          isActive && styles.activeButtonText
-        ]}>
-          {label}
-        </Text>
-      </TouchableOpacity>
+      <View style={styles.buttonContainer}>
+        {chartTypes.map((type) => (
+          <ModernButton 
+            key={type}
+            label={type} 
+            value={type.toLowerCase()} 
+            icon={getIcon(type)}
+            isActive={chartType === type.toLowerCase()}
+            onPress={setChartType}
+            compact={false}
+            colorScheme="yellow"
+          />
+        ))}
+      </View>
     );
   };
 
   // Componente para mostrar os botões de período
-  const TimePeriodButtons = () => {
+  const TimePeriodButtons = ({ period, setPeriod }) => {
     return (
       <View style={styles.periodContainerInChart}>
-        <TimeButton label="Day" value="day" icon="today-outline" compact={true} />
-        <TimeButton label="Week" value="week" icon="calendar-outline" compact={true} />
-        <TimeButton label="Month" value="month" icon="calendar" compact={true} />
+        <ModernButton 
+          label="Day" 
+          value="day" 
+          icon="today-outline" 
+          isActive={period === 'day'}
+          onPress={setPeriod}
+          compact={true} 
+          colorScheme="orange"
+        />
+        <ModernButton 
+          label="Week" 
+          value="week" 
+          icon="calendar-outline" 
+          isActive={period === 'week'}
+          onPress={setPeriod}
+          compact={true} 
+          colorScheme="orange"
+        />
+        <ModernButton 
+          label="Month" 
+          value="month" 
+          icon="calendar" 
+          isActive={period === 'month'}
+          onPress={setPeriod}
+          compact={true} 
+          colorScheme="orange"
+        />
       </View>
     );
   };
@@ -1421,12 +1573,12 @@ const Chart = ({
 
     // Cores predefinidas para o gráfico
     const pieColors = [
-      '#FF9500',  // Laranja
-      '#E53935',  // Vermelho vibrante
-      '#FFD54F',  // Amarelo dourado
-      '#FF6D00',  // Laranja escuro
-      '#FFC107',  // Amber
-      '#FF3D00',  // Vermelho alaranjado
+      '#FF9800',  // Laranja principal
+      '#F44336',  // Vermelho vibrante
+      '#FFC107',  // Amarelo dourado
+      '#FF5722',  // Vermelho-laranja
+      '#FF6F00',  // Âmbar escuro
+      '#D84315',  // Vermelho tijolo
     ];
     
     // Agrupar por categoria
@@ -1591,12 +1743,12 @@ const Chart = ({
 
     // Cores predefinidas para o gráfico - alinhadas com o tema do projeto
     const pieColors = [
-      '#FF9500', // Laranja principal
-      '#E53935', // Vermelho vibrante
-      '#FFD54F', // Amarelo dourado
-      '#FF6D00', // Laranja escuro
-      '#FFC107', // Amber
-      '#FF3D00', // Vermelho alaranjado
+      '#FF9800', // Laranja principal
+      '#F44336', // Vermelho vibrante
+      '#FFC107', // Amarelo dourado
+      '#FF5722', // Vermelho-laranja
+      '#FF6F00', // Âmbar escuro
+      '#D84315', // Vermelho tijolo
     ];
     
     // Agrupar por categoria
@@ -1673,7 +1825,7 @@ const Chart = ({
       return (
         <View style={[styles.chartBackground, { backgroundColor: '#FFF', padding: 8 }]}>
           {/* Botões de período integrados no gráfico de barras */}
-          <TimePeriodButtons />
+          <TimePeriodButtons period={period} setPeriod={setPeriod} />
           
           {renderCustomBarChart({
             labels: chartData.labels,
@@ -1681,7 +1833,12 @@ const Chart = ({
             width: screenWidth - 48,
             height: dynamicChartHeight,
             style: { backgroundColor: 'transparent' },
-            periodKey: period, // Adicionar periodKey como parâmetro
+            periodKey: period,
+            onCategorySelect: handlePieChartSelection,
+            selectedCategory: {
+              name: selectedCategoryId ? categories.find(c => c.id === selectedCategoryId)?.name : '',
+              index: selectedCategoryId
+            },
           })}
         </View>
       );
@@ -1724,7 +1881,7 @@ const Chart = ({
           elevation: 5,
         }]}>
           {/* Botões de período integrados no gráfico de linha */}
-          <TimePeriodButtons />
+          <TimePeriodButtons period={period} setPeriod={setPeriod} />
           
           <SimpleLineChart 
             data={chartData.data}
@@ -1746,24 +1903,11 @@ const Chart = ({
 
   return (
     <View style={styles.container}>
-      <View style={styles.buttonContainer}>
-        {chartTypes.map((type) => {
-          const typeLower = type.toLowerCase();
-          let icon = 'bar-chart-outline';
-          if (typeLower === 'pie') icon = 'pie-chart-outline';
-          if (typeLower === 'line') icon = 'trending-up-outline';
-          if (typeLower === 'categories') icon = 'list-outline';
-          
-          return (
-            <ChartTypeButton 
-              key={type} 
-              label={type} 
-              value={type} 
-              icon={icon}
-            />
-          );
-        })}
-      </View>
+      <ChartTypeButtons 
+        chartType={chartType} 
+        setChartType={setChartType} 
+        chartTypes={chartTypes}
+      />
 
       {renderChart()}
     </View>
@@ -1792,23 +1936,30 @@ const styles = StyleSheet.create({
   periodButton: {
     paddingVertical: 8,
     paddingHorizontal: 16,
-    backgroundColor: '#FFECB3',
-    borderRadius: 12,
+    backgroundColor: '#FFF3E0',
+    borderRadius: 20,
     minWidth: 80,
     alignItems: 'center',
-    boxShadow: '0px 2px 4px rgba(255, 167, 38, 0.1)',
+    shadowColor: '#FF9800',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
     elevation: 2,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 167, 38, 0.2)',
+    borderWidth: 1.5,
+    borderColor: '#FFE0B2',
   },
   activePeriodButton: {
     backgroundColor: '#FF9800',
-    boxShadow: '0px 2px 6px rgba(255, 111, 0, 0.2)',
+    shadowColor: '#F57C00',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 5,
     elevation: 4,
-    borderColor: '#FF8F00',
+    borderColor: '#F57C00',
+    transform: [{scale: 1.05}],
   },
   periodButtonText: {
-    color: '#FF8F00',
+    color: '#F57C00',
     fontSize: 13,
     fontWeight: '600',
     letterSpacing: 0.5,
@@ -1821,44 +1972,59 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     marginBottom: 16,
-    gap: 14,
+    gap: 12,
+    paddingHorizontal: 8,
   },
   button: {
-    paddingVertical: 10,
+    paddingVertical: 12,
     paddingHorizontal: 20,
-    backgroundColor: '#FFECB3',
-    borderRadius: 15,
+    backgroundColor: '#FFF8E1',
+    borderRadius: 25,
     minWidth: 90,
     alignItems: 'center',
-    boxShadow: '0px 2px 4px rgba(255, 167, 38, 0.1)',
-    elevation: 2,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 167, 38, 0.2)',
+    shadowColor: '#FFC107',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+    borderWidth: 2,
+    borderColor: '#FFE082',
   },
   activeButton: {
     backgroundColor: '#FF9800',
-    boxShadow: '0px 2px 6px rgba(255, 111, 0, 0.2)',
-    elevation: 4,
-    borderColor: '#FF8F00',
-    transform: [{scale: 1.05}],
+    shadowColor: '#E65100',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 6,
+    borderColor: '#E65100',
+    transform: [{scale: 1.08}],
   },
   buttonText: {
-    color: '#FF8F00',
+    color: '#F57C00',
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '700',
     letterSpacing: 0.5,
   },
   activeButtonText: {
     color: '#FFFFFF',
-    fontWeight: '700',
+    fontWeight: '800',
+    textShadowColor: 'rgba(0,0,0,0.2)',
+    textShadowOffset: {width: 0, height: 1},
+    textShadowRadius: 2,
   },
   chartBackground: {
-    borderRadius: 16,
+    borderRadius: 20,
     padding: 12,
-    backgroundColor: '#FFA726',
-    boxShadow: '0px 4px 8px rgba(255, 167, 38, 0.2)',
-    elevation: 4,
+    backgroundColor: '#FFCC02',
+    shadowColor: '#FF8F00',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 6,
     marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#FFB300',
   },
   chart: {
     marginVertical: 8,
@@ -1872,22 +2038,30 @@ const styles = StyleSheet.create({
   loadingText: {
     color: '#FFFFFF',
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '600',
+    textShadowColor: 'rgba(0,0,0,0.3)',
+    textShadowOffset: {width: 0, height: 1},
+    textShadowRadius: 2,
   },
   noDataContainer: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    borderRadius: 20,
     padding: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    boxShadow: '0px 4px 8px rgba(255, 167, 38, 0.2)',
+    shadowColor: '#FF8F00',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
     elevation: 4,
     height: 120,
+    borderWidth: 1,
+    borderColor: '#FFE0B2',
   },
   noDataText: {
-    color: '#666666',
+    color: '#E65100',
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   gaugeContainer: {
     alignItems: 'center',
@@ -1915,38 +2089,50 @@ const styles = StyleSheet.create({
   legendItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 3,
-    paddingHorizontal: 6,
-    marginHorizontal: 2,
-    marginVertical: 1,
-    borderRadius: 10,
-    backgroundColor: '#F5F5F5',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    marginHorizontal: 3,
+    marginVertical: 2,
+    borderRadius: 12,
+    backgroundColor: '#FFF8E1',
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.03)',
-  },
-  legendItemSelected: {
-    backgroundColor: '#FFFDF0',
-    borderColor: 'rgba(0,0,0,0.1)',
+    borderColor: '#FFE082',
+    shadowColor: '#FFC107',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
     elevation: 1,
   },
-  legendColorBox: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginRight: 4,
+  legendItemSelected: {
+    backgroundColor: '#FF9800',
+    borderColor: '#F57C00',
+    elevation: 3,
+    shadowOpacity: 0.2,
+    transform: [{scale: 1.05}],
   },
-  legendColorBoxSelected: {
+  legendColorBox: {
     width: 10,
     height: 10,
     borderRadius: 5,
+    marginRight: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.1)',
+  },
+  legendColorBoxSelected: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#FFFFFF',
   },
   legendText: {
-    color: '#555',
-    fontSize: 10,
-    fontWeight: '400',
+    color: '#E65100',
+    fontSize: 11,
+    fontWeight: '600',
   },
   legendTextSelected: {
-    fontWeight: 'bold',
+    color: '#FFFFFF',
+    fontWeight: '700',
   },
   // Estilos para UltraModernLineChart
   ultraModernChartContainer: {
@@ -1958,12 +2144,12 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     paddingBottom: 5,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
+    borderBottomColor: '#FFE0B2',
   },
   chartTitleText: {
-    color: '#666',
+    color: '#E65100',
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '700',
     letterSpacing: 0.5,
     textAlign: 'center',
   },
@@ -1976,31 +2162,37 @@ const styles = StyleSheet.create({
   chartControlButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 5,
-    paddingHorizontal: 10,
-    backgroundColor: '#FFECB3',
-    borderRadius: 10,
-    boxShadow: '0px 1px 2px rgba(255, 167, 38, 0.1)',
-    elevation: 1,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    backgroundColor: '#FFF3E0',
+    borderRadius: 15,
+    shadowColor: '#FF9800',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
     borderWidth: 1,
-    borderColor: 'rgba(255, 167, 38, 0.2)',
+    borderColor: '#FFE0B2',
   },
   chartControlButtonActive: {
     backgroundColor: '#FF9800',
-    boxShadow: '0px 2px 3px rgba(255, 111, 0, 0.2)',
-    elevation: 2,
-    borderColor: '#FF8F00',
+    shadowColor: '#F57C00',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+    borderColor: '#F57C00',
   },
   chartControlButtonText: {
-    color: '#FF8F00',
+    color: '#F57C00',
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
     letterSpacing: 0.3,
     marginLeft: 4,
   },
   chartControlButtonTextActive: {
     color: '#FFFFFF',
-    fontWeight: '700',
+    fontWeight: '800',
   },
   chartLegend: {
     flexDirection: 'row',
@@ -2008,35 +2200,42 @@ const styles = StyleSheet.create({
     marginTop: 8,
     paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: '#F0F0F0',
+    borderTopColor: '#FFE0B2',
   },
   periodButtonCompact: {
     paddingVertical: 6,
     paddingHorizontal: 12,
-    backgroundColor: '#FFECB3',
-    borderRadius: 10,
+    backgroundColor: '#FFF8E1',
+    borderRadius: 15,
     minWidth: 70,
     alignItems: 'center',
-    boxShadow: '0px 1px 2px rgba(255, 167, 38, 0.1)',
-    elevation: 1,
+    shadowColor: '#FF9800',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 3,
+    elevation: 2,
     borderWidth: 1,
-    borderColor: 'rgba(255, 167, 38, 0.2)',
+    borderColor: '#FFE082',
   },
   activePeriodButtonCompact: {
     backgroundColor: '#FF9800',
-    boxShadow: '0px 2px 3px rgba(255, 111, 0, 0.2)',
-    elevation: 2,
-    borderColor: '#FF8F00',
+    shadowColor: '#F57C00',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+    borderColor: '#F57C00',
+    transform: [{scale: 1.02}],
   },
   periodButtonTextCompact: {
-    color: '#FF8F00',
+    color: '#F57C00',
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
     letterSpacing: 0.3,
   },
   activePeriodButtonTextCompact: {
     color: '#FFFFFF',
-    fontWeight: '700',
+    fontWeight: '800',
   },
 });
 

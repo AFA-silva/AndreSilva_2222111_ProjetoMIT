@@ -25,6 +25,7 @@ const IncomePage = ({ navigation }) => {
   const [isDeleteModalVisible, setDeleteModalVisible] = useState(false);
   const [isFilterModalVisible, setFilterModalVisible] = useState(false); // Modal para exibir itens filtrados
   const [isCategoryFilterVisible, setCategoryFilterVisible] = useState(false);
+  const [isManageModalVisible, setManageModalVisible] = useState(false); // New modal for management
   const [incomeToDelete, setIncomeToDelete] = useState(null);
   const [userId, setUserId] = useState(null);
   const [selectedIncome, setSelectedIncome] = useState(null);
@@ -45,7 +46,13 @@ const IncomePage = ({ navigation }) => {
 
   // Use filteredIncomes para a lista e se estiver vazia, use incomes
   const incomesToDisplay = filteredIncomes.length > 0 ? filteredIncomes : incomes;
-  const incomesWithAddButton = [...incomesToDisplay, { isAddButton: true }];
+  const incomesWithButtons = [...incomesToDisplay, { isAddButton: true }, { isManageButton: true }];
+
+  // Add state for managing tabs in modal
+  const [activeManageTab, setActiveManageTab] = useState('categories');
+
+  // Add loading state
+  const [isLoading, setIsLoading] = useState(true);
 
   // Obter a moeda do usuário diretamente do banco de dados
   const loadUserCurrency = async () => {
@@ -76,6 +83,7 @@ const IncomePage = ({ navigation }) => {
 
   const fetchUserIncomes = async (userId) => {
     try {
+      setIsLoading(true);
       const { data, error } = await supabase
         .from('income')
         .select('*, frequencies(name, days), categories(name)')
@@ -102,6 +110,8 @@ const IncomePage = ({ navigation }) => {
       processChartData(data || []); // Processar os dados para o gráfico
     } catch (error) {
       console.error('Unexpected error fetching incomes:', error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -168,6 +178,7 @@ const IncomePage = ({ navigation }) => {
 
   const fetchUserCategoriesAndFrequencies = async (userId) => {
     try {
+      setIsLoading(true);
       const { data: categories, error: categoriesError } = await supabase
         .from('categories')
         .select('*')
@@ -194,6 +205,8 @@ const IncomePage = ({ navigation }) => {
       }
     } catch (error) {
       console.error('Unexpected error fetching categories or frequencies:', error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -466,11 +479,70 @@ const IncomePage = ({ navigation }) => {
       return (
         <RNAnimated.View style={{opacity: fadeAnim}}>
           <TouchableOpacity
-            style={[styles.incomeItem, { justifyContent: 'center', alignItems: 'center', borderStyle: 'dashed', borderColor: '#FFB74D', borderWidth: 2, backgroundColor: '#FFFDE7' }]}
+            style={[styles.incomeItem, { 
+              justifyContent: 'center', 
+              alignItems: 'center', 
+              borderStyle: 'dashed', 
+              borderColor: '#FF9800', 
+              borderWidth: 2, 
+              backgroundColor: '#FFFFFF', // Fixed to white background
+              shadowColor: '#FFC107',
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.2,
+              shadowRadius: 6,
+              elevation: 5,
+              transform: [{scale: 0.98}],
+            }]}
             onPress={handleAddIncome}
             activeOpacity={0.8}
           >
-            <Text style={[styles.addButtonText, { color: '#FFA726', fontSize: 18 }]}>+ Add Income</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+              <View style={{
+                backgroundColor: '#FF9800',
+                borderRadius: 20,
+                padding: 8,
+                marginRight: 10,
+                shadowColor: '#F57C00',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.3,
+                shadowRadius: 3,
+                elevation: 3,
+              }}>
+                <Ionicons name="add" size={20} color="#FFFFFF" />
+              </View>
+              <Text style={[styles.addButtonText, { color: '#F57C00', fontSize: 18, fontWeight: '700' }]}>Add Income</Text>
+            </View>
+            <Text style={{ color: '#FF9800', fontSize: 12, fontStyle: 'italic' }}>Tap to create new income entry</Text>
+          </TouchableOpacity>
+        </RNAnimated.View>
+      );
+    }
+
+    if (item.isManageButton) {
+      return (
+        <RNAnimated.View style={{opacity: fadeAnim}}>
+          <TouchableOpacity
+            style={styles.manageItem}
+            onPress={() => setManageModalVisible(true)}
+            activeOpacity={0.8}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+              <View style={{
+                backgroundColor: '#FF9800',
+                borderRadius: 20,
+                padding: 8,
+                marginRight: 10,
+                shadowColor: '#F57C00',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.3,
+                shadowRadius: 3,
+                elevation: 3,
+              }}>
+                <Ionicons name="settings" size={20} color="#FFFFFF" />
+              </View>
+              <Text style={[styles.manageButtonText, { color: '#F57C00', fontSize: 18, fontWeight: '700' }]}>Manage Categories</Text>
+            </View>
+            <Text style={{ color: '#FF9800', fontSize: 12, fontStyle: 'italic' }}>Configure categories and frequencies</Text>
           </TouchableOpacity>
         </RNAnimated.View>
       );
@@ -494,7 +566,7 @@ const IncomePage = ({ navigation }) => {
         ]}>
           <View style={styles.incomeRow}>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <View style={[styles.priorityIndicator, { backgroundColor: '#4CAF50' }]} />
+              <View style={[styles.priorityIndicator, { backgroundColor: '#FF9800' }]} />
               <Text style={styles.incomeTitle}>{item.name}</Text>
             </View>
             <Text style={styles.incomeDetails}>
@@ -590,60 +662,164 @@ const IncomePage = ({ navigation }) => {
     return result;
   };
 
+  // Add skeleton component
+  const SkeletonLoader = () => {
+    const shimmerAnim = new RNAnimated.Value(0);
+
+    useEffect(() => {
+      const shimmer = RNAnimated.loop(
+        RNAnimated.sequence([
+          RNAnimated.timing(shimmerAnim, {
+            toValue: 1,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+          RNAnimated.timing(shimmerAnim, {
+            toValue: 0,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+        ])
+      );
+      shimmer.start();
+      return () => shimmer.stop();
+    }, []);
+
+    const opacity = shimmerAnim.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0.3, 0.7],
+    });
+
+    return (
+      <View style={styles.skeletonContainer}>
+        <View style={styles.skeletonChart}>
+          <RNAnimated.View style={[styles.skeletonShimmer, { opacity }]} />
+        </View>
+        {[1, 2, 3].map((item) => (
+          <View key={item} style={styles.skeletonItem}>
+            <RNAnimated.View style={[styles.skeletonShimmer, { opacity }]} />
+          </View>
+        ))}
+      </View>
+    );
+  };
+
+  // Add methods for manage modal actions
+  const handleAddCategory = () => {
+    // TODO: Implement add category logic
+    setAlertMessage('Add category feature coming soon!');
+    setAlertType('info');
+    setShowAlert(true);
+  };
+
+  const handleEditCategory = (category) => {
+    // TODO: Implement edit category logic
+    setAlertMessage(`Edit category "${category.name}" feature coming soon!`);
+    setAlertType('info');
+    setShowAlert(true);
+  };
+
+  const handleDeleteCategory = (category) => {
+    // TODO: Implement delete category logic
+    setAlertMessage(`Delete category "${category.name}" feature coming soon!`);
+    setAlertType('info');
+    setShowAlert(true);
+  };
+
+  const handleAddFrequency = () => {
+    // TODO: Implement add frequency logic
+    setAlertMessage('Add frequency feature coming soon!');
+    setAlertType('info');
+    setShowAlert(true);
+  };
+
+  const handleEditFrequency = (frequency) => {
+    // TODO: Implement edit frequency logic
+    setAlertMessage(`Edit frequency "${frequency.name}" feature coming soon!`);
+    setAlertType('info');
+    setShowAlert(true);
+  };
+
+  const handleDeleteFrequency = (frequency) => {
+    // TODO: Implement delete frequency logic
+    setAlertMessage(`Delete frequency "${frequency.name}" feature coming soon!`);
+    setAlertType('info');
+    setShowAlert(true);
+  };
+
   return (
     <View style={styles.container}>
       {showAlert && <AlertComponent type={alertType} message={alertMessage} onClose={() => setShowAlert(false)} />}
 
       <Header title="Income Management" />
 
-      <View style={styles.chartContainer}>
-        <Chart
-          key={chartRenderKey}
-          incomes={incomes}
-          categories={categories}
-          frequencies={frequencies}
-          chartTypes={['Bar', 'Pie', 'Line']}
-          onCategorySelect={handleChartCategorySelect}
-        />
-      </View>
+      {isLoading ? (
+        <SkeletonLoader />
+      ) : (
+        <>
+          <View style={styles.chartContainer}>
+            <Chart
+              key={chartRenderKey}
+              incomes={incomes}
+              categories={categories}
+              frequencies={frequencies}
+              chartTypes={['Bar', 'Pie']}
+              onCategorySelect={handleChartCategorySelect}
+            />
+          </View>
 
-      {/* Se existir um filtro ativo, mostrar botão para limpar */}
-      {filteredIncomes.length > 0 && (
-        <TouchableOpacity 
-          style={styles.clearFilterButton}
-          onPress={clearFiltersWithAnimation}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="close-circle" size={18} color="#FFF" />
-          <Text style={styles.clearFilterButtonText}>Clear Filter</Text>
-        </TouchableOpacity>
+          {/* Se existir um filtro ativo, mostrar botão para limpar */}
+          {filteredIncomes.length > 0 && (
+            <TouchableOpacity 
+              style={styles.clearFilterButton}
+              onPress={clearFiltersWithAnimation}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="close-circle" size={18} color="#FFF" />
+              <Text style={styles.clearFilterButtonText}>Clear Filter</Text>
+            </TouchableOpacity>
+          )}
+
+          <FlatList
+            data={incomesWithButtons}
+            keyExtractor={(item, idx) => {
+              if (item.id) return item.id.toString();
+              if (item.isAddButton) return 'add-btn';
+              if (item.isManageButton) return 'manage-btn';
+              return `item-${idx}`;
+            }}
+            renderItem={renderIncomeItem}
+            style={styles.incomeList}
+          />
+        </>
       )}
-
-      <FlatList
-        data={incomesWithAddButton}
-        keyExtractor={(item, idx) => item.id ? item.id.toString() : `add-btn-${idx}`}
-        renderItem={renderIncomeItem}
-        style={styles.incomeList}
-      />
 
       {/* Add/Edit Modal */}
       <Modal visible={isModalVisible} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
             <Text style={styles.modalHeader}>{selectedIncome ? 'Edit Income' : 'Add Income'}</Text>
+            
+            <Text style={styles.inputLabel}>Income Name</Text>
             <TextInput
               style={styles.modalInput}
-              placeholder="Name"
+              placeholder="Enter income name"
+              placeholderTextColor="#B0BEC5"
               value={formData.name}
               onChangeText={(text) => setFormData({ ...formData, name: text })}
             />
+            
+            <Text style={styles.inputLabel}>Amount</Text>
             <TextInput
               style={styles.modalInput}
-              placeholder="Amount"
+              placeholder="Enter amount"
+              placeholderTextColor="#B0BEC5"
               keyboardType="numeric"
               value={formData.amount}
               onChangeText={(text) => setFormData({ ...formData, amount: text })}
             />
+            
+            <Text style={styles.inputLabel}>Frequency</Text>
             <Picker
               selectedValue={formData.frequency_id}
               style={styles.picker}
@@ -654,6 +830,8 @@ const IncomePage = ({ navigation }) => {
                 <Picker.Item key={frequency.id} label={frequency.name} value={frequency.id} />
               ))}
             </Picker>
+            
+            <Text style={styles.inputLabel}>Category</Text>
             <Picker
               selectedValue={formData.category_id}
               style={styles.picker}
@@ -664,15 +842,18 @@ const IncomePage = ({ navigation }) => {
                 <Picker.Item key={category.id} label={category.name} value={category.id} />
               ))}
             </Picker>
+            
             <View style={styles.modalButtonsContainer}>
-              <TouchableOpacity style={styles.saveButton} onPress={handleSaveIncome}>
-                <Text style={styles.saveButtonText}>Save</Text>
-              </TouchableOpacity>
               <TouchableOpacity
                 style={styles.closeButton}
                 onPress={() => setModalVisible(false)}
               >
-                <Text style={styles.closeButtonText}>Close</Text>
+                <Ionicons name="close-circle" size={20} color="#616161" />
+                <Text style={styles.closeButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.saveButton} onPress={handleSaveIncome}>
+                <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
+                <Text style={styles.saveButtonText}>Save Income</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -707,6 +888,106 @@ const IncomePage = ({ navigation }) => {
               >
                 <Ionicons name="close" size={20} color="#666666" style={{ marginRight: 8 }} />
                 <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Management Modal with Tabs */}
+      <Modal visible={isManageModalVisible} transparent animationType="slide">
+        <View style={styles.manageModalOverlay}>
+          <View style={styles.manageModalContainer}>
+            <Text style={styles.manageModalHeader}>Manage Settings</Text>
+            
+            {/* Tab Selection */}
+            <View style={styles.manageTabContainer}>
+              <TouchableOpacity 
+                style={[styles.manageTab, activeManageTab === 'categories' && styles.manageTabActive]}
+                onPress={() => setActiveManageTab('categories')}
+              >
+                <Text style={[styles.manageTabText, activeManageTab === 'categories' && styles.manageTabTextActive]}>
+                  Categories
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.manageTab, activeManageTab === 'frequencies' && styles.manageTabActive]}
+                onPress={() => setActiveManageTab('frequencies')}
+              >
+                <Text style={[styles.manageTabText, activeManageTab === 'frequencies' && styles.manageTabTextActive]}>
+                  Frequencies
+                </Text>
+              </TouchableOpacity>
+            </View>
+            
+            <ScrollView style={styles.manageScrollView} showsVerticalScrollIndicator={false}>
+              {/* Categories Section */}
+              {activeManageTab === 'categories' && (
+                <View style={styles.manageSection}>
+                  <Text style={styles.manageSectionTitle}>Income Categories</Text>
+                  {categories.map((category) => (
+                    <View key={category.id} style={styles.manageItemContainer}>
+                      <Text style={styles.manageItemText}>{category.name}</Text>
+                      <View style={styles.manageItemActions}>
+                        <TouchableOpacity 
+                          style={[styles.manageActionButton, styles.manageEditButton]}
+                          onPress={() => handleEditCategory(category)}
+                        >
+                          <Ionicons name="pencil" size={14} color="#FFF" />
+                        </TouchableOpacity>
+                        <TouchableOpacity 
+                          style={[styles.manageActionButton, styles.manageDeleteButton]}
+                          onPress={() => handleDeleteCategory(category)}
+                        >
+                          <Ionicons name="trash" size={14} color="#FFF" />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  ))}
+                  <TouchableOpacity style={styles.addItemButton} onPress={handleAddCategory}>
+                    <Ionicons name="add" size={16} color="#FFFFFF" />
+                    <Text style={styles.addItemButtonText}>Add Category</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              {/* Frequencies Section */}
+              {activeManageTab === 'frequencies' && (
+                <View style={styles.manageSection}>
+                  <Text style={styles.manageSectionTitle}>Frequencies</Text>
+                  {frequencies.map((frequency) => (
+                    <View key={frequency.id} style={styles.manageItemContainer}>
+                      <Text style={styles.manageItemText}>{frequency.name} ({frequency.days} days)</Text>
+                      <View style={styles.manageItemActions}>
+                        <TouchableOpacity 
+                          style={[styles.manageActionButton, styles.manageEditButton]}
+                          onPress={() => handleEditFrequency(frequency)}
+                        >
+                          <Ionicons name="pencil" size={14} color="#FFF" />
+                        </TouchableOpacity>
+                        <TouchableOpacity 
+                          style={[styles.manageActionButton, styles.manageDeleteButton]}
+                          onPress={() => handleDeleteFrequency(frequency)}
+                        >
+                          <Ionicons name="trash" size={14} color="#FFF" />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  ))}
+                  <TouchableOpacity style={styles.addItemButton} onPress={handleAddFrequency}>
+                    <Ionicons name="add" size={16} color="#FFFFFF" />
+                    <Text style={styles.addItemButtonText}>Add Frequency</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </ScrollView>
+            
+            <View style={styles.manageModalButtons}>
+              <TouchableOpacity
+                style={styles.manageCloseButton}
+                onPress={() => setManageModalVisible(false)}
+              >
+                <Text style={styles.manageCloseButtonText}>Close</Text>
               </TouchableOpacity>
             </View>
           </View>

@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Modal, TextInput, Alert, FlatList } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, Modal, TextInput, Alert, FlatList, Animated } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { Ionicons } from '@expo/vector-icons';
 import styles from '../../Styles/Manage/ExpensesPageStyle';
@@ -12,7 +12,7 @@ import { formatCurrency, getCurrentCurrency, addCurrencyChangeListener, removeCu
 import { convertValueToCurrentCurrency } from '../../Utility/CurrencyConverter';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const ExpensesPage = () => {
+const ExpensesPage = ({ navigation }) => {
   const [expenses, setExpenses] = useState([]);
   const [originalExpenses, setOriginalExpenses] = useState([]); // Armazenar valores originais
   const [filteredExpenses, setFilteredExpenses] = useState([]);
@@ -21,6 +21,7 @@ const ExpensesPage = () => {
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [isFilterModalVisible, setFilterModalVisible] = useState(false); // Modal para exibir itens filtrados
   const [isCategoryFilterVisible, setCategoryFilterVisible] = useState(false);
+  const [isManageModalVisible, setManageModalVisible] = useState(false); // New modal for management
   const [categories, setCategories] = useState([]);
   const [frequencies, setFrequencies] = useState([]);
   const [userId, setUserId] = useState(null);
@@ -41,18 +42,16 @@ const ExpensesPage = () => {
   const [alertType, setAlertType] = useState('');
   const [showAlert, setShowAlert] = useState(false);
 
-  const [isCategoryModalVisible, setCategoryModalVisible] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState(null);
-  const [categoryFormData, setCategoryFormData] = useState({
-    name: '',
-  });
-  const [isDeleteCategoryModalVisible, setDeleteCategoryModalVisible] = useState(false);
-  const [categoryToDelete, setCategoryToDelete] = useState(null);
-
   // Use filteredExpenses para a lista e se estiver vazia, use expenses
   const expensesToDisplay = filteredExpenses.length > 0 ? filteredExpenses : expenses;
-  const expensesWithAddButton = [...expensesToDisplay, { isAddButton: true }];
-  
+  const expensesWithButtons = [...expensesToDisplay, { isAddButton: true }, { isManageButton: true }];
+
+  // Add state for managing tabs in modal
+  const [activeManageTab, setActiveManageTab] = useState('categories');
+
+  // Add loading state
+  const [isLoading, setIsLoading] = useState(true);
+
   // Novo método para lidar com a seleção de categoria no gráfico
   const handleChartCategorySelect = (selectedCategory) => {
     if (!selectedCategory) {
@@ -299,6 +298,7 @@ const ExpensesPage = () => {
 
   const fetchExpenses = async (userId) => {
     try {
+      setIsLoading(true);
       const { data, error } = await supabase
         .from('expenses')
         .select(`
@@ -328,11 +328,14 @@ const ExpensesPage = () => {
       setAlertMessage('Failed to fetch expenses');
       setAlertType('error');
       setShowAlert(true);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const fetchCategoriesAndFrequencies = async (userId) => {
     try {
+      setIsLoading(true);
       const { data: categories, error: categoriesError } = await supabase
         .from('categories')
         .select('*')
@@ -359,6 +362,8 @@ const ExpensesPage = () => {
       }
     } catch (error) {
       console.error('Unexpected error fetching categories or frequencies:', error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -507,116 +512,73 @@ const ExpensesPage = () => {
     return formatCurrency(amount);
   };
 
-  const handleEditCategory = (category) => {
-    setSelectedCategory(category);
-    setCategoryFormData({
-      name: category.name,
-    });
-    setCategoryModalVisible(true);
-  };
-
-  const handleDeleteCategory = async () => {
-    try {
-      const { error } = await supabase
-        .from('categories')
-        .delete()
-        .eq('id', categoryToDelete.id);
-
-      if (error) throw error;
-
-      setAlertMessage('Category deleted successfully!');
-      setAlertType('success');
-      setShowAlert(true);
-      fetchCategoriesAndFrequencies(userId);
-      
-      // Limpar o filtro quando uma categoria é excluída
-      setFilteredExpenses([]);
-      setSelectedCategoryId(null);
-    } catch (error) {
-      console.error('Error deleting category:', error);
-      setAlertMessage('Failed to delete category');
-      setAlertType('error');
-      setShowAlert(true);
-    } finally {
-      setDeleteCategoryModalVisible(false);
-    }
-  };
-
-  const handleSaveCategory = async () => {
-    try {
-      if (!categoryFormData.name.trim()) {
-        setAlertMessage('Please enter a category name');
-        setAlertType('error');
-        setShowAlert(true);
-        return;
-      }
-
-      const payload = {
-        name: categoryFormData.name.trim(),
-        type: 'expense',
-        user_id: userId
-      };
-
-      let error;
-      if (selectedCategory) {
-        ({ error } = await supabase
-          .from('categories')
-          .update(payload)
-          .eq('id', selectedCategory.id));
-      } else {
-        ({ error } = await supabase
-          .from('categories')
-          .insert([payload]));
-      }
-
-      if (error) throw error;
-
-      setAlertMessage(selectedCategory ? 'Category updated successfully!' : 'Category added successfully!');
-      setAlertType('success');
-      setShowAlert(true);
-      setCategoryFormData({ name: '' });
-      setCategoryModalVisible(false);
-      fetchCategoriesAndFrequencies(userId);
-      
-      // Limpar o filtro quando uma categoria é alterada
-      setFilteredExpenses([]);
-      setSelectedCategoryId(null);
-    } catch (error) {
-      console.error('Error saving category:', error);
-      setAlertMessage('Failed to save category');
-      setAlertType('error');
-      setShowAlert(true);
-    }
-  };
-
-  const confirmDeleteCategory = (category) => {
-    setCategoryToDelete(category);
-    setDeleteCategoryModalVisible(true);
-  };
-
   const renderExpenseItem = ({ item }) => {
     if (item.isAddButton) {
       return (
-        <>
-          <TouchableOpacity
-            style={[styles.expenseItem, { justifyContent: 'center', alignItems: 'center', borderStyle: 'dashed', borderColor: '#FFB74D', borderWidth: 2, backgroundColor: '#FFFDE7' }]}
-            onPress={handleAddExpense}
-            activeOpacity={0.8}
-          >
-            <Text style={[styles.addButtonText, { color: '#FFA726', fontSize: 18 }]}>+ Add Expense</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.expenseItem, { justifyContent: 'center', alignItems: 'center', borderStyle: 'dashed', borderColor: '#FFA726', borderWidth: 2, backgroundColor: '#FFF3E0' }]}
-            onPress={() => {
-              setSelectedCategory(null);
-              setCategoryFormData({ name: '' });
-              setCategoryModalVisible(true);
-            }}
-            activeOpacity={0.8}
-          >
-            <Text style={[styles.addButtonText, { color: '#FF9800', fontSize: 18 }]}>Manage Categories</Text>
-          </TouchableOpacity>
-        </>
+        <TouchableOpacity
+          style={[styles.expenseItem, { 
+            justifyContent: 'center', 
+            alignItems: 'center', 
+            borderStyle: 'dashed', 
+            borderColor: '#F44336', 
+            borderWidth: 2, 
+            backgroundColor: '#FFFFFF', // Fixed to white background
+            shadowColor: '#F44336',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.2,
+            shadowRadius: 6,
+            elevation: 5,
+            transform: [{scale: 0.98}],
+          }]}
+          onPress={handleAddExpense}
+          activeOpacity={0.8}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+            <View style={{
+              backgroundColor: '#F44336',
+              borderRadius: 20,
+              padding: 8,
+              marginRight: 10,
+              shadowColor: '#D32F2F',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.3,
+              shadowRadius: 3,
+              elevation: 3,
+            }}>
+              <Ionicons name="add" size={20} color="#FFFFFF" />
+            </View>
+            <Text style={[styles.addButtonText, { color: '#D32F2F', fontSize: 18, fontWeight: '700' }]}>Add Expense</Text>
+          </View>
+          <Text style={{ color: '#F44336', fontSize: 12, fontStyle: 'italic' }}>Tap to create new expense entry</Text>
+        </TouchableOpacity>
+      );
+    }
+
+    if (item.isManageButton) {
+      return (
+        <TouchableOpacity
+          style={styles.manageItem}
+          onPress={() => setManageModalVisible(true)}
+          activeOpacity={0.8}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+            <View style={{
+              backgroundColor: '#F44336',
+              borderRadius: 20,
+              padding: 8,
+              marginRight: 10,
+              shadowColor: '#D32F2F',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.3,
+              shadowRadius: 3,
+              elevation: 3,
+            }}>
+              <Ionicons name="settings" size={20} color="#FFFFFF" />
+            </View>
+            <Text style={[styles.manageButtonText, { color: '#D32F2F', fontSize: 18, fontWeight: '700' }]}>Manage Categories</Text>
+          </View>
+          <Text style={{ color: '#F44336', fontSize: 12, fontStyle: 'italic' }}>Configure categories and frequencies</Text>
+        </TouchableOpacity>
       );
     }
 
@@ -753,29 +715,140 @@ const ExpensesPage = () => {
     };
   };
 
+  // Add skeleton component
+  const SkeletonLoader = () => {
+    const shimmerAnim = useRef(new Animated.Value(0)).current;
+
+    useEffect(() => {
+      const shimmer = Animated.loop(
+        Animated.sequence([
+          Animated.timing(shimmerAnim, {
+            toValue: 1,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(shimmerAnim, {
+            toValue: 0,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+        ])
+      );
+      shimmer.start();
+      return () => shimmer.stop();
+    }, []);
+
+    const opacity = shimmerAnim.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0.3, 0.7],
+    });
+
+    return (
+      <View style={styles.skeletonContainer}>
+        <View style={styles.skeletonChart}>
+          <Animated.View style={[styles.skeletonShimmer, { opacity }]} />
+        </View>
+        {[1, 2, 3].map((item) => (
+          <View key={item} style={styles.skeletonItem}>
+            <Animated.View style={[styles.skeletonShimmer, { opacity }]} />
+          </View>
+        ))}
+      </View>
+    );
+  };
+
+  // Add methods for manage modal actions
+  const handleAddCategory = () => {
+    // TODO: Implement add category logic
+    setAlertMessage('Add category feature coming soon!');
+    setAlertType('info');
+    setShowAlert(true);
+  };
+
+  const handleEditCategory = (category) => {
+    // TODO: Implement edit category logic
+    setAlertMessage(`Edit category "${category.name}" feature coming soon!`);
+    setAlertType('info');
+    setShowAlert(true);
+  };
+
+  const handleDeleteCategory = (category) => {
+    // TODO: Implement delete category logic
+    setAlertMessage(`Delete category "${category.name}" feature coming soon!`);
+    setAlertType('info');
+    setShowAlert(true);
+  };
+
+  const handleAddFrequency = () => {
+    // TODO: Implement add frequency logic
+    setAlertMessage('Add frequency feature coming soon!');
+    setAlertType('info');
+    setShowAlert(true);
+  };
+
+  const handleEditFrequency = (frequency) => {
+    // TODO: Implement edit frequency logic
+    setAlertMessage(`Edit frequency "${frequency.name}" feature coming soon!`);
+    setAlertType('info');
+    setShowAlert(true);
+  };
+
+  const handleDeleteFrequency = (frequency) => {
+    // TODO: Implement delete frequency logic
+    setAlertMessage(`Delete frequency "${frequency.name}" feature coming soon!`);
+    setAlertType('info');
+    setShowAlert(true);
+  };
+
   return (
     <View style={styles.container}>
       {showAlert && <AlertComponent type={alertType} message={alertMessage} onClose={() => setShowAlert(false)} />}
 
       <Header title="Expenses Management" />
 
-      <View style={styles.chartContainer}>
-        <Chart
-          incomes={expenses}
-          categories={categories}
-          frequencies={frequencies}
-          processData={processExpenseData}
-          chartTypes={['categories', 'pie', 'line']}
-          onCategorySelect={handleChartCategorySelect}
-        />
-      </View>
-      
-      <FlatList
-        data={expensesWithAddButton}
-        keyExtractor={(item, idx) => item.id ? item.id.toString() : `add-btn-${idx}`}
-        renderItem={renderExpenseItem}
-        style={styles.expenseList}
-      />
+      {isLoading ? (
+        <SkeletonLoader />
+      ) : (
+        <>
+          <View style={styles.chartContainer}>
+            <Chart
+              incomes={expenses}
+              categories={categories}
+              frequencies={frequencies}
+              processData={processExpenseData}
+              chartTypes={['Bar', 'Pie']}
+              onCategorySelect={handleChartCategorySelect}
+            />
+          </View>
+          
+          {/* Se existir um filtro ativo, mostrar botão para limpar */}
+          {filteredExpenses.length > 0 && (
+            <TouchableOpacity 
+              style={styles.clearFilterButton}
+              onPress={() => {
+                setFilteredExpenses([]);
+                setSelectedCategoryId(null);
+              }}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="close-circle" size={18} color="#FFF" />
+              <Text style={styles.clearFilterButtonText}>Clear Filter</Text>
+            </TouchableOpacity>
+          )}
+          
+          <FlatList
+            data={expensesWithButtons}
+            keyExtractor={(item, idx) => {
+              if (item.id) return item.id.toString();
+              if (item.isAddButton) return 'add-btn';
+              if (item.isManageButton) return 'manage-btn';
+              return `item-${idx}`;
+            }}
+            renderItem={renderExpenseItem}
+            style={styles.expenseList}
+          />
+        </>
+      )}
 
       {/* Add/Edit Modal */}
       <Modal visible={modalVisible} transparent animationType="slide">
@@ -785,21 +858,26 @@ const ExpensesPage = () => {
               {selectedExpense ? 'Edit Expense' : 'Add Expense'}
             </Text>
 
+            <Text style={styles.inputLabel}>Expense Name</Text>
             <TextInput
               style={styles.modalInput}
-              placeholder="Expense Name"
+              placeholder="Enter expense name"
+              placeholderTextColor="#B0BEC5"
               value={formData.name}
               onChangeText={(text) => setFormData({ ...formData, name: text })}
             />
 
+            <Text style={styles.inputLabel}>Amount</Text>
             <TextInput
               style={styles.modalInput}
-              placeholder="Amount"
+              placeholder="Enter amount"
+              placeholderTextColor="#B0BEC5"
               keyboardType="numeric"
               value={formData.amount}
               onChangeText={(text) => setFormData({ ...formData, amount: text })}
             />
 
+            <Text style={styles.inputLabel}>Category</Text>
             <Picker
               selectedValue={formData.category_id}
               style={styles.picker}
@@ -815,6 +893,7 @@ const ExpensesPage = () => {
               ))}
             </Picker>
 
+            <Text style={styles.inputLabel}>Frequency</Text>
             <Picker
               selectedValue={formData.frequency_id}
               style={styles.picker}
@@ -830,31 +909,33 @@ const ExpensesPage = () => {
               ))}
             </Picker>
 
+            <Text style={styles.inputLabel}>Priority</Text>
             <Picker
               selectedValue={formData.priority}
               style={styles.picker}
               onValueChange={(value) => setFormData({ ...formData, priority: value })}
             >
-              <Picker.Item label="Mínima" value={1} />
-              <Picker.Item label="Baixa" value={2} />
-              <Picker.Item label="Média" value={3} />
-              <Picker.Item label="Alta" value={4} />
-              <Picker.Item label="Máxima" value={5} />
+              <Picker.Item label="Minimum" value={1} />
+              <Picker.Item label="Low" value={2} />
+              <Picker.Item label="Medium" value={3} />
+              <Picker.Item label="High" value={4} />
+              <Picker.Item label="Maximum" value={5} />
             </Picker>
 
             <View style={styles.modalButtonsContainer}>
               <TouchableOpacity
-                style={styles.saveButton}
-                onPress={handleSaveExpense}
-              >
-                <Text style={styles.saveButtonText}>Save</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
                 style={styles.closeButton}
                 onPress={() => setModalVisible(false)}
               >
-                <Text style={styles.closeButtonText}>Close</Text>
+                <Ionicons name="close-circle" size={20} color="#616161" />
+                <Text style={styles.closeButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.saveButton}
+                onPress={handleSaveExpense}
+              >
+                <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
+                <Text style={styles.saveButtonText}>Save Expense</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -895,93 +976,100 @@ const ExpensesPage = () => {
         </View>
       </Modal>
 
-      {/* Category Management Modal */}
-      <Modal visible={isCategoryModalVisible} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
-            <Text style={styles.modalHeader}>
-              {selectedCategory ? 'Edit Category' : 'Add Category'}
-            </Text>
-
-            <TextInput
-              style={styles.modalInput}
-              placeholder="Category Name"
-              value={categoryFormData.name}
-              onChangeText={(text) => setCategoryFormData({ name: text })}
-            />
-
-            <View style={styles.categoriesList}>
-              {categories.map((category) => (
-                <View key={category.id} style={styles.categoryItem}>
-                  <Text style={styles.categoryItemText}>{category.name}</Text>
-                  <View style={styles.categoryActions}>
-                    <TouchableOpacity
-                      style={[styles.actionButtonEdit, { marginRight: 8 }]}
-                      onPress={() => handleEditCategory(category)}
-                    >
-                      <Ionicons name="pencil" size={16} color="#FFF" />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.actionButtonDelete}
-                      onPress={() => confirmDeleteCategory(category)}
-                    >
-                      <Ionicons name="trash" size={16} color="#FFF" />
-                    </TouchableOpacity>
-                  </View>
+      {/* Management Modal with Tabs */}
+      <Modal visible={isManageModalVisible} transparent animationType="slide">
+        <View style={styles.manageModalOverlay}>
+          <View style={styles.manageModalContainer}>
+            <Text style={styles.manageModalHeader}>Manage Settings</Text>
+            
+            {/* Tab Selection */}
+            <View style={styles.manageTabContainer}>
+              <TouchableOpacity 
+                style={[styles.manageTab, activeManageTab === 'categories' && styles.manageTabActive]}
+                onPress={() => setActiveManageTab('categories')}
+              >
+                <Text style={[styles.manageTabText, activeManageTab === 'categories' && styles.manageTabTextActive]}>
+                  Categories
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.manageTab, activeManageTab === 'frequencies' && styles.manageTabActive]}
+                onPress={() => setActiveManageTab('frequencies')}
+              >
+                <Text style={[styles.manageTabText, activeManageTab === 'frequencies' && styles.manageTabTextActive]}>
+                  Frequencies
+                </Text>
+              </TouchableOpacity>
+            </View>
+            
+            <ScrollView style={styles.manageScrollView} showsVerticalScrollIndicator={false}>
+              {/* Categories Section */}
+              {activeManageTab === 'categories' && (
+                <View style={styles.manageSection}>
+                  <Text style={styles.manageSectionTitle}>Expense Categories</Text>
+                  {categories.map((category) => (
+                    <View key={category.id} style={styles.manageItemContainer}>
+                      <Text style={styles.manageItemText}>{category.name}</Text>
+                      <View style={styles.manageItemActions}>
+                        <TouchableOpacity 
+                          style={[styles.manageActionButton, styles.manageEditButton]}
+                          onPress={() => handleEditCategory(category)}
+                        >
+                          <Ionicons name="pencil" size={14} color="#FFF" />
+                        </TouchableOpacity>
+                        <TouchableOpacity 
+                          style={[styles.manageActionButton, styles.manageDeleteButton]}
+                          onPress={() => handleDeleteCategory(category)}
+                        >
+                          <Ionicons name="trash" size={14} color="#FFF" />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  ))}
+                  <TouchableOpacity style={styles.addItemButton} onPress={handleAddCategory}>
+                    <Ionicons name="add" size={16} color="#FFFFFF" />
+                    <Text style={styles.addItemButtonText}>Add Category</Text>
+                  </TouchableOpacity>
                 </View>
-              ))}
-            </View>
+              )}
 
-            <View style={styles.modalButtonsContainer}>
+              {/* Frequencies Section */}
+              {activeManageTab === 'frequencies' && (
+                <View style={styles.manageSection}>
+                  <Text style={styles.manageSectionTitle}>Frequencies</Text>
+                  {frequencies.map((frequency) => (
+                    <View key={frequency.id} style={styles.manageItemContainer}>
+                      <Text style={styles.manageItemText}>{frequency.name} ({frequency.days} days)</Text>
+                      <View style={styles.manageItemActions}>
+                        <TouchableOpacity 
+                          style={[styles.manageActionButton, styles.manageEditButton]}
+                          onPress={() => handleEditFrequency(frequency)}
+                        >
+                          <Ionicons name="pencil" size={14} color="#FFF" />
+                        </TouchableOpacity>
+                        <TouchableOpacity 
+                          style={[styles.manageActionButton, styles.manageDeleteButton]}
+                          onPress={() => handleDeleteFrequency(frequency)}
+                        >
+                          <Ionicons name="trash" size={14} color="#FFF" />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  ))}
+                  <TouchableOpacity style={styles.addItemButton} onPress={handleAddFrequency}>
+                    <Ionicons name="add" size={16} color="#FFFFFF" />
+                    <Text style={styles.addItemButtonText}>Add Frequency</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </ScrollView>
+            
+            <View style={styles.manageModalButtons}>
               <TouchableOpacity
-                style={styles.saveButton}
-                onPress={handleSaveCategory}
+                style={styles.manageCloseButton}
+                onPress={() => setManageModalVisible(false)}
               >
-                <Text style={styles.saveButtonText}>Save</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.closeButton}
-                onPress={() => {
-                  setCategoryModalVisible(false);
-                  setCategoryFormData({ name: '' });
-                  setSelectedCategory(null);
-                }}
-              >
-                <Text style={styles.closeButtonText}>Close</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Delete Category Confirmation Modal */}
-      <Modal visible={isDeleteCategoryModalVisible} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContainer, { maxWidth: 400 }]}>
-            <View style={styles.deleteModalHeader}>
-              <Ionicons name="warning" size={32} color="#FF6B6B" />
-              <Text style={styles.deleteModalTitle}>Delete Category</Text>
-            </View>
-            <Text style={styles.deleteModalText}>
-              Are you sure you want to delete "{categoryToDelete?.name}"?
-            </Text>
-            <Text style={styles.deleteModalSubtext}>
-              This action cannot be undone and will affect all expenses in this category.
-            </Text>
-            <View style={styles.modalButtonsContainer}>
-              <TouchableOpacity
-                style={[styles.deleteButton, { flex: 1, marginRight: 8 }]}
-                onPress={handleDeleteCategory}
-              >
-                <Ionicons name="trash" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
-                <Text style={styles.deleteButtonText}>Delete</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.cancelButton, { flex: 1 }]}
-                onPress={() => setDeleteCategoryModalVisible(false)}
-              >
-                <Ionicons name="close" size={20} color="#666666" style={{ marginRight: 8 }} />
-                <Text style={styles.cancelButtonText}>Cancel</Text>
+                <Text style={styles.manageCloseButtonText}>Close</Text>
               </TouchableOpacity>
             </View>
           </View>

@@ -2,42 +2,124 @@ import { fetchUserCurrencyPreference, updateUserCurrencyPreference } from './Mai
 import { supabase } from '../../Supabase';
 import { convertCurrencyForUserData } from './CurrencyService';
 
+// Fallback countries data in case API fails
+const fallbackCountries = [
+  { name: 'Portugal', code: 'PT', currency: 'EUR', currencyName: 'Euro', currencySymbol: '€' },
+  { name: 'Spain', code: 'ES', currency: 'EUR', currencyName: 'Euro', currencySymbol: '€' },
+  { name: 'France', code: 'FR', currency: 'EUR', currencyName: 'Euro', currencySymbol: '€' },
+  { name: 'Germany', code: 'DE', currency: 'EUR', currencyName: 'Euro', currencySymbol: '€' },
+  { name: 'Italy', code: 'IT', currency: 'EUR', currencyName: 'Euro', currencySymbol: '€' },
+  { name: 'United Kingdom', code: 'GB', currency: 'GBP', currencyName: 'British Pound', currencySymbol: '£' },
+  { name: 'United States', code: 'US', currency: 'USD', currencyName: 'US Dollar', currencySymbol: '$' },
+  { name: 'Brazil', code: 'BR', currency: 'BRL', currencyName: 'Brazilian Real', currencySymbol: 'R$' },
+  { name: 'Canada', code: 'CA', currency: 'CAD', currencyName: 'Canadian Dollar', currencySymbol: 'C$' },
+  { name: 'Japan', code: 'JP', currency: 'JPY', currencyName: 'Japanese Yen', currencySymbol: '¥' },
+  { name: 'Australia', code: 'AU', currency: 'AUD', currencyName: 'Australian Dollar', currencySymbol: 'A$' },
+  { name: 'Switzerland', code: 'CH', currency: 'CHF', currencyName: 'Swiss Franc', currencySymbol: 'CHF' },
+  { name: 'Norway', code: 'NO', currency: 'NOK', currencyName: 'Norwegian Krone', currencySymbol: 'kr' },
+  { name: 'Sweden', code: 'SE', currency: 'SEK', currencyName: 'Swedish Krona', currencySymbol: 'kr' },
+  { name: 'Denmark', code: 'DK', currency: 'DKK', currencyName: 'Danish Krone', currencySymbol: 'kr' }
+];
+
 export const fetchCountries = async () => {
-    try {
-      const response = await fetch('https://restcountries.com/v3.1/all');
-      const data = await response.json();
-      const countryList = data
-        .map((country) => ({
-          name: country.name.common,
-          code: country.cca2,
-          currency: country.currencies ? Object.keys(country.currencies)[0] : null,
-          currencyName: country.currencies ? country.currencies[Object.keys(country.currencies)[0]].name : null,
-          currencySymbol: country.currencies ? country.currencies[Object.keys(country.currencies)[0]].symbol : null
-        }))
-        .sort((a, b) => a.name.localeCompare(b.name));
-      return countryList;
-    } catch (error) {
-      console.error('Error fetching countries:', error);
-      return [];
+  try {
+    console.log('Fetching countries from API...');
+    const response = await fetch('https://restcountries.com/v3.1/all?fields=name,cca2,currencies');
+    
+    // Check if response is ok
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
-  };
+    
+    const data = await response.json();
+    
+    // Validate that data is an array
+    if (!Array.isArray(data)) {
+      console.error('API returned invalid data format:', typeof data);
+      throw new Error('Invalid data format from API');
+    }
+    
+    console.log(`Successfully fetched ${data.length} countries from API`);
+    
+    const countryList = data
+      .filter(country => country && country.name && country.name.common) // Filter out invalid entries
+      .map((country) => {
+        try {
+          return {
+            name: country.name.common,
+            code: country.cca2,
+            currency: country.currencies ? Object.keys(country.currencies)[0] : null,
+            currencyName: country.currencies ? country.currencies[Object.keys(country.currencies)[0]]?.name : null,
+            currencySymbol: country.currencies ? country.currencies[Object.keys(country.currencies)[0]]?.symbol : null
+          };
+        } catch (mapError) {
+          console.warn('Error mapping country:', country.name?.common, mapError);
+          return null;
+        }
+      })
+      .filter(country => country !== null) // Remove null entries
+      .sort((a, b) => a.name.localeCompare(b.name));
+    
+    console.log(`Processed ${countryList.length} valid countries`);
+    return countryList;
+  } catch (error) {
+    console.error('Error fetching countries from API:', error);
+    console.log('Using fallback countries data');
+    return fallbackCountries.sort((a, b) => a.name.localeCompare(b.name));
+  }
+};
 
 // Função para obter moeda pelo código ou nome do país
 export const getCurrencyByCountryCode = async (countryCodeOrName) => {
   try {
+    console.log(`Looking for currency info for: ${countryCodeOrName}`);
     const countries = await fetchCountries();
+    
+    if (!Array.isArray(countries) || countries.length === 0) {
+      console.error('No countries data available');
+      // Return default EUR if no countries data
+      return {
+        code: 'EUR',
+        name: 'Euro',
+        symbol: '€'
+      };
+    }
+    
     // Procurar por código ou por nome do país
     const country = countries.find(
-      c => c.code === countryCodeOrName || c.name === countryCodeOrName
+      c => c.code === countryCodeOrName || 
+           c.name === countryCodeOrName ||
+           c.name.toLowerCase() === countryCodeOrName.toLowerCase()
     );
-    return country ? {
-      code: country.currency,
-      name: country.currencyName,
-      symbol: country.currencySymbol
-    } : null;
+    
+    if (country && country.currency) {
+      console.log(`Found currency for ${countryCodeOrName}:`, {
+        code: country.currency,
+        name: country.currencyName,
+        symbol: country.currencySymbol
+      });
+      return {
+        code: country.currency,
+        name: country.currencyName,
+        symbol: country.currencySymbol
+      };
+    } else {
+      console.log(`Currency not found for country: ${countryCodeOrName}, using EUR as default`);
+      // Return EUR as default when country is not found
+      return {
+        code: 'EUR',
+        name: 'Euro',
+        symbol: '€'
+      };
+    }
   } catch (error) {
     console.error('Error getting currency:', error);
-    return null;
+    // Return EUR as default in case of error
+    return {
+      code: 'EUR',
+      name: 'Euro',
+      symbol: '€'
+    };
   }
 };
 
@@ -94,13 +176,35 @@ export const setCurrentCurrency = async (countryCodeOrName) => {
       currencyData = countryCodeOrName;
     }
     
-    if (!currencyData) {
-      throw new Error('Invalid currency data');
+    // Se ainda não temos dados de moeda válidos, usar EUR como padrão
+    if (!currencyData || !currencyData.code) {
+      console.log('No valid currency data found, using EUR as default');
+      currencyData = {
+        code: 'EUR',
+        name: 'Euro',
+        symbol: '€'
+      };
     }
     
-    // Atualizar na Supabase (única fonte de verdade)
-    await updateUserCurrencyPreference(currencyData);
-    console.log('Currency saved to database:', currencyData.code);
+    // Validar que os dados de moeda são válidos
+    if (!currencyData.code || !currencyData.symbol) {
+      console.error('Invalid currency data structure:', currencyData);
+      // Use EUR as fallback
+      currencyData = {
+        code: 'EUR',
+        name: 'Euro',
+        symbol: '€'
+      };
+    }
+    
+    try {
+      // Atualizar na Supabase (única fonte de verdade)
+      await updateUserCurrencyPreference(currencyData);
+      console.log('Currency saved to database:', currencyData.code);
+    } catch (dbError) {
+      console.error('Error saving currency to database:', dbError);
+      // Continue with local update even if database fails
+    }
     
     // Atualizar o cache local
     currentCurrencyInfo = currencyData;
@@ -111,7 +215,18 @@ export const setCurrentCurrency = async (countryCodeOrName) => {
     return currentCurrencyInfo;
   } catch (error) {
     console.error('Error setting current currency:', error);
-    throw error;
+    
+    // Set EUR as fallback and continue
+    const fallbackCurrency = {
+      code: 'EUR',
+      name: 'Euro',
+      symbol: '€'
+    };
+    
+    currentCurrencyInfo = fallbackCurrency;
+    notifyCurrencyChange();
+    
+    return currentCurrencyInfo;
   }
 };
 
