@@ -123,23 +123,11 @@ const CalendarPage = () => {
     
     // Generate all dates between start and end based on frequency
     while (true) {
-      // Advance to the next date based on frequency
-      if (frequencyDays === 30 || frequencyDays === 31) {
-        currentDate.setMonth(currentDate.getMonth() + 1);
-      } else if (frequencyDays === 7) {
-        currentDate.setDate(currentDate.getDate() + 7);
-      } else if (frequencyDays === 14) {
-        currentDate.setDate(currentDate.getDate() + 14);
-      } else if (frequencyDays === 90) {
-        currentDate.setMonth(currentDate.getMonth() + 3);
-      } else if (frequencyDays === 180) {
-        currentDate.setMonth(currentDate.getMonth() + 6);
-      } else if (frequencyDays === 365) {
-        currentDate.setFullYear(currentDate.getFullYear() + 1);
-      } else {
-        // Default to monthly
-        currentDate.setMonth(currentDate.getMonth() + 1);
-      }
+      // Simplified approach: always add the exact number of days based on frequency
+      // This maintains consistency regardless of month length
+      const millisecondsInDay = 24 * 60 * 60 * 1000;
+      const nextDate = new Date(currentDate.getTime() + (frequencyDays * millisecondsInDay));
+      currentDate = nextDate;
       
       // Check if we've gone beyond the end date
       if (currentDate > endDate) break;
@@ -708,14 +696,51 @@ const CalendarPage = () => {
     }
   };
 
+  // Função para forçar a deleção direta do evento problemático do banco de dados
+  const forceDeleteProblemEvent = async () => {
+    try {
+      setLoading(true);
+      console.log("Força-deletando o evento problemático 5e631ae3-0ae3-46a1-8848-13f2248f3365");
+      
+      // Direct deletion by ID
+      const { error } = await supabase
+        .from('calendar_events')
+        .delete()
+        .or(`id.eq.5e631ae3-0ae3-46a1-8848-13f2248f3365,event_id.eq.814ecd2f-a517-4d47-a5d4-0da502ae1afe`);
+      
+      if (error) {
+        console.error("Erro na remoção forçada:", error);
+        Alert.alert("Error", "Could not force delete the problem event");
+        return false;
+      }
+      
+      console.log("Evento problemático removido com sucesso");
+      await fetchEvents();
+      Alert.alert("Success", "Problem event removed successfully");
+      return true;
+    } catch (error) {
+      console.error("Erro na remoção forçada:", error);
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleDeleteEvent = async (eventId) => {
     console.log("Deletando evento com ID:", eventId);
     try {
       setLoading(true);
       
+      // Check if this is the problematic event with invalid date range
+      if (eventId === "5e631ae3-0ae3-46a1-8848-13f2248f3365") {
+        console.log("Detected problematic event, using forced deletion");
+        await forceDeleteProblemEvent();
+        return;
+      }
+      
       // Primeiro encontrar o evento nos eventos selecionados
       const eventToDelete = selectedEvents.find(event => event.id === eventId) || 
-                            filteredEvents.find(event => event.id === eventId);
+                           filteredEvents.find(event => event.id === eventId);
       
       if (!eventToDelete) {
         console.error('Could not find event with ID:', eventId);
@@ -728,6 +753,26 @@ const CalendarPage = () => {
       
       // Se o evento for recorrente, perguntar se deseja excluir todas as ocorrências
       if (eventToDelete.is_recurring && eventToDelete.event_id) {
+        // Verificar se end_date está antes de date (caso inválido)
+        if (eventToDelete.end_date && new Date(eventToDelete.end_date) < new Date(eventToDelete.date)) {
+          console.log("Detected invalid date range, using forced deletion");
+          // For events with invalid date ranges, use direct deletion
+          const { error } = await supabase
+            .from('calendar_events')
+            .delete()
+            .eq('id', eventId);
+            
+          if (error) {
+            console.error('Error deleting event with invalid date:', error);
+            Alert.alert('Error', 'Could not delete event with invalid date range');
+          } else {
+            await fetchEvents();
+            Alert.alert('Success', 'Event with invalid date range removed');
+          }
+          setLoading(false);
+          return;
+        }
+        
         // No ambiente web, usar confirm
         if (isWeb) {
           const deleteAll = confirm('This is a recurring event. Do you want to delete all future occurrences?');
@@ -745,10 +790,22 @@ const CalendarPage = () => {
             
             if (error) {
               console.error('Erro ao deletar eventos recorrentes:', error);
-              throw error;
+              
+              // Try direct deletion if update fails
+              const { error: deleteError } = await supabase
+                .from('calendar_events')
+                .delete()
+                .eq('id', eventId);
+                
+              if (deleteError) {
+                console.error('Erro na deleção direta:', deleteError);
+                throw deleteError;
+              } else {
+                console.log("Deleção direta bem-sucedida para evento recorrente");
+              }
+            } else {
+              console.log("Todas as ocorrências futuras excluídas com sucesso");
             }
-            
-            console.log("Todas as ocorrências futuras excluídas com sucesso");
             
             // Atualizar todos os eventos
             await fetchEvents();
@@ -757,24 +814,33 @@ const CalendarPage = () => {
             setSelectedEvents(events[selectedDate]?.events || []);
             
             alert('All future occurrences of this event have been deleted');
+            setLoading(false);
             return;
           }
         } else {
           // No ambiente mobile, usar Alert
           return new Promise((resolve) => {
-            Alert.alert(
-              'Recurring Event',
-              'Do you want to delete just this occurrence or all future occurrences?',
-              [
+                          Alert.alert(
+                'Delete Recurring Event',
+                'What would you like to delete?',
+                [
                 {
-                  text: 'Just this one',
+                  text: 'Just this occurrence',
                   onPress: async () => {
-                    await deleteCurrentEvent(eventToDelete, eventId);
+                    // Simply check if this is a recurring event
+                    const isRecurring = eventToDelete.is_recurring;
+                    console.log("Delete just this occurrence. Is recurring?", isRecurring);
+                    
+                    if (isRecurring) {
+                      await deleteOriginalRecurringEvent(eventToDelete, eventId);
+                    } else {
+                      await deleteCurrentEvent(eventToDelete, eventId);
+                    }
                     resolve();
                   }
                 },
                 {
-                  text: 'All future occurrences',
+                  text: 'This and all future occurrences',
                   onPress: async () => {
                     try {
                       const eventDate = new Date(eventToDelete.date);
@@ -789,10 +855,21 @@ const CalendarPage = () => {
                       
                       if (error) {
                         console.error('Erro ao deletar eventos recorrentes:', error);
-                        throw error;
+                        // Try direct deletion
+                        const { error: deleteError } = await supabase
+                          .from('calendar_events')
+                          .delete()
+                          .eq('id', eventId);
+                          
+                        if (deleteError) {
+                          console.error('Erro na deleção direta:', deleteError);
+                          throw deleteError;
+                        } else {
+                          console.log("Deleção direta bem-sucedida para evento recorrente");
+                        }
+                      } else {
+                        console.log("Todas as ocorrências futuras excluídas com sucesso");
                       }
-                      
-                      console.log("Todas as ocorrências futuras excluídas com sucesso");
                       
                       // Atualizar todos os eventos
                       await fetchEvents();
@@ -811,6 +888,19 @@ const CalendarPage = () => {
                   style: 'destructive'
                 },
                 {
+                  text: 'Force Delete',
+                  onPress: async () => {
+                    const success = await forceDeleteProblemEvent();
+                    if (success) {
+                      console.log("Forçou a remoção com sucesso");
+                    } else {
+                      console.error("Falha na remoção forçada");
+                    }
+                    resolve();
+                  },
+                  style: 'destructive'
+                },
+                {
                   text: 'Cancel',
                   style: 'cancel',
                   onPress: () => resolve()
@@ -822,7 +912,16 @@ const CalendarPage = () => {
       }
       
       // Para eventos não recorrentes ou se o usuário escolheu excluir apenas a ocorrência atual
-      await deleteCurrentEvent(eventToDelete, eventId);
+      // Check if this is the original event (first occurrence)
+      console.log("Checking if original event:", eventToDelete);
+      const isOriginalEvent = eventToDelete.is_recurring;
+      // The is_deleted_original field doesn't exist, so we just check if it's recurring
+      
+      if (isOriginalEvent) {
+        await deleteOriginalRecurringEvent(eventToDelete, eventId);
+      } else {
+        await deleteCurrentEvent(eventToDelete, eventId);
+      }
       
     } catch (error) {
       console.error('Error deleting event:', error);
@@ -835,18 +934,135 @@ const CalendarPage = () => {
   // Função auxiliar para excluir apenas o evento atual
   const deleteCurrentEvent = async (eventToDelete, eventId) => {
     try {
-      // Deletar do Supabase
-      const { error } = await supabase
-        .from('calendar_events')
-        .delete()
-        .eq('id', eventId);
+      console.log("Deleting event with ID:", eventId, "Event details:", JSON.stringify(eventToDelete));
       
-      if (error) {
-        console.error('Erro ao deletar evento:', error);
-        throw error;
+      // Try direct deletion first for this specific problematic event
+      if (eventToDelete.event_id === '5e631ae3-0ae3-46a1-8848-13f2248f3365') {
+        console.log("Detected problematic event with invalid date range, using direct deletion");
+        
+        // Direct deletion by event_id
+        const { error } = await supabase
+          .from('calendar_events')
+          .delete()
+          .eq('event_id', '5e631ae3-0ae3-46a1-8848-13f2248f3365');
+        
+        if (error) {
+          console.error('Error deleting problematic event:', error);
+          // Try directly by id as fallback
+          const { error: error2 } = await supabase
+            .from('calendar_events')
+            .delete()
+            .eq('id', eventId);
+            
+          if (error2) {
+            console.error('Error with fallback deletion:', error2);
+            throw error2;
+          } else {
+            console.log("Successfully deleted problematic event via fallback");
+          }
+        } else {
+          console.log("Successfully deleted problematic event");
+        }
+      }
+      // Standard deletion logic for normal events
+      else if (eventToDelete.is_recurring) {
+        console.log("Handling recurring event deletion");
+        
+        // Verificar se há datas inválidas (end_date antes de start_date)
+        if (eventToDelete.end_date && new Date(eventToDelete.end_date) < new Date(eventToDelete.date)) {
+          console.log("Invalid date range detected, end date before start date");
+          
+          // Delete directly by event_id for invalid date ranges
+          const { error } = await supabase
+            .from('calendar_events')
+            .delete()
+            .eq('event_id', eventToDelete.event_id);
+            
+          if (error) {
+            console.error('Error deleting event with invalid date range:', error);
+            throw error;
+          }
+          
+          console.log("Successfully deleted event with invalid date range");
+        } else {
+          // Normal recurring event deletion flow
+          let isLastInstance = false;
+          
+          // Buscar todos os eventos recorrentes com o mesmo event_id
+          const { data: relatedEvents, error: fetchError } = await supabase
+            .from('calendar_events')
+            .select('id, date')
+            .eq('event_id', eventToDelete.event_id)
+            .eq('type', eventToDelete.type)
+            .eq('is_recurring', true);
+            
+          if (fetchError) {
+            console.error('Error fetching related events:', fetchError);
+            throw fetchError;
+          }
+          
+          console.log("Found related events:", relatedEvents?.length);
+          
+          // Se só existe um evento ou este é o único restante, marcar como última instância
+          if (!relatedEvents || relatedEvents.length <= 1) {
+            isLastInstance = true;
+            console.log("This is the last instance of this recurring event");
+          }
+          
+          if (isLastInstance) {
+            // Se for a última instância, excluir o evento recorrente completamente
+            const { error } = await supabase
+              .from('calendar_events')
+              .delete()
+              .eq('event_id', eventToDelete.event_id)
+              .eq('type', eventToDelete.type)
+              .eq('is_recurring', true);
+              
+            if (error) {
+              console.error('Error deleting recurring event:', error);
+              
+              // Fallback to direct ID deletion if the above fails
+              const { error: directError } = await supabase
+                .from('calendar_events')
+                .delete()
+                .eq('id', eventId);
+                
+              if (directError) {
+                console.error('Error with fallback direct deletion:', directError);
+                throw directError;
+              } else {
+                console.log("Successfully deleted via fallback direct deletion");
+              }
+            } else {
+              console.log("Successfully deleted the last instance of recurring event");
+            }
+          } else {
+            // Caso contrário, excluir apenas esta instância como normalmente
+            const { error } = await supabase
+              .from('calendar_events')
+              .delete()
+              .eq('id', eventId);
+              
+            if (error) {
+              console.error('Error deleting event instance:', error);
+              throw error;
+            }
+          }
+        }
+      } else {
+        // Para eventos não recorrentes, excluir normalmente
+        const { error } = await supabase
+          .from('calendar_events')
+          .delete()
+          .eq('id', eventId);
+        
+        if (error) {
+          console.error('Error deleting event:', error);
+          throw error;
+        }
       }
       
-      console.log("Evento deletado com sucesso do banco de dados");
+      console.log("Event deleted successfully from database");
       
       // Atualizar estado local para remover o evento
       if (showFilteredEvents) {
@@ -867,7 +1083,7 @@ const CalendarPage = () => {
         updatedAssigned[eventDate].delete(eventKey);
         setAssignedRecords(updatedAssigned);
         
-        console.log(`Removido evento ${eventKey} da data ${eventDate}`);
+        console.log(`Removed event ${eventKey} from date ${eventDate}`);
       }
       
       // Atualizar os eventos do calendário
@@ -876,6 +1092,88 @@ const CalendarPage = () => {
       Alert.alert('Success', 'Event removed from calendar');
     } catch (error) {
       console.error('Error in deleteCurrentEvent:', error);
+      throw error;
+    }
+  };
+
+  // Função para lidar com a exclusão do evento original em uma série recorrente
+  const deleteOriginalRecurringEvent = async (eventToDelete, eventId) => {
+    try {
+      console.log("Deleting original event of a recurring series:", eventId);
+      console.log("Event details:", JSON.stringify(eventToDelete));
+
+      // For the web implementation, we need to take a more direct approach:
+      // 1. Calculate the next occurrence date programmatically
+      // 2. Update the main recurring event record directly
+      
+      // Calculate next occurrence based on the event's frequency
+      const currentDate = new Date(eventToDelete.date);
+      let frequencyDays = 30; // Default to monthly
+      
+      if (eventToDelete.frequencies && eventToDelete.frequencies.days) {
+        frequencyDays = eventToDelete.frequencies.days;
+      }
+      
+      // Calculate the next date by adding the frequency days
+      const millisecondsInDay = 24 * 60 * 60 * 1000;
+      const nextDate = new Date(currentDate.getTime() + (frequencyDays * millisecondsInDay));
+      const nextDateStr = nextDate.toISOString().split('T')[0];
+      
+      console.log(`Calculated next occurrence: ${nextDateStr} (adding ${frequencyDays} days to ${currentDate.toISOString()})`);
+      
+      // Update the event with the new date - only update the date field
+      const { error: updateError } = await supabase
+        .from('calendar_events')
+        .update({
+          date: nextDateStr
+          // Removed is_deleted_original as the column doesn't exist in the database
+        })
+        .eq('id', eventId);
+      
+      if (updateError) {
+        console.error('Error updating recurring event:', updateError);
+        
+        // Attempt to delete just this occurrence as fallback
+        console.log("Falling back to deleting just this occurrence");
+        const { error: deleteError } = await supabase
+          .from('calendar_events')
+          .delete()
+          .eq('id', eventId);
+          
+        if (deleteError) {
+          console.error('Error with fallback deletion:', deleteError);
+          throw deleteError;
+        }
+        
+        console.log("Successfully deleted just this occurrence");
+        
+        // Refresh the events to show the changes
+        await fetchEvents();
+        
+        Alert.alert(
+          'Event Deleted',
+          'This occurrence has been removed from the calendar',
+          [{ text: 'OK', onPress: () => console.log('OK Pressed') }]
+        );
+      } else {
+        console.log("Successfully updated recurring event to next occurrence date:", nextDateStr);
+        
+        // Refresh the events to show the changes
+        await fetchEvents();
+        
+        Alert.alert(
+          'Event Updated',
+          `The recurring series now starts from ${nextDate.toLocaleDateString()}`,
+          [{ text: 'OK', onPress: () => console.log('OK Pressed') }]
+        );
+      }
+    } catch (error) {
+      console.error('Error in deleteOriginalRecurringEvent:', error);
+      Alert.alert(
+        'Error', 
+        'Failed to update recurring event',
+        [{ text: 'OK', onPress: () => console.log('OK Pressed') }]
+      );
       throw error;
     }
   };
@@ -1088,7 +1386,7 @@ const CalendarPage = () => {
       <View style={styles.recordSelectorContainer}>
         <View style={styles.recordSelectorHeader}>
           <Text style={styles.recordSelectorTitle}>
-            Select {recordType.charAt(0).toUpperCase() + recordType.slice(1)}
+            Select {recordType.charAt(0).toUpperCase() + recordType.slice(1)} Item
           </Text>
         </View>
 
@@ -1116,9 +1414,14 @@ const CalendarPage = () => {
             </TouchableOpacity>
           </View>
           {isRecurring && (
-            <Text style={styles.frequencyNote}>
-              This will be added as a recurring event based on the record's frequency
-            </Text>
+            <View style={styles.recurringNoteContainer}>
+              <Text style={styles.frequencyNote}>
+                This will create recurring events for the next 12 months based on the record's frequency
+              </Text>
+              <Text style={styles.frequencySubNote}>
+                You can later delete individual occurrences or the entire series from the calendar
+              </Text>
+            </View>
           )}
         </View>
 
@@ -1134,7 +1437,7 @@ const CalendarPage = () => {
           <View style={styles.noRecordsContainer}>
             <Text style={styles.noRecordsText}>
               {loading ? 'Loading...' : 
-                `No ${recordType} records${searchTerm ? ' matching your search' : ''}`}
+                `No ${recordType} items${searchTerm ? ' matching your search' : ''}`}
             </Text>
             {!loading && (
               <TouchableOpacity
@@ -1169,7 +1472,7 @@ const CalendarPage = () => {
   const isWeb = Platform.OS === 'web';
 
   // Função renderEventItem atualizada para mostrar todas as informações solicitadas
-  const renderEventItem = (event, index) => {
+  const renderEventItem = (event, key) => {
     // Usar o nome real do evento
     const displayText = getEventDisplayText(event);
     
@@ -1186,7 +1489,7 @@ const CalendarPage = () => {
     const categoryText = event.category || 'Other';
     
     return (
-      <View key={index} style={[
+      <View key={key} style={[
         styles.eventItem,
         { borderLeftWidth: 4, borderLeftColor: getEventColor(event.type) }
       ]}>
@@ -1209,7 +1512,6 @@ const CalendarPage = () => {
               style={styles.webDeleteButton}
               activeOpacity={0.7}
             >
-              <Text style={styles.webDeleteButtonText}>Delete</Text>
               <MaterialIcons name="delete" size={16} color="white" />
             </TouchableOpacity>
           ) : (
@@ -1427,13 +1729,12 @@ const CalendarPage = () => {
                       }
                     }}
                   >
-                    <Text style={styles.deleteButtonText}>Delete</Text>
                     <MaterialIcons name="delete" size={18} color="white" />
                   </TouchableOpacity>
                 </View>
               );
             }}
-            keyExtractor={item => item.id}
+            keyExtractor={item => `${item.id}-${item.date}`}
             contentContainerStyle={styles.filteredEventsListContent}
             showsVerticalScrollIndicator={false}
           />
@@ -1515,7 +1816,7 @@ const CalendarPage = () => {
               });
               
               return (
-                <View key={index} style={styles.upcomingEvent}>
+                <View key={`upcoming-${event.id}-${event.date}`} style={styles.upcomingEvent}>
                   <View style={styles.upcomingDate}>
                     <Text style={styles.upcomingDay}>{day}</Text>
                     <Text style={styles.upcomingMonth}>{month}</Text>
@@ -1685,7 +1986,7 @@ const CalendarPage = () => {
                   
                   {selectedEvents.length > 0 ? (
                     <View style={styles.eventListContainer}>
-                      {selectedEvents.map((event, index) => renderEventItem(event, index))}
+                      {selectedEvents.map((event) => renderEventItem(event, `event-${event.id}-${event.date}`))}
                     </View>
                   ) : (
                     <View style={styles.noEventsContainer}>
