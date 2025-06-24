@@ -1,53 +1,53 @@
-import React, { useState, useEffect } from 'react'; // Import de componentes react
-import { View, Text, TextInput, TouchableOpacity, Modal, FlatList, ActivityIndicator, Image } from 'react-native'; // Import de componentes visuais do React Native
-import { supabase } from '../../Supabase'; // Import da Database (supabae)
-import styles from '../Styles/AccountPageStyles/RegisterPageStyle'; // Import da estilização para o Register
-import { isEmailValid, isPhoneValid, isPasswordValid, isFieldNotEmpty, isNameValid } from '../Utility/Validations'; // Import das validações para os campos
-import Alert from '../Utility/Alerts'; // Import do componenete de alertas
-import { fetchCountries } from '../Utility/FetchCountries'; // Import de um função que busca a lista de paises (API DE Paises)
+import React, { useState, useEffect } from 'react'; // Import of React components
+import { View, Text, TextInput, TouchableOpacity, Modal, FlatList, ActivityIndicator, Image } from 'react-native'; // Import of React Native visual components
+import { supabase } from '../../Supabase'; // Import of Database (supabase)
+import styles from '../Styles/AccountPageStyles/RegisterPageStyle'; // Import of styling for Register
+import { isEmailValid, isPhoneValid, isPasswordValid, isFieldNotEmpty, isNameValid } from '../Utility/Validations'; // Import of validations for fields
+import Alert from '../Utility/Alerts'; // Import of alert component
+import { fetchCountries } from '../Utility/FetchCountries'; // Import of function that fetches the list of countries (Countries API)
 
-// Cria o componente RegiserPage. O Navigation é usado para trocar de página
+// Creates the RegisterPage component. Navigation is used to switch pages
 const RegisterPage = ({ navigation }) => {   
 
-  // const X - Cria uma varivavel/constante
-  // set X - Função usada para mudar o valor da variavel
-  // UseState - Componente do React usado para atualizar a interface/front-end (ele que cria o "set X")
+  // const X - Creates a variable/constant
+  // set X - Function used to change the variable value
+  // useState - React component used to update the interface/front-end (it creates the "set X")
 
-  // Componentes/Elementos para a criação da conta do user.
-  const [phone, setPhone] = useState(''); // Telefone
-  const [name, setName] = useState(''); // Nome
+  // Components/Elements for user account creation
+  const [phone, setPhone] = useState(''); // Phone
+  const [name, setName] = useState(''); // Name
   const [email, setEmail] = useState(''); // Email
   const [password, setPassword] = useState(''); // Password
-  const [confirmPassword, setConfirmPassword] = useState(''); // Confirmação da password
-  const [region, setRegion] = useState(''); // Região/Pais
-  const [countries, setCountries] = useState([]); // Define os paises na pesquisa
-  const [filteredCountries, setFilteredCountries] = useState([]); // Define os paises filtrados 
-  const [isLoading, setIsLoading] = useState(false); // Desativa o botão de register se uma operação tiver a decorrer
+  const [confirmPassword, setConfirmPassword] = useState(''); // Password confirmation
+  const [region, setRegion] = useState(''); // Region/Country
+  const [countries, setCountries] = useState([]); // Defines the countries in the search
+  const [filteredCountries, setFilteredCountries] = useState([]); // Defines filtered countries
+  const [isLoading, setIsLoading] = useState(false); // Disables the register button if an operation is in progress
 
-  // Componentes Alertas
-  const [alertMessage, setAlertMessage] = useState(''); // Define a mensagem a ser amostrada
-  const [alertType, setAlertType] = useState(''); // Define o tipo de alerta
+  // Alert Components
+  const [alertMessage, setAlertMessage] = useState(''); // Defines the message to be shown
+  const [alertType, setAlertType] = useState(''); // Defines the type of alert
   const [showAlert, setShowAlert] = useState(false); 
 
-  // Modal e barra de pesquisa para os paises
+  // Modal and search bar for countries
   const [modalVisible, setModalVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
 
-  // useEffect - usasdo para executar código automaticamente quando a tela carrega ou quando algum valor muda
+  // useEffect - used to execute code automatically when the screen loads or when some value changes
   useEffect(() => {
     const loadCountries = async () => {
-      const countryList = await fetchCountries(); // Busca os paises na API
-      setCountries(countryList); // Salva os paises na variavel
-      setFilteredCountries(countryList); // Começa a lista filtrada com todos os países
+      const countryList = await fetchCountries(); // Fetches countries from the API
+      setCountries(countryList); // Saves countries in the variable
+      setFilteredCountries(countryList); // Starts the filtered list with all countries
     };
 
-    loadCountries(); // Carrega a função acima
+    loadCountries(); // Loads the function above
   }, []); 
 
-  // Função de busca dos paises
+  // Country search function
   const handleSearch = (query) => {
-    setSearchQuery(query); // Atualiza o texto que o user está a procurar
+    setSearchQuery(query); // Updates the text the user is searching for
     setFilteredCountries( 
       countries.filter((country) =>
         country.name.toLowerCase().includes(query.toLowerCase())
@@ -55,17 +55,17 @@ const RegisterPage = ({ navigation }) => {
     );
   };
 
-  // Função para mostrar o alerta
+  // Function to show the alert
   const showAlertMessage = (message, type) => {
-    setAlertMessage(message); // Mostra a mensagem
-    setAlertType(type); // Mostra o tipo de Alerta
-    setShowAlert(true); // Define o alerta como true ou seja , amostra ele.
-    setTimeout(() => setShowAlert(false), 3000); // Fecha o alerta após 3 segundos
+    setAlertMessage(message); // Shows the message
+    setAlertType(type); // Shows the alert type
+    setShowAlert(true); // Sets the alert as true, i.e., shows it
+    setTimeout(() => setShowAlert(false), 3000); // Closes the alert after 3 seconds
   };
 
-  // Função de Register
+  // Register Function
   const handleRegister = async () => {
-    // Faz as validações todas dos campos.
+    // Does all the field validations
     if (
       !isFieldNotEmpty(phone) ||
       !isFieldNotEmpty(name) ||
@@ -106,34 +106,34 @@ const RegisterPage = ({ navigation }) => {
     setIsLoading(true);
 
     try {
-      // Verifica se o email ou telefone já está registrado
+      // Checks if the email or phone is already registered
       const { data: existingUserByEmail  } = await supabase.from('users').select('id').eq('email', email);
       const { data: existingUserByPhone } = await supabase.from('users').select('id').eq('phone', phone);
 
-      // Se ja existir email mostra um aviso
+      // If email already exists, shows a warning
       if (existingUserByEmail?.length > 0) {
         showAlertMessage('A user with this email already exists.', 'error');
         setIsLoading(false);
         return;
       }
-      // Se ja existir o telefone mostra um aviso
+      // If phone already exists, shows a warning
       if (existingUserByPhone?.length > 0) {
         showAlertMessage('A user with this phone number already exists.', 'error');
         setIsLoading(false);
         return;
       }
 
-      // Registra o user no Supabase Auth (Database)
+      // Registers the user in Supabase Auth (Database)
       const { data, error } = await supabase.auth.signUp({ email, password });
 
-      // Em caso de erro ao registrar o user
+      // In case of error when registering the user
       if (error) {
         showAlertMessage(`Error registering: ${error.message}`, 'error');
         setIsLoading(false);
         return;
       }
 
-      // Dados do user recém-criados
+      // Newly created user data
       const user = data.user;
 
       if (!user) {
@@ -142,12 +142,12 @@ const RegisterPage = ({ navigation }) => {
         return;
       }
 
-      // Insere os dados do user na tabela `users`
+      // Inserts user data in the `users` table
       const { error: insertError } = await supabase
         .from('users')
         .insert([{ id: user.id, phone, name, email, password, region }]);
 
-      // Mensagem de alerta em caso de erro 
+      // Alert message in case of error
       if (insertError) {
         showAlertMessage(`Error saving data: ${insertError.message}`, 'error');
         setIsLoading(false);
@@ -156,7 +156,7 @@ const RegisterPage = ({ navigation }) => {
 
       showAlertMessage('Account created successfully!', 'success');
 
-      // Após 1.5 segundos redireciona o user para a página de Login
+      // After 1.5 seconds redirects the user to the Login page
       setTimeout(() => {
         navigation.navigate('Login');
       }, 1500);
@@ -164,14 +164,14 @@ const RegisterPage = ({ navigation }) => {
     } catch (e) {
       console.error('Unexpected error:', e);
       showAlertMessage('An unexpected error occurred. Please try again.', 'error');
-      // Desativa o loading mesmo se der erro. (Finally - executa o código no final apesar de dar erros.)
+      // Deactivates loading even if there's an error (Finally - executes the code at the end despite errors)
     } finally {
       setIsLoading(false);
     }
   };
 
 
-  // "Front-end" do projeto. 
+  // "Front-end" of the project
   return (
     <View style={styles.container}>
       {showAlert && <Alert message={alertMessage} type={alertType} onClose={() => setShowAlert(false)} />}
@@ -241,7 +241,7 @@ const RegisterPage = ({ navigation }) => {
         </View>
       </Modal>
 
-      {/* Botão de Register. Fica desativo se o isLoading for true */}
+      {/* Register Button. It's disabled if isLoading is true */}
       <TouchableOpacity style={styles.button} onPress={handleRegister} disabled={isLoading}>
         <Text style={styles.buttonText}>
           {isLoading ? <ActivityIndicator size="small" color="#FFF" /> : 'Register'}
@@ -249,9 +249,9 @@ const RegisterPage = ({ navigation }) => {
       </TouchableOpacity>
 
       <Text style={styles.logintext}>
-        Ja tem uma conta?{' '}
+        Already have an account?{' '}
         <Text style={styles.loginlink} onPress={() => navigation.navigate('Login')}>
-          Faça Login!
+          Login!
         </Text>
       </Text>
     </View>

@@ -1,30 +1,30 @@
-import React, { useEffect } from 'react'; // Import do React
-import { NavigationContainer } from '@react-navigation/native'; // Import do NavigationContainer 
-import { createStackNavigator } from '@react-navigation/stack'; // Import do Stack.Navigator
-import { Platform } from 'react-native'; // Import do Platform para detectar o ambiente
-import WelcomePage from './source/AccountPages/WelcomePage'; // Import da página Welcome
-import LoginPage from './source/AccountPages/LoginPage'; // Import da página Login
-import RegisterPage from './source/AccountPages/RegisterPage'; // Import da página Register
-import MainPagesNavigator from './source/MainPagesNavigator'; // Import do Navigator das Main Pages
-import { cleanupDuplicateCurrencyPreferences } from './source/Utility/MainQueries'; // Import da função de limpeza
+import React, { useEffect } from 'react'; // React import
+import { NavigationContainer } from '@react-navigation/native'; // NavigationContainer import
+import { createStackNavigator } from '@react-navigation/stack'; // Stack.Navigator import
+import { Platform } from 'react-native'; // Platform import to detect environment
+import WelcomePage from './source/AccountPages/WelcomePage'; // Welcome page import
+import LoginPage from './source/AccountPages/LoginPage'; // Login page import
+import RegisterPage from './source/AccountPages/RegisterPage'; // Register page import
+import MainPagesNavigator from './source/MainPagesNavigator'; // Main Pages Navigator import
+import { cleanupDuplicateCurrencyPreferences } from './source/Utility/MainQueries'; // Cleanup function import
 
 const Stack = createStackNavigator();
 
-// Polyfill para corrigir problemas de acessibilidade com aria-hidden no React Native Web
+// Polyfill to fix accessibility issues with aria-hidden in React Native Web
 const setupWebAccessibility = () => {
   if (Platform.OS === 'web') {
-    // Remove focus de elementos escondidos por aria-hidden
+    // Remove focus from elements hidden by aria-hidden
     const originalSetAttribute = Element.prototype.setAttribute;
     Element.prototype.setAttribute = function(name, value) {
-      // Se estamos definindo aria-hidden="true" em um elemento
+      // If we're setting aria-hidden="true" on an element
       if (name === 'aria-hidden' && value === 'true') {
-        // Verificar se este elemento contém algum elemento focável e remover o foco
+        // Check if this element contains any focusable element and remove focus
         setTimeout(() => {
           const focusableElements = this.querySelectorAll(
             'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
           );
           if (focusableElements.length) {
-            // Remover o foco de todos os elementos focáveis no elemento com aria-hidden
+            // Remove focus from all focusable elements in the element with aria-hidden
             focusableElements.forEach(el => {
               if (document.activeElement === el) {
                 el.blur();
@@ -33,7 +33,7 @@ const setupWebAccessibility = () => {
           }
         }, 0);
       }
-      // Chamar a implementação original
+      // Call the original implementation
       return originalSetAttribute.call(this, name, value);
     };
   }
@@ -48,7 +48,7 @@ export default function App() {
         // Clean up any duplicate currency preferences
         await cleanupDuplicateCurrencyPreferences();
         
-        // Configurar correções de acessibilidade para web
+        // Set up accessibility fixes for web
         setupWebAccessibility();
       } catch (error) {
         console.error('Error during app initialization:', error);
@@ -59,18 +59,18 @@ export default function App() {
   }, []);
 
   return (
-    // É o componente responsavel pela navegação no aplicativo. Sem ele o projeto não funciona.
+    // This is the component responsible for navigation in the application. Without it, the project doesn't work.
     <NavigationContainer>  
-      <Stack.Navigator // Tipo de navegação quem faz as telas ficarem empilhadas como "cartas".
-        // Configurações da Tela.
+      <Stack.Navigator // Type of navigation that makes screens stack like "cards"
+        // Screen configurations
         screenOptions={{
           headerShown: false,
           animationTypeForReplace: 'push',
           animationEnabled: true,
         }}
       >
-        {/*Stack.Screen name = "Name": Define o nome do Screen, semelhante a atribuir um "id" em html*/}
-        {/*Component = {Page}: Declara que página o Stack.Screen está associado*/}
+        {/*Stack.Screen name = "Name": Defines the Screen name, similar to assigning an "id" in html*/}
+        {/*Component = {Page}: Declares which page the Stack.Screen is associated with*/}
         <Stack.Screen name="Welcome" component={WelcomePage} /> 
         <Stack.Screen name="Login" component={LoginPage} />
         <Stack.Screen name="Register" component={RegisterPage} />

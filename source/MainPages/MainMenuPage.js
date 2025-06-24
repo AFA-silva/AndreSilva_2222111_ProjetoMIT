@@ -17,35 +17,35 @@ import {
   fetchUserCurrencyPreference
 } from '../Utility/MainQueries';
 
-// Sistema de log centralizado para evitar repetições
+// Centralized log system to avoid repetitions
 const logManager = {
   lastLogs: {},
   debounceTimeouts: {},
   logCount: {},
   
-  // Log com controle de repetição
+  // Log with repetition control
   log: function(key, message, force = false) {
     const now = Date.now();
     const lastTime = this.lastLogs[key] || 0;
     const count = this.logCount[key] || 0;
     
-    // Evitar logs repetidos em menos de 2 segundos
+    // Avoid repeated logs in less than 2 seconds
     if (force || now - lastTime > 2000) {
-      // Se houve logs repetidos suprimidos, mostrar o contador
+      // If there were suppressed repeated logs, show the counter
       if (count > 0) {
-        console.log(`[${key}] Mensagem anterior repetida ${count} vezes`);
+        console.log(`[${key}] Previous message repeated ${count} times`);
         this.logCount[key] = 0;
       }
       
       console.log(`[${key}] ${message}`);
       this.lastLogs[key] = now;
     } else {
-      // Incrementar contador de logs suprimidos
+      // Increment suppressed logs counter
       this.logCount[key] = count + 1;
     }
   },
   
-  // Log com debounce (agrupa logs em um intervalo)
+  // Log with debounce (groups logs in an interval)
   debounce: function(key, message, delay = 300) {
     clearTimeout(this.debounceTimeouts[key]);
     this.debounceTimeouts[key] = setTimeout(() => {
@@ -53,20 +53,20 @@ const logManager = {
     }, delay);
   },
   
-  // Log de erro sempre exibido
+  // Error log always displayed
   error: function(key, message, error) {
-    console.error(`[ERRO - ${key}] ${message}`, error);
+    console.error(`[ERROR - ${key}] ${message}`, error);
   }
 };
 
 const MainMenuPage = ({ navigation }) => {
-  // Estados para armazenar dados do dashboard
+  // States to store dashboard data
   const [okCount, setOkCount] = useState(0);
   const [warningCount, setWarningCount] = useState(0);
   const [problemCount, setProblemCount] = useState(0);
   const [todayCount, setTodayCount] = useState(0);
   const [availableMoney, setAvailableMoney] = useState(0);
-  const [usagePercentage, setUsagePercentage] = useState(0); // Iniciar com 0%
+  const [usagePercentage, setUsagePercentage] = useState(0); // Start with 0%
   const [savingsAmount, setSavingsAmount] = useState(0);
   const [totalIncome, setTotalIncome] = useState(0);
   const [totalExpenses, setTotalExpenses] = useState(0);
@@ -78,7 +78,7 @@ const MainMenuPage = ({ navigation }) => {
   const [userCurrency, setUserCurrency] = useState(null);
   const [error, setError] = useState(null);
   
-  // Rastreador de operações para evitar chamadas duplicadas
+  // Operations tracker to avoid duplicate calls
   const operationsInProgress = useRef(new Set()).current;
 
   // Add new state for modal accessibility
@@ -91,33 +91,33 @@ const MainMenuPage = ({ navigation }) => {
   const [lastLoadTime, setLastLoadTime] = useState(0);
   const CACHE_DURATION = 30000; // 30 seconds cache
 
-  // Layout sections para renderizar na FlatList
+  // Layout sections to render in FlatList
   const sections = [
     { key: 'netIncome', type: 'netIncome' },
     { key: 'goalStatus', type: 'goalStatus' }
   ];
 
-  // Efeito para carregar dados ao montar o componente e garantir que a moeda correta seja usada
+  // Effect to load data when component mounts and ensure the correct currency is used
   useEffect(() => {
-    // Identificador único para esta instância do componente
+    // Unique identifier for this component instance
     const componentId = `MainMenu_${Date.now()}`;
-    logManager.log('Lifecycle', `Componente montado [ID: ${componentId}]`, true);
+    logManager.log('Lifecycle', `Component mounted [ID: ${componentId}]`, true);
     
-    // Inicialização de dados com controle para evitar chamadas duplicadas
+    // Data initialization with control to avoid duplicate calls
     const loadData = async () => {
       if (operationsInProgress.has('initialLoad')) {
-        logManager.log('Inicialização', 'Carregamento inicial já em andamento, ignorando chamada duplicada');
+        logManager.log('Initialization', 'Initial loading already in progress, ignoring duplicate call');
         return;
       }
       
       operationsInProgress.add('initialLoad');
-      logManager.log('Inicialização', 'Iniciando carregamento inicial de dados', true);
+      logManager.log('Initialization', 'Starting initial data loading', true);
       
       try {
         await loadSavedCurrency();
-        await loadDashboardData(true); // true indica carregamento inicial
+        await loadDashboardData(true); // true indicates initial loading
       } catch (error) {
-        logManager.error('Inicialização', 'Erro ao inicializar moeda', error);
+        logManager.error('Initialization', 'Error initializing currency', error);
         loadDashboardData(true);
       } finally {
         operationsInProgress.delete('initialLoad');
@@ -126,10 +126,10 @@ const MainMenuPage = ({ navigation }) => {
     
     loadData();
     
-    // Carregar moeda do usuário diretamente da base de dados
+    // Load user currency directly from the database
     const loadUserCurrency = async () => {
       if (operationsInProgress.has('loadCurrency')) {
-        logManager.log('Moeda', 'Carregamento de moeda já em andamento');
+        logManager.log('Currency', 'Currency loading already in progress');
         return;
       }
       
@@ -151,11 +151,11 @@ const MainMenuPage = ({ navigation }) => {
               name: data.actual_currency
             };
             setUserCurrency(currencyInfo);
-            logManager.log('Moeda', `Moeda carregada diretamente da base: ${currencyInfo.code}`, true);
+            logManager.log('Currency', `Currency loaded directly from database: ${currencyInfo.code}`, true);
           }
         }
       } catch (error) {
-        logManager.error('Moeda', 'Erro ao carregar moeda do usuário', error);
+        logManager.error('Currency', 'Error loading user currency', error);
       } finally {
         operationsInProgress.delete('loadCurrency');
       }
@@ -163,42 +163,42 @@ const MainMenuPage = ({ navigation }) => {
     
     loadUserCurrency();
     
-    // Adicionar listener para mudanças de moeda
+    // Add listener for currency changes
     const handleCurrencyChange = (newCurrency) => {
       if (!newCurrency) return;
       
-      logManager.log('Moeda', `Moeda alterada para: ${newCurrency.code}`, true);
+      logManager.log('Currency', `Currency changed to: ${newCurrency.code}`, true);
       setUserCurrency(newCurrency);
       setRefreshKey(prev => prev + 1);
     };
     
-    // Registrar listener de moeda
+    // Register currency listener
     addCurrencyChangeListener(handleCurrencyChange);
     
-    // Adicionar listener de foco com debounce para evitar recarregamentos excessivos
+    // Add focus listener with debounce to avoid excessive reloads
     let focusDebounceTimeout;
     const unsubscribe = navigation.addListener('focus', () => {
       clearTimeout(focusDebounceTimeout);
       focusDebounceTimeout = setTimeout(() => {
         if (!loading && !operationsInProgress.has('loadDashboard')) {
-          logManager.log('Navegação', 'Tela recebeu foco, recarregando dados', true);
+          logManager.log('Navigation', 'Screen received focus, reloading data', true);
           loadDashboardData();
         } else {
-          logManager.log('Navegação', 'Tela recebeu foco, mas dados já estão sendo carregados');
+          logManager.log('Navigation', 'Screen received focus, but data is already being loaded');
         }
-      }, 300); // Debounce de 300ms para evitar múltiplas chamadas
+      }, 300); // 300ms debounce to avoid multiple calls
     });
     
-    // Remover listeners ao desmontar
+    // Remove listeners when unmounting
     return () => {
-      logManager.log('Lifecycle', `Componente desmontado [ID: ${componentId}]`, true);
+      logManager.log('Lifecycle', `Component unmounted [ID: ${componentId}]`, true);
       unsubscribe();
       removeCurrencyChangeListener(handleCurrencyChange);
       clearTimeout(focusDebounceTimeout);
     };
   }, [navigation]);
 
-  // Função principal para carregar todos os dados do dashboard
+  // Main function to load all dashboard data
   const loadDashboardData = async (isInitialLoad = false) => {
     // Check if cache is still valid
     const now = Date.now();
@@ -208,7 +208,7 @@ const MainMenuPage = ({ navigation }) => {
     }
     
     if (loading || operationsInProgress.has('loadDashboard')) {
-      logManager.log('Dashboard', 'Já está carregando dados, ignorando chamada duplicada');
+      logManager.log('Dashboard', 'Data is already being loaded, ignoring duplicate call');
       return;
     }
     
@@ -217,30 +217,30 @@ const MainMenuPage = ({ navigation }) => {
     setError(null);
     
     const loadStartTime = Date.now();
-    logManager.log('Dashboard', `${isInitialLoad ? 'Carregamento inicial' : 'Atualizando'} dados do dashboard`, true);
+    logManager.log('Dashboard', `${isInitialLoad ? 'Initial loading' : 'Updating'} dashboard data`, true);
     
     // Reduce safety timeout to 5 seconds
     const safetyTimeout = setTimeout(() => {
-      logManager.log('Dashboard', 'Tempo limite de carregamento atingido (5s), forçando reset', true);
+      logManager.log('Dashboard', 'Timeout reached (5s), forcing reset', true);
       setLoading(false);
-      setError('Tempo limite de carregamento excedido');
+      setError('Timeout reached');
       operationsInProgress.delete('loadDashboard');
     }, 5000);
     
     try {
-      // 1. Verificar autenticação usando a função de MainQueries - use Promise.all for parallel loading
+      // 1. Verify authentication using the MainQueries function - use Promise.all for parallel loading
       const sessionPromise = getSession();
       
       // Start loading goals and financial data in parallel when possible
       const session = await sessionPromise;
       if (!session || !session.session?.user) {
-        logManager.log('Autenticação', 'Usuário não autenticado', true);
-        setError('Usuário não autenticado');
+        logManager.log('Authentication', 'User not authenticated', true);
+        setError('User not authenticated');
         return;
       }
       
       const userId = session.session.user.id;
-      logManager.debounce('Autenticação', `Usuário autenticado: ${userId.substr(0, 8)}...`);
+      logManager.debounce('Authentication', `User authenticated: ${userId.substr(0, 8)}...`);
       
       // 2. Load goals and financial data in parallel
       const [goalsData, currencyData] = await Promise.all([
@@ -264,17 +264,17 @@ const MainMenuPage = ({ navigation }) => {
       
       const loadEndTime = Date.now();
       const loadTime = (loadEndTime - loadStartTime) / 1000;
-      logManager.log('Dashboard', `Carregamento concluído em ${loadTime.toFixed(2)}s`, true);
+      logManager.log('Dashboard', `Loading completed in ${loadTime.toFixed(2)}s`, true);
       
       // Update cache timestamp
       setLastLoadTime(now);
       
-      // Incrementar refreshKey para forçar atualização do componente GaugeChart
+      // Increment refreshKey to force GaugeChart update
       setRefreshKey(prevKey => prevKey + 1);
       
     } catch (error) {
-      logManager.error('Dashboard', 'Erro ao carregar dados do dashboard', error);
-      setError(`Erro ao carregar dados: ${error.message}`);
+      logManager.error('Dashboard', 'Error loading dashboard data', error);
+      setError(`Error loading data: ${error.message}`);
     } finally {
       clearTimeout(safetyTimeout);
       setLoading(false);
@@ -282,30 +282,30 @@ const MainMenuPage = ({ navigation }) => {
     }
   };
   
-  // Função para carregar goals e calcular estatísticas
+  // Function to load goals and calculate statistics
   const loadGoals = async (userId) => {
     try {
       if (operationsInProgress.has('loadGoals')) {
-        logManager.log('Goals', 'Carregamento de goals já em andamento');
+        logManager.log('Goals', 'Loading goals already in progress');
         return [];
       }
       
       operationsInProgress.add('loadGoals');
-      logManager.log('Goals', 'Carregando goals');
+      logManager.log('Goals', 'Loading goals');
       
-      // Usar a função centralizada de consulta em vez da consulta direta
+      // Use the centralized query function instead of direct query
       const goals = await fetchGoalsByUser(userId);
       
       if (!goals) {
-        logManager.log('Goals', 'Nenhum goal encontrado ou ocorreu um erro');
+        logManager.log('Goals', 'No goal found or error occurred');
         setGoals([]);
         return [];
       }
       
       setGoals(goals);
-      logManager.log('Goals', `${goals.length} goals carregados`);
+      logManager.log('Goals', `${goals.length} goals loaded`);
       
-      // Calcular contadores de status
+      // Calculate status counters
       let ok = 0, warnings = 0, problems = 0, today = 0;
       
       if (goals.length > 0) {
@@ -317,16 +317,16 @@ const MainMenuPage = ({ navigation }) => {
           else if (status === 1) ok++;
         });
         
-        logManager.debounce('Goals', `Distribuição: ${ok} ok, ${warnings} avisos, ${problems} problemas, ${today} hoje`);
+        logManager.debounce('Goals', `Distribution: ${ok} ok, ${warnings} warnings, ${problems} problems, ${today} today`);
       }
       
-      // Atualizar contadores
+      // Update counters
       setOkCount(ok);
       setWarningCount(warnings);
       setProblemCount(problems);
       setTodayCount(today);
       
-      // Determinar status dominante
+      // Determine dominant status
       let dominantStatus = 'achievable'; // Default
       
       if (problems > 0) {
@@ -340,28 +340,28 @@ const MainMenuPage = ({ navigation }) => {
       }
       
       setDominantGoalStatus(dominantStatus);
-      logManager.debounce('Goals', `Status dominante: ${dominantStatus}`);
+      logManager.debounce('Goals', `Dominant status: ${dominantStatus}`);
       
       return goals;
     } catch (error) {
-      logManager.error('Goals', 'Erro ao carregar goals', error);
-      setError(`Erro ao carregar metas: ${error.message}`);
+      logManager.error('Goals', 'Error loading goals', error);
+      setError(`Error loading goals: ${error.message}`);
       return [];
     } finally {
       operationsInProgress.delete('loadGoals');
     }
   };
   
-  // Função para carregar dados financeiros
+  // Function to load financial data
   const loadFinancialData = async (userId, userCurrency, goalsData) => {
     try {
       if (operationsInProgress.has('loadFinancial')) {
-        logManager.log('Financial', 'Carregamento financeiro já em andamento');
+        logManager.log('Financial', 'Financial loading already in progress');
         return { income: 0, expenses: 0 };
       }
       
       operationsInProgress.add('loadFinancial');
-      logManager.log('Financial', 'Carregando dados financeiros');
+      logManager.log('Financial', 'Loading financial data');
       
       // Load income and expenses in parallel
       const [incomes, expenses] = await Promise.all([
@@ -370,167 +370,167 @@ const MainMenuPage = ({ navigation }) => {
       ]);
       
       if (!incomes) {
-        logManager.log('Financial', 'Nenhum income encontrado');
+        logManager.log('Financial', 'No income found');
       } else {
-        logManager.debounce('Financial', `${incomes.length} incomes carregados`);
+        logManager.debounce('Financial', `${incomes.length} incomes loaded`);
       }
       
       if (!expenses) {
-        logManager.log('Financial', 'Nenhum expense encontrado');
+        logManager.log('Financial', 'No expense found');
       } else {
-        logManager.debounce('Financial', `${expenses.length} expenses carregados`);
+        logManager.debounce('Financial', `${expenses.length} expenses loaded`);
       }
       
-      // 3. Calcular valores financeiros
+      // 3. Calculate financial values
       let incomeSum = 0;
       let expenseSum = 0;
       
-      // Processar incomes
+      // Process incomes
       if (incomes && incomes.length > 0) {
         incomeSum = incomes.reduce((sum, income) => {
-          // Obter o valor e a frequência
+          // Get value and frequency
           let amount = Number(income.amount) || 0;
           const days = income.frequencies?.days || 30;
           
-          // Calcular valor mensal
+          // Calculate monthly value
           const monthlyAmount = (amount * 30) / days;
           
           return sum + monthlyAmount;
         }, 0);
         
-        // Log resumido no final
-        logManager.debounce('Financial', `Income total: ${incomeSum.toFixed(2)} ${userCurrency?.symbol}/mês`);
+        // Log summarized at the end
+        logManager.debounce('Financial', `Income total: ${incomeSum.toFixed(2)} ${userCurrency?.symbol}/month`);
       }
       
-      // Processar expenses
+      // Process expenses
       if (expenses && expenses.length > 0) {
         expenseSum = expenses.reduce((sum, expense) => {
-          // Obter o valor e a frequência
+          // Get value and frequency
           let amount = Number(expense.amount) || 0;
           const days = expense.frequencies?.days || 30;
           
-          // Calcular valor mensal
+          // Calculate monthly value
           const monthlyAmount = (amount * 30) / days;
           
           return sum + monthlyAmount;
         }, 0);
         
-        // Log resumido no final
-        logManager.debounce('Financial', `Expense total: ${expenseSum.toFixed(2)} ${userCurrency?.symbol}/mês`);
+        // Log summarized at the end
+        logManager.debounce('Financial', `Expense total: ${expenseSum.toFixed(2)} ${userCurrency?.symbol}/month`);
       }
       
-      // Calcular balanço e economias
+      // Calculate balance and savings
       const balance = incomeSum - expenseSum;
       const savings = balance > 0 ? balance : 0;
       
-      // Atualizar estados financeiros
+      // Update financial states
       setTotalIncome(incomeSum);
       setTotalExpenses(expenseSum);
       setAvailableMoney(balance);
       setSavingsAmount(savings);
       
-      logManager.log('Financial', `Resumo financeiro: 
+      logManager.log('Financial', `Financial summary: 
   Income: ${incomeSum.toFixed(2)} ${userCurrency?.symbol}
   Expenses: ${expenseSum.toFixed(2)} ${userCurrency?.symbol}
   Balance: ${balance.toFixed(2)} ${userCurrency?.symbol}
   Savings: ${savings.toFixed(2)} ${userCurrency?.symbol}`);
       
-      // Calcular porcentagem de economia alocada para goals
+      // Calculate savings allocation percentage
       await calculateSavingsAllocation(savings, goalsData || [], userId);
       
       return { income: incomeSum, expenses: expenseSum };
     } catch (error) {
-      logManager.error('Financial', 'Erro ao carregar dados financeiros', error);
+      logManager.error('Financial', 'Error loading financial data', error);
       throw error;
     } finally {
       operationsInProgress.delete('loadFinancial');
     }
   };
   
-  // Função para calcular a porcentagem de alocação de economias
+  // Function to calculate savings allocation percentage
   const calculateSavingsAllocation = async (savings, goalsData = [], userId) => {
     try {
       if (operationsInProgress.has('calculateAllocation')) {
-        logManager.log('Allocation', 'Cálculo de alocação já em andamento');
+        logManager.log('Allocation', 'Allocation calculation already in progress');
         return;
       }
       
       operationsInProgress.add('calculateAllocation');
-      logManager.log('Allocation', 'Calculando porcentagem de alocação de economias');
+      logManager.log('Allocation', 'Calculating savings allocation percentage');
       
-      // Se tem goals, soma suas porcentagens de alocação
+      // If there are goals, sum their savings percentages
       if (goalsData && goalsData.length > 0) {
-        // Calcular a soma das porcentagens mínimas de economia de todos os goals
+        // Calculate the sum of minimum savings percentages of all goals
         const totalAllocation = goalsData.reduce((sum, goal) => {
           return sum + (Number(goal.goal_saving_minimum) || 0);
         }, 0);
         
-        // Limitar a 100% no máximo
+        // Limit to 100% maximum
         const finalPercentage = Math.min(totalAllocation, 100);
         setUsagePercentage(finalPercentage);
         
-        logManager.log('Allocation', `Porcentagem de alocação calculada: ${finalPercentage}% (${goalsData.length} goals)`);
+        logManager.log('Allocation', `Calculated allocation percentage: ${finalPercentage}% (${goalsData.length} goals)`);
       } else {
-        // Se não tem goals, a alocação é 0%
+        // If there are no goals, allocation is 0%
         setUsagePercentage(0);
-        logManager.log('Allocation', 'Sem goals definidos, alocação 0%');
+        logManager.log('Allocation', 'No goals defined, allocation 0%');
       }
     } catch (error) {
-      logManager.error('Allocation', 'Erro ao calcular alocação de economias', error);
-      // Se ocorrer erro, alocação é 0%
+      logManager.error('Allocation', 'Error calculating savings allocation', error);
+      // If error occurs, allocation is 0%
       setUsagePercentage(0);
     } finally {
       operationsInProgress.delete('calculateAllocation');
     }
   };
 
-  // Define cores com base nos status dos goals
+  // Define colors based on goals status
   const statusColors = {
-    achievable: '#00B894',  // Verde
-    adjustments: '#FDCB6E', // Amarelo
-    impossible: '#E74C3C',  // Vermelho
-    dueToday: '#0984e3'     // Azul
+    achievable: '#00B894',  // Green
+    adjustments: '#FDCB6E', // Yellow
+    impossible: '#E74C3C',  // Red
+    dueToday: '#0984e3'     // Blue
   };
 
-  // Determinar a cor do gauge com base no status dominante dos goals
+  // Determine gauge color based on dominant goals status
   const getGaugeColor = () => {
-    // Se tiver status dominante de goals e ele for válido, usa essa cor
+    // If there is a dominant goal status and it is valid, use this color
     if (dominantGoalStatus && statusColors[dominantGoalStatus]) {
       return statusColors[dominantGoalStatus];
     }
     
-    // Fallback para o comportamento baseado na porcentagem
+    // Fallback for behavior based on percentage
     if (typeof usagePercentage !== 'number' || isNaN(usagePercentage)) {
-      return statusColors.achievable; // Verde como cor padrão
+      return statusColors.achievable; // Green as default color
     }
     
     if (usagePercentage <= 50) {
-      return statusColors.achievable; // Verde
+      return statusColors.achievable; // Green
     } else if (usagePercentage <= 80) {
-      return statusColors.adjustments; // Amarelo
+      return statusColors.adjustments; // Yellow
     } else if (usagePercentage <= 100) {
-      return statusColors.impossible; // Vermelho
+      return statusColors.impossible; // Red
     } else {
-      return statusColors.dueToday; // Azul
+      return statusColors.dueToday; // Blue
     }
   };
 
-  // Mostrar detalhes financeiros ao clicar no gauge
+  // Show financial details when gauge is clicked
   const handleGaugePress = () => {
     setModalVisible(true);
   };
 
-  // Navegar para a página de goals ao clicar na seção de goals
+  // Navigate to goals page when goals section is clicked
   const navigateToGoals = () => {
     navigation.navigate('GoalsPage');
   };
 
-  // Navegar para o mercado de moedas
+  // Navigate to currency market
   const navigateToCurrencyMarket = () => {
     navigation.navigate('CurrencyMarketPage');
   };
   
-  // Função para atualizar os dados manualmente
+  // Function to manually update data
   const refreshDashboard = () => {
     loadDashboardData();
   };
@@ -544,7 +544,7 @@ const MainMenuPage = ({ navigation }) => {
     });
   };
 
-  // Função para renderizar os itens na FlatList
+  // Function to render items in FlatList
   const renderItem = ({ item }) => {
     switch (item.type) {
       case 'netIncome':
@@ -554,7 +554,7 @@ const MainMenuPage = ({ navigation }) => {
               <Ionicons name="wallet-outline" size={20} color="#FF9800" style={styles.sectionIcon} />
               <Text style={styles.sectionTitle}>Net Income</Text>
               
-              {/* Botão para navegação rápida ao Currency Market */}
+              {/* Quick navigation button to Currency Market */}
               <TouchableOpacity 
                 style={styles.currencyButton}
                 onPress={navigateToCurrencyMarket}
@@ -570,14 +570,14 @@ const MainMenuPage = ({ navigation }) => {
                 <Ionicons name="alert-circle-outline" size={40} color="#E74C3C" />
                 <Text style={cardStyles.errorText}>{error}</Text>
                 <TouchableOpacity style={cardStyles.retryButton} onPress={refreshDashboard}>
-                  <Text style={cardStyles.retryText}>Tentar Novamente</Text>
+                  <Text style={cardStyles.retryText}>Try Again</Text>
                 </TouchableOpacity>
               </View>
             ) : (
               <View style={cardStyles.card}>
                 <View style={cardStyles.moneyContainer}>
                   <View style={cardStyles.moneyTextContainer}>
-                    <Text style={cardStyles.moneyLabel}>Net Income (Receita Líquida)</Text>
+                    <Text style={cardStyles.moneyLabel}>Net Income (Net Receipt)</Text>
                     <Text style={[
                       cardStyles.moneyValue, 
                       {color: availableMoney >= 0 ? statusColors.achievable : statusColors.impossible}
@@ -747,12 +747,12 @@ const MainMenuPage = ({ navigation }) => {
           >
             {/* Modal content */}
             <Text id="modal-title" style={styles.modalTitle}>
-              Detalhes Financeiros
+              Financial Details
             </Text>
             <View style={styles.financialModal.summaryBox}>
               <View style={styles.financialModal.summaryItem}>
                 <Ionicons name="arrow-down-circle" size={20} color="#00B894" style={styles.financialModal.icon} />
-                <Text style={styles.financialModal.summaryLabel}>Receitas</Text>
+                <Text style={styles.financialModal.summaryLabel}>Incomes</Text>
                 <Text style={styles.financialModal.summaryValue}>{formatCurrency(totalIncome, userCurrency?.symbol)}</Text>
               </View>
               
@@ -760,17 +760,17 @@ const MainMenuPage = ({ navigation }) => {
               
               <View style={styles.financialModal.summaryItem}>
                 <Ionicons name="arrow-up-circle" size={20} color="#E74C3C" style={styles.financialModal.icon} />
-                <Text style={styles.financialModal.summaryLabel}>Despesas</Text>
+                <Text style={styles.financialModal.summaryLabel}>Expenses</Text>
                 <Text style={styles.financialModal.summaryValue}>{formatCurrency(totalExpenses, userCurrency?.symbol)}</Text>
               </View>
             </View>
             
             <View style={styles.financialModal.contentContainer}>
               <View style={styles.financialModal.balanceSection}>
-                <Text style={styles.financialModal.sectionTitle}>Balanço Mensal</Text>
+                <Text style={styles.financialModal.sectionTitle}>Monthly Balance</Text>
                 
                 <View style={styles.financialModal.balanceCard}>
-                  <Text style={styles.financialModal.balanceLabel}>Disponível</Text>
+                  <Text style={styles.financialModal.balanceLabel}>Available</Text>
                   <Text style={[
                     styles.financialModal.balanceValue, 
                     { color: availableMoney >= 0 ? '#00B894' : '#E74C3C' }
@@ -779,7 +779,7 @@ const MainMenuPage = ({ navigation }) => {
               </View>
               
               <View style={styles.financialModal.allocationSection}>
-                <Text style={styles.financialModal.sectionTitle}>Alocação de Economias</Text>
+                <Text style={styles.financialModal.sectionTitle}>Savings Allocation</Text>
                 
                 <View style={styles.financialModal.allocationCard}>
                   <View style={styles.financialModal.allocationHeader}>
@@ -801,12 +801,12 @@ const MainMenuPage = ({ navigation }) => {
                   
                   <Text style={styles.financialModal.allocationDescription}>
                     {usagePercentage <= 50 ? 
-                      'Excelente! Você está economizando de forma sustentável.' : 
+                      'Excellent! You are saving sustainably.' : 
                       usagePercentage <= 80 ? 
-                      'Bom! Sua taxa de economia está adequada.' : 
+                      'Good! Your savings rate is adequate.' : 
                       usagePercentage <= 100 ? 
-                      'Atenção! Você está economizando todo o seu disponível.' : 
-                      'Cuidado! Suas metas de economia excedem seu disponível.'}
+                      'Attention! You are saving all your available.' : 
+                      'Careful! Your savings goals exceed your available.'}
                   </Text>
                 </View>
               </View>
@@ -822,7 +822,7 @@ const MainMenuPage = ({ navigation }) => {
                 end={{ x: 1, y: 0 }}
                 style={styles.financialModal.buttonGradient}
               >
-                <Text style={styles.financialModal.okButtonText}>Fechar</Text>
+                <Text style={styles.financialModal.okButtonText}>Close</Text>
               </LinearGradient>
             </TouchableOpacity>
           </View>

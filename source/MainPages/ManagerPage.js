@@ -68,7 +68,7 @@ const ManagerPage = ({ navigation }) => {
                 <Ionicons name="earth-outline" size={24} color="#FF9800" />
               </View>
               <View>
-                <Text style={styles.buttonText}>Mercado de Moedas</Text>
+                <Text style={styles.buttonText}>Currency Market</Text>
                 <Text style={styles.categoryLabel}>Manage and convert currencies</Text>
               </View>
               <Ionicons name="chevron-forward" size={22} color="#CBD5E0" style={{ marginLeft: 'auto' }} />
@@ -86,7 +86,7 @@ const ManagerPage = ({ navigation }) => {
                 <Ionicons name="trending-up-outline" size={24} color="#718096" />
               </View>
               <View>
-                <Text style={[styles.buttonText, { color: '#718096' }]}>Investimentos</Text>
+                <Text style={[styles.buttonText, { color: '#718096' }]}>Investments</Text>
                 <Text style={styles.categoryLabel}>Coming soon...</Text>
               </View>
             </View>

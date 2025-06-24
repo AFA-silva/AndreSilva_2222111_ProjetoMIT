@@ -30,7 +30,7 @@ import { supabase } from '../../../Supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { fetchUserCurrencyPreference, updateUserCurrencyPreference, convertAllFinancialData } from '../../Utility/MainQueries';
 
-// Adicionar os novos estilos ao objeto styles existente
+// Add new styles to the existing styles object
 Object.assign(styles, {
   loadMoreButton: {
     flexDirection: 'row',
@@ -153,6 +153,7 @@ const CurrencyMarketPage = ({ navigation }) => {
   const [amount, setAmount] = useState('1');
   const [rates, setRates] = useState(null);
   const [currencies, setCurrencies] = useState([]);
+  const [allCurrencies, setAllCurrencies] = useState([]); // Add this state for full currency list
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searching, setSearching] = useState(false);
@@ -472,8 +473,10 @@ const CurrencyMarketPage = ({ navigation }) => {
       const exchangeRates = await fetchLatestRates(baseCurrency);
       setRates(exchangeRates);
       
-      // Buscar lista de moedas suportadas (limitado a currencyLimit moedas)
+      // Buscar lista de moedas suportadas
       const supportedCurrencies = await getSupportedCurrencies();
+      // Store all currencies
+      setAllCurrencies(supportedCurrencies);
       // Limitar para currencyLimit moedas para melhor performance
       setCurrencies(supportedCurrencies.slice(0, currencyLimit));
       
@@ -495,10 +498,10 @@ const CurrencyMarketPage = ({ navigation }) => {
   const loadMoreCurrencies = async () => {
     try {
       setIsLoadingMore(true);
-      const supportedCurrencies = await getSupportedCurrencies();
       const newLimit = currencyLimit + 10;
       setCurrencyLimit(newLimit);
-      setCurrencies(supportedCurrencies.slice(0, newLimit));
+      // Use allCurrencies instead of fetching again
+      setCurrencies(allCurrencies.slice(0, newLimit));
       setIsLoadingMore(false);
     } catch (error) {
       setIsLoadingMore(false);
@@ -759,70 +762,75 @@ const CurrencyMarketPage = ({ navigation }) => {
     setTargetCurrency(temp);
   };
 
-  const filteredCurrencies = currencies.filter(currency => {
-    if (!searchQuery) return true;
+  const filteredCurrencies = React.useMemo(() => {
+    // If searching, filter from all currencies, otherwise use the limited list
+    const sourceList = searchQuery ? allCurrencies : currencies;
     
-    const query = searchQuery.toLowerCase().trim();
-    
-    // Special case for common currency names
-    if (query === 'dollar' && currency.code === 'USD') return true;
-    if (query === 'euro' && currency.code === 'EUR') return true;
-    if (query === 'pound' && currency.code === 'GBP') return true;
-    if (query === 'yen' && currency.code === 'JPY') return true;
-    
-    // Check if the currency code or name matches
-    const basicMatch = (
-      currency.code.toLowerCase().includes(query) ||
-      (currency.name && currency.name.toLowerCase().includes(query))
-    );
-    
-    if (basicMatch) return true;
-    
-    // Check if any country matches (if countries array exists)
-    if (currency.countries && currency.countries.length > 0) {
-      return currency.countries.some(country => 
-        country.toLowerCase().includes(query)
-      );
-    }
-    
-    return false;
-  })
-  .sort((a, b) => {
-    // Colocar a moeda do usuário no topo
-    if (a.code === userPreferredCurrency) return -1;
-    if (b.code === userPreferredCurrency) return 1;
-    
-    // Colocar moedas salvas depois da moeda do usuário
-    const aIsSaved = savedCurrencies.some(c => c.code === a.code);
-    const bIsSaved = savedCurrencies.some(c => c.code === b.code);
-    
-    if (aIsSaved && !bIsSaved) return -1;
-    if (!aIsSaved && bIsSaved) return 1;
-    
-    // Priorizar correspondências exatas para pesquisas
-    if (searchQuery) {
+    return sourceList.filter(currency => {
+      if (!searchQuery) return true;
+      
       const query = searchQuery.toLowerCase().trim();
-      const aExactMatch = a.code.toLowerCase() === query;
-      const bExactMatch = b.code.toLowerCase() === query;
       
-      if (aExactMatch && !bExactMatch) return -1;
-      if (!aExactMatch && bExactMatch) return 1;
+      // Special case for common currency names
+      if (query === 'dollar' && currency.code === 'USD') return true;
+      if (query === 'euro' && currency.code === 'EUR') return true;
+      if (query === 'pound' && currency.code === 'GBP') return true;
+      if (query === 'yen' && currency.code === 'JPY') return true;
       
-      // Priorizar correspondências que começam com a consulta
-      const aStartsWithMatch = a.code.toLowerCase().startsWith(query);
-      const bStartsWithMatch = b.code.toLowerCase().startsWith(query);
+      // Check if the currency code or name matches
+      const basicMatch = (
+        currency.code.toLowerCase().includes(query) ||
+        (currency.name && currency.name.toLowerCase().includes(query))
+      );
       
-      if (aStartsWithMatch && !bStartsWithMatch) return -1;
-      if (!aStartsWithMatch && bStartsWithMatch) return 1;
-    }
-    
-    // Depois colocar a moeda selecionada
-    if (a.code === baseCurrency) return -1;
-    if (b.code === baseCurrency) return 1;
-    
-    // Finalmente ordenar pelo nome
-    return a.name.localeCompare(b.name);
-  });
+      if (basicMatch) return true;
+      
+      // Check if any country matches (if countries array exists)
+      if (currency.countries && currency.countries.length > 0) {
+        return currency.countries.some(country => 
+          country.toLowerCase().includes(query)
+        );
+      }
+      
+      return false;
+    })
+    .sort((a, b) => {
+      // Colocar a moeda do usuário no topo
+      if (a.code === userPreferredCurrency) return -1;
+      if (b.code === userPreferredCurrency) return 1;
+      
+      // Colocar moedas salvas depois da moeda do usuário
+      const aIsSaved = savedCurrencies.some(c => c.code === a.code);
+      const bIsSaved = savedCurrencies.some(c => c.code === b.code);
+      
+      if (aIsSaved && !bIsSaved) return -1;
+      if (!aIsSaved && bIsSaved) return 1;
+      
+      // Priorizar correspondências exatas para pesquisas
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase().trim();
+        const aExactMatch = a.code.toLowerCase() === query;
+        const bExactMatch = b.code.toLowerCase() === query;
+        
+        if (aExactMatch && !bExactMatch) return -1;
+        if (!aExactMatch && bExactMatch) return 1;
+        
+        // Priorizar correspondências que começam com a consulta
+        const aStartsWithMatch = a.code.toLowerCase().startsWith(query);
+        const bStartsWithMatch = b.code.toLowerCase().startsWith(query);
+        
+        if (aStartsWithMatch && !bStartsWithMatch) return -1;
+        if (!aStartsWithMatch && bStartsWithMatch) return 1;
+      }
+      
+      // Depois colocar a moeda selecionada
+      if (a.code === baseCurrency) return -1;
+      if (b.code === baseCurrency) return 1;
+      
+      // Finalmente ordenar pelo nome
+      return a.name.localeCompare(b.name);
+    });
+  }, [currencies, allCurrencies, searchQuery, userPreferredCurrency, savedCurrencies, baseCurrency]);
 
   // Obter símbolo da moeda
   const getCurrencySymbol = (code) => {
@@ -903,18 +911,18 @@ const CurrencyMarketPage = ({ navigation }) => {
     // Determinar a cor do ícone da moeda baseado no código
     const getIconColor = (code) => {
       const colors = {
-        'USD': '#85bb65', // Verde dólar
-        'EUR': '#0052b4', // Azul europeu
-        'GBP': '#00247d', // Azul britânico
-        'JPY': '#bc002d', // Vermelho japonês
-        'AUD': '#00008b', // Azul australiano
-        'CAD': '#ff0000', // Vermelho canadense
-        'CHF': '#ff0000', // Vermelho suíço
-        'CNY': '#de2910', // Vermelho chinês
-        'BRL': '#009c3b', // Verde brasileiro
+        'USD': '#85bb65', // Dollar green
+        'EUR': '#0052b4', // European blue
+        'GBP': '#00247d', // British blue
+        'JPY': '#bc002d', // Japanese red
+        'AUD': '#00008b', // Australian blue
+        'CAD': '#ff0000', // Canadian red
+        'CHF': '#ff0000', // Swiss red
+        'CNY': '#de2910', // Chinese red
+        'BRL': '#009c3b', // Brazilian green
       };
       
-      return colors[code] || '#FF9800'; // Laranja padrão para moedas sem cor específica
+      return colors[code] || '#FF9800'; // Default orange for currencies without specific color
     };
     
     return (
@@ -934,7 +942,7 @@ const CurrencyMarketPage = ({ navigation }) => {
           <View style={styles.currencyInfo}>
             <View style={[
               styles.currencyIconContainer,
-              { backgroundColor: `${getIconColor(item.code)}22` } // Cor com transparência
+              { backgroundColor: `${getIconColor(item.code)}22` } // Color with transparency
             ]}>
               <Text style={[
                 styles.currencySymbol,
@@ -974,7 +982,7 @@ const CurrencyMarketPage = ({ navigation }) => {
               {amount} {baseCurrency} =
             </Text>
             
-            {/* Botão de salvar moeda */}
+            {/* Save currency button */}
             <TouchableOpacity 
               style={[
                 styles.bookmarkButton,
@@ -1036,45 +1044,45 @@ const CurrencyMarketPage = ({ navigation }) => {
       }) 
     : 'Loading...';
 
-  // Função para salvar uma moeda na lista de favoritos
+  // Function to save a currency to the favorites list
   const saveCurrency = async (currencyToSave) => {
     try {
-      // Verificar se a moeda já está salva
+      // Check if currency is already saved
       const alreadySaved = savedCurrencies.some(c => c.code === currencyToSave.code);
       
       let updatedSavedCurrencies;
       let message;
       
       if (!alreadySaved) {
-        // Adicionar a moeda aos favoritos
+        // Add currency to favorites
         updatedSavedCurrencies = [...savedCurrencies, {
           code: currencyToSave.code,
           symbol: getCurrencySymbol(currencyToSave.code),
           name: currencyToSave.name
         }];
-        message = `${currencyToSave.code} foi adicionada às suas moedas salvas.`;
+        message = `${currencyToSave.code} has been added to your saved currencies.`;
       } else {
-        // Remover a moeda dos favoritos
+        // Remove currency from favorites
         updatedSavedCurrencies = savedCurrencies.filter(c => c.code !== currencyToSave.code);
-        message = `${currencyToSave.code} foi removida das suas moedas salvas.`;
+        message = `${currencyToSave.code} has been removed from your saved currencies.`;
       }
       
-      // Sempre atualizar estado local primeiro para garantir que a UI seja atualizada
+      // Always update local state first to ensure UI is updated
       setSavedCurrencies(updatedSavedCurrencies);
       
-      // Salvar no AsyncStorage
+      // Save to AsyncStorage
       await AsyncStorage.setItem('user_saved_currencies', JSON.stringify(updatedSavedCurrencies));
-      console.log('Moedas salvas atualizadas no AsyncStorage');
+      console.log('Saved currencies updated in AsyncStorage');
       
-      // Mostrar feedback ao usuário
-      Alert.alert('Moeda ' + (alreadySaved ? 'Removida' : 'Salva'), message);
+      // Show feedback to the user
+      Alert.alert('Currency ' + (alreadySaved ? 'Removed' : 'Saved'), message);
     } catch (error) {
-      console.error('Erro ao salvar moeda:', error);
-      Alert.alert('Erro', 'Não foi possível salvar a moeda. Tente novamente.');
+      console.error('Error saving currency:', error);
+      Alert.alert('Error', 'Could not save the currency. Please try again.');
     }
   };
 
-  // Renderizar tela de carregamento
+  // Render loading screen
   if (loading) {
     return (
       <View style={styles.container}>

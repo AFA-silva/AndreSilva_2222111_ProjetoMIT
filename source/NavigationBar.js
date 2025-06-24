@@ -10,15 +10,15 @@ const NavigationBar = () => {
   const route = useRoute();
   const appState = useRef(AppState.currentState);
   
-  // Estado que controla qual tab está ativa
+  // State that controls which tab is active
   const [activeTab, setActiveTab] = useState('MainMenuPage');
   const [isInitialized, setIsInitialized] = useState(false);
-  // Estado de loading para skeleton effect
+  // Loading state for skeleton effect
   const [isLoading, setIsLoading] = useState(true);
-  // Estado para forçar re-renderização
+  // State to force re-rendering
   const [forceRender, setForceRender] = useState(0);
   
-  // Animation values para cada tab - Inicializar com valores fixos
+  // Animation values for each tab - Initialize with fixed values
   const tabAnimations = {
     MainMenuPage: useRef(new Animated.Value(1)).current,
     ManagerPage: useRef(new Animated.Value(0.8)).current,
@@ -31,15 +31,15 @@ const NavigationBar = () => {
 
   // No longer using getCurrentRouteName function
 
-  // Função para fazer refresh da navbar
+  // Function to refresh the navbar
   const refreshNavbar = () => {
     setIsLoading(true);
     
-    // Reset das animações mas mantendo valores visíveis
+    // Reset animations but maintaining visible values
     navbarAnim.setValue(1);
     loadingAnim.setValue(0);
     
-    // Garantir que os valores iniciais sejam visíveis
+    // Ensure that initial values are visible
     const currentActiveTab = 'MainMenuPage'; // Default to MainMenuPage
     setActiveTab(currentActiveTab);
     
@@ -47,17 +47,17 @@ const NavigationBar = () => {
       tabAnimations[tab].setValue(tab === currentActiveTab ? 1 : 0.8);
     });
     
-    // Reiniciar as animações após um pequeno delay
+    // Restart animations after a small delay
     setTimeout(() => {
       initializeNavbar();
     }, 100);
   };
   
-  // Função para inicializar a navbar
+  // Function to initialize the navbar
   const initializeNavbar = () => {
-    // Reduzir o tempo de loading para melhorar a experiência do usuário
+    // Reduce loading time to improve user experience
     setTimeout(() => {
-      // Garantir que todos os botões estejam visíveis, independentemente do estado de loading
+      // Ensure all buttons are visible, regardless of loading state
       const currentActiveTab = 'MainMenuPage'; // Always default to MainMenuPage when initializing
       setActiveTab(currentActiveTab);
       
@@ -68,16 +68,16 @@ const NavigationBar = () => {
       setIsLoading(false);
       setIsInitialized(true);
       
-      // Forçar uma re-renderização para garantir que os estilos sejam aplicados corretamente
+      // Force a re-render to ensure styles are applied correctly
       setForceRender(prev => prev + 1);
     }, 300);
   };
 
-  // Monitora mudanças no estado do aplicativo (foreground, background)
+  // Monitor changes in application state (foreground, background)
   useEffect(() => {
     const subscription = AppState.addEventListener('change', nextAppState => {
       if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
-        // App voltou para o primeiro plano, forçar refresh
+        // App returned to foreground, force refresh
         refreshNavbar();
       }
       appState.current = nextAppState;
@@ -88,15 +88,15 @@ const NavigationBar = () => {
     };
   }, []);
 
-  // Inicialização após a montagem do componente
+  // Initialization after component mounting
   useEffect(() => {
-    // Forçar seleção do Home
+    // Force selection of Home
     setActiveTab('MainMenuPage');
-    // Garantir que todos os botões sejam visíveis inicialmente - sem animação de entrada
+    // Ensure all buttons are visible initially - without entry animation
     Object.keys(tabAnimations).forEach(tab => {
       tabAnimations[tab].setValue(tab === 'MainMenuPage' ? 1 : 0.8);
     });
-    // Iniciar com a navbar visível imediatamente
+    // Start with navbar visible immediately
     navbarAnim.setValue(1);
     // Single optimized timeout to handle initialization
     setTimeout(() => {
@@ -107,7 +107,7 @@ const NavigationBar = () => {
     }, 300);
   }, []);
 
-  // Sincroniza o activeTab com a navegação usando evento de foco
+  // Synchronize activeTab with navigation using focus event
   useFocusEffect(
     React.useCallback(() => {
       const state = navigation.getState();
@@ -124,13 +124,13 @@ const NavigationBar = () => {
     }, [navigation])
   );
 
-  // Função para navegar para uma tab
+  // Function to navigate to a tab
   const navigateToTab = (tabName) => {
     navigation.navigate('MainPages', { screen: tabName });
     setActiveTab(tabName);
   };
 
-  // Renderizar um botão de tab
+  // Render a tab button
   const renderTabButton = (tabName, iconName, label) => {
     const isActive = activeTab === tabName;
     const animValue = tabAnimations[tabName];

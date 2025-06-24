@@ -78,16 +78,16 @@ const LoginPage = ({ navigation }) => {
 
       // Verificação para caso de erro no login
       if (error) {
-        console.error('Erro ao autenticar:', error.message);
-        showAlertMessage('Email ou senha estão incorretos.', 'error');
+        console.error('Error authenticating:', error.message);
+        showAlertMessage('Email or password are incorrect.', 'error');
         return;
       }
 
       // Verifica se `data` existe para validar o login.
       if (data?.user) {
-        console.log('Usuário autenticado:', data);
+        console.log('User authenticated:', data);
 
-        showAlertMessage(`Bem-vindo, ${data.user.email}!`, 'success');
+        showAlertMessage(`Welcome, ${data.user.email}!`, 'success');
 
         // Obtém a sessão para acessar o ID do usuário
         const session = await getSession();
@@ -95,29 +95,29 @@ const LoginPage = ({ navigation }) => {
 
         if (userId) {
           try {
-            console.log('Atualizando email diretamente no banco de dados...');
+            console.log('Updating email directly in the database...');
             const { error: updateError } = await updateUser(userId, { email: data.user.email });
 
             if (updateError) {
-              console.error('Erro ao atualizar email no banco de dados:', updateError.message);
-              showAlertMessage('Erro ao sincronizar email no banco de dados.', 'error');
+              console.error('Error updating email in the database:', updateError.message);
+              showAlertMessage('Error synchronizing email in the database.', 'error');
               return;
             }
 
-            showAlertMessage('Email atualizado com sucesso no banco de dados.', 'success');
+            showAlertMessage('Email successfully updated in the database.', 'success');
           } catch (dbError) {
-            console.error('Erro ao atualizar o email:', dbError.message);
-            showAlertMessage('Erro ao sincronizar dados do usuário.', 'error');
+            console.error('Error updating email:', dbError.message);
+            showAlertMessage('Error synchronizing user data.', 'error');
             return;
           }
         }
 
         // Inicializar as moedas antes de navegar para a tela principal
         try {
-          console.log('Carregando preferências de moeda...');
+          console.log('Loading currency preferences...');
           await loadSavedCurrency();
         } catch (currencyError) {
-          console.error('Erro ao carregar preferências de moeda:', currencyError);
+          console.error('Error loading currency preferences:', currencyError);
           // Continue mesmo com erro de moeda
         }
 
@@ -127,12 +127,12 @@ const LoginPage = ({ navigation }) => {
         }, 1500);
       } else {
         // Se não existir `data.user`, exibe erro
-        showAlertMessage('Ocorreu um problema ao autenticar o usuário.', 'error');
+        showAlertMessage('A problem occurred while authenticating the user.', 'error');
       }
     } catch (exception) {
       // Se o bloco try falhar, captura o erro e exibe uma mensagem
-      console.error('Exceção ao fazer login:', exception);
-      showAlertMessage('Ocorreu um erro. Tente novamente mais tarde.', 'error');
+      console.error('Exception when logging in:', exception);
+      showAlertMessage('An error occurred. Please try again later.', 'error');
     }
   };
 
@@ -145,7 +145,7 @@ const LoginPage = ({ navigation }) => {
       )}
 
       <Text style={styles.title}>Login Account</Text>
-      <Text style={styles.subtitle}>Faça login com suas credenciais</Text>
+      <Text style={styles.subtitle}>Login with your credentials</Text>
 
       <TextInput
         ref={emailInputRef}
@@ -178,14 +178,14 @@ const LoginPage = ({ navigation }) => {
       </TouchableOpacity>
 
       <Text style={styles.registerText}>
-        Não tem uma conta?{' '}
+        Don't have an account?{' '}
         <Text 
           style={styles.registerLink} 
           onPress={() => navigation.navigate('Register')}
           accessibilityRole="link"
           accessibilityLabel="Create account"
         >
-          Crie uma Conta
+          Create an Account
         </Text>
       </Text>
     </View>

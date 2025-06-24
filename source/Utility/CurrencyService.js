@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../../Supabase';
 
-const API_KEY = 'de3d3cc388a2679655798ec7';
+const API_KEY = 'b1a52eae5ec86b3e274823dd';
 const BASE_URL = 'https://v6.exchangerate-api.com/v6';
 
 // No longer using cache expiry management
