@@ -6,6 +6,7 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { MaterialIcons, Ionicons, FontAwesome5, AntDesign } from '@expo/vector-icons';
 import styles from '../Styles/MainPageStyles/CalendarPageStyle';
 import Header from '../Utility/Header';
+import { useAlert } from '../Utility/useAlert';
 
 const CalendarPage = () => {
   // States for calendar and events
@@ -35,6 +36,10 @@ const CalendarPage = () => {
   // State for record type
   const [isRecurring, setIsRecurring] = useState(false);
   
+  // State for user-controlled recurrence
+  const [recurrenceCount, setRecurrenceCount] = useState(1);
+  const [maxRecurrenceAllowed, setMaxRecurrenceAllowed] = useState(30);
+  
   // State for showing filtered events
   const [showFilteredEvents, setShowFilteredEvents] = useState(false);
   const [filteredEventType, setFilteredEventType] = useState('');
@@ -46,7 +51,19 @@ const CalendarPage = () => {
   // State for record type
   const [currentViewMonth, setCurrentViewMonth] = useState(new Date());
   
+  // State for delete confirmation modal
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [eventToDelete, setEventToDelete] = useState(null);
+  const [isRecurringDelete, setIsRecurringDelete] = useState(false);
+  
   const navigation = useNavigation();
+  
+  // Alert Hook
+  const { 
+    showSuccess, 
+    showError,
+    AlertComponent 
+  } = useAlert();
 
   // Get current date for today highlighting
   const currentDate = new Date().toISOString().split('T')[0];
@@ -99,11 +116,26 @@ const CalendarPage = () => {
     ]).start();
   };
 
-  // Helper function to generate recurring dates based on frequency
-  const generateRecurringDates = (startDateStr, endDateStr, frequencyInfo) => {
+  // Helper function to generate recurring dates based on frequency and count
+  const generateRecurringDates = (startDateStr, frequencyInfo, occurrenceCount) => {
+    console.log('📅 generateRecurringDates called with:', {
+      startDateStr,
+      frequencyInfo,
+      occurrenceCount
+    });
+    
     const dates = [];
     const startDate = new Date(startDateStr);
-    const endDate = endDateStr ? new Date(endDateStr) : null;
+    
+    console.log('📅 Parsed start date:', {
+      startDate: startDate.toISOString(),
+      isValidStartDate: !isNaN(startDate.getTime())
+    });
+    
+    if (isNaN(startDate.getTime())) {
+      console.log('❌ Invalid start date, returning empty array');
+      return [];
+    }
     
     // Default to monthly if no frequency info
     let frequencyDays = 30;
@@ -111,44 +143,54 @@ const CalendarPage = () => {
     // If we have frequency info with days, use that
     if (frequencyInfo && frequencyInfo.days) {
       frequencyDays = frequencyInfo.days;
+      console.log('✅ Using frequency from info:', frequencyDays, 'days');
+    } else {
+      console.log('⚠️ No frequency info, using default:', frequencyDays, 'days');
     }
     
     let currentDate = new Date(startDate);
     
     // Add the start date
     dates.push(startDate.toISOString().split('T')[0]);
+    console.log('📅 Added start date:', startDate.toISOString().split('T')[0]);
     
-    // If no end date or invalid end date, return just the start date
-    if (!endDate) return dates;
-    
-    // Generate all dates between start and end based on frequency
-    while (true) {
-      // Simplified approach: always add the exact number of days based on frequency
-      // This maintains consistency regardless of month length
+    // Generate the specified number of additional occurrences
+    for (let i = 1; i < occurrenceCount; i++) {
+      // Calculate next date by adding frequency days
       const millisecondsInDay = 24 * 60 * 60 * 1000;
       const nextDate = new Date(currentDate.getTime() + (frequencyDays * millisecondsInDay));
       currentDate = nextDate;
       
-      // Check if we've gone beyond the end date
-      if (currentDate > endDate) break;
-      
       // Add the date to our list
-      dates.push(currentDate.toISOString().split('T')[0]);
+      const dateStr = currentDate.toISOString().split('T')[0];
+      dates.push(dateStr);
+      
+      if (i <= 3) { // Log first few dates
+        console.log(`📅 Added occurrence ${i + 1}: ${dateStr}`);
+      }
     }
     
+    console.log(`✅ generateRecurringDates completed: ${dates.length} dates generated`);
     return dates;
   };
 
   const fetchEvents = async (selectedMonth = null) => {
     setLoading(true);
+    console.log('🔄 Starting fetchEvents with selectedMonth:', selectedMonth);
+    
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        console.log('❌ No user found in fetchEvents');
+        return;
+      }
+      console.log('✅ User found in fetchEvents:', user.id);
 
       // Inicializar a data atual ou usar o mês selecionado se fornecido
       const now = selectedMonth ? new Date(selectedMonth) : new Date();
       
       // Buscar eventos básicos do calendário
+      console.log('📊 Fetching calendar events from database...');
       const { data: calendarEvents, error } = await supabase
         .from('calendar_events')
         .select(`
@@ -156,12 +198,16 @@ const CalendarPage = () => {
           type,
           date,
           is_recurring,
-          event_id,
-          end_date
+          event_id
         `)
         .eq('user_id', user.id);
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Error fetching calendar events:', error);
+        throw error;
+      }
+      
+      console.log(`✅ Found ${calendarEvents?.length || 0} calendar events`);
 
       // Arrays para armazenar IDs de income e expense para busca posterior
       const incomeIds = [];
@@ -181,8 +227,11 @@ const CalendarPage = () => {
         }
       });
 
-      console.log('Income IDs:', incomeIds);
-      console.log('Expense IDs:', expenseIds);
+      console.log('📊 Event IDs to fetch:', {
+        income: incomeIds.length,
+        expense: expenseIds.length,
+        goal: goalIds.length
+      });
 
       // Buscar detalhes de income e expense
       let incomeDetails = {};
@@ -287,126 +336,99 @@ const CalendarPage = () => {
       
       // Processar cada evento do calendário
       calendarEvents?.forEach(event => {
-        // Lista de datas para processar
-        let datesToProcess = [];
-        
-        // Se for recorrente e tem data final, gerar as datas intermediárias usando a frequência do evento vinculado
-        if (event.is_recurring && event.end_date) {
-          let eventDetails = null;
-          
-          // Obter os detalhes do evento para acessar as informações de frequência
-          if (event.type === 'income') {
-            eventDetails = incomeDetails[event.event_id];
-          } else if (event.type === 'expense') {
-            eventDetails = expenseDetails[event.event_id];
-          } else if (event.type === 'goal') {
-            eventDetails = goalDetails[event.event_id];
-          }
-          
-          // Se tivermos detalhes e frequência, usar para gerar as datas
-          if (eventDetails && eventDetails.frequencies) {
-            datesToProcess = generateRecurringDates(event.date, event.end_date, eventDetails.frequencies);
-            console.log(`Evento recorrente ${event.id}: geradas ${datesToProcess.length} datas entre ${event.date} e ${event.end_date}`);
-          } else {
-            // Se não temos informações de frequência, usar apenas a data original
-            datesToProcess = [event.date];
-          }
-        } else {
-          // Evento não recorrente - usar apenas a data original
-          datesToProcess = [event.date];
+        // Verificação de integridade do evento
+        if (!event || !event.id || !event.date || !event.type) {
+          console.warn('⚠️ Skipping invalid event:', event);
+          return;
         }
         
-        // Enriquecer o evento com detalhes, se disponíveis
-        let details = null;
-        if (event.event_id) {
-          if (event.type === 'income') {
-            details = incomeDetails[event.event_id];
-          } else if (event.type === 'expense') {
-            details = expenseDetails[event.event_id];
-          } else if (event.type === 'goal') {
-            details = goalDetails[event.event_id];
-          }
+        const eventDate = new Date(event.date);
+        
+        // Verificar se a data é válida
+        if (isNaN(eventDate.getTime())) {
+          console.warn('⚠️ Skipping event with invalid date:', event);
+          return;
         }
         
-        // Adicionar detalhes ao evento
-        if (details) {
-          event.name = details.name || '';
-          event.amount = details.amount || 0;
-          event.category = details.categories?.name || '';
-          event.category_id = details.category_id || null;
-          event.frequency_id = details.frequency_id || null;
-          event.frequencies = details.frequencies || null;
-        } else {
-          // Valores padrão se detalhes não estiverem disponíveis
-          event.name = event.type.charAt(0).toUpperCase() + event.type.slice(1) + ' Event';
-          event.amount = 0;
-        }
+        // Verificar se esta data está dentro do intervalo visualizado ou próximo mês
+        const isInCurrentViewPeriod = 
+          (eventDate >= viewMonthStart && eventDate <= nextMonthLastDay);
         
-        // Processar cada data gerada para este evento
-        datesToProcess.forEach(dateStr => {
-          const eventDate = new Date(dateStr);
-          
-          // Verificar se esta data está dentro do intervalo visualizado ou próximo mês
-          const isInCurrentViewPeriod = 
-            (eventDate >= viewMonthStart && eventDate <= nextMonthLastDay);
-          
-          if (!isInCurrentViewPeriod) return; // Pular datas fora do período relevante
-          
-          const date = dateStr;
-          
-                  // Track assigned records by date
+        if (!isInCurrentViewPeriod) return; // Pular datas fora do período relevante
+        
+        const date = event.date;
+        
+        // Track assigned records by date
         if (!assignedRecordsMap[date]) {
           assignedRecordsMap[date] = new Set();
         }
         assignedRecordsMap[date].add(`${event.type}-${event.event_id}`);
           
-          // Count events for current month only
-          if (eventDate.getMonth() === currentMonth && eventDate.getFullYear() === currentYear) {
-            if (event.type === 'income') incomeCount++;
-            else if (event.type === 'expense') expenseCount++;
-            else if (event.type === 'goal') goalCount++;
+        // Count events for current month only
+        if (eventDate.getMonth() === currentMonth && eventDate.getFullYear() === currentYear) {
+          if (event.type === 'income') incomeCount++;
+          else if (event.type === 'expense') expenseCount++;
+          else if (event.type === 'goal') goalCount++;
+        }
+        
+        // Collect upcoming events for viewed month and next month
+        if (eventDate >= viewMonthStart && eventDate <= nextMonthLastDay) {
+          // Enriquecer o evento com detalhes, se disponíveis
+          let details = null;
+          if (event.event_id) {
+            if (event.type === 'income') {
+              details = incomeDetails[event.event_id];
+            } else if (event.type === 'expense') {
+              details = expenseDetails[event.event_id];
+            } else if (event.type === 'goal') {
+              details = goalDetails[event.event_id];
+            }
           }
           
-          // Collect upcoming events for viewed month and next month
-          if (eventDate >= viewMonthStart && eventDate <= nextMonthLastDay) {
-            // Criar cópia do evento para esta data específica
-            const eventCopy = {
-              ...event,
-              date: dateStr,
-              formattedDate: eventDate
-            };
-            
-            upcomingEventsList.push(eventCopy);
-          }
-          
-          // Format calendar marked dates
-          if (!markedDates[date]) {
-            markedDates[date] = {
-              marked: true,
-              dotColor: getEventColor(event.type),
-              events: [],
-              dots: []
-            };
-          }
-          
-          // Add dot for each event type if not already added
-          const hasDotOfType = markedDates[date].dots.some(dot => dot.color === getEventColor(event.type));
-          if (!hasDotOfType) {
-            markedDates[date].dots.push({
-              color: getEventColor(event.type),
-              key: event.type
-            });
+          // Adicionar detalhes ao evento
+          if (details) {
+            event.name = details.name || '';
+            event.amount = details.amount || 0;
+            event.category = details.categories?.name || '';
+            event.category_id = details.category_id || null;
+            event.frequency_id = details.frequency_id || null;
+            event.frequencies = details.frequencies || null;
+          } else {
+            // Valores padrão se detalhes não estiverem disponíveis
+            event.name = event.type.charAt(0).toUpperCase() + event.type.slice(1) + ' Event';
+            event.amount = 0;
           }
           
           // Criar cópia do evento para esta data específica
-          const eventForDate = {
+          const eventCopy = {
             ...event,
-            date: dateStr
+            formattedDate: eventDate
           };
           
-          // Push event to the date's events array
-          markedDates[date].events.push(eventForDate);
-        });
+          upcomingEventsList.push(eventCopy);
+        }
+        
+        // Format calendar marked dates
+        if (!markedDates[date]) {
+          markedDates[date] = {
+            marked: true,
+            dotColor: getEventColor(event.type),
+            events: [],
+            dots: []
+          };
+        }
+        
+        // Add dot for each event type if not already added
+        const hasDotOfType = markedDates[date].dots.some(dot => dot.color === getEventColor(event.type));
+        if (!hasDotOfType) {
+          markedDates[date].dots.push({
+            color: getEventColor(event.type),
+            key: event.type
+          });
+        }
+        
+        // Push event to the date's events array
+        markedDates[date].events.push(event);
       });
       
       // Sort upcoming events by date
@@ -449,11 +471,7 @@ const CalendarPage = () => {
       setCurrentViewMonth(now);
     } catch (error) {
       console.error('Error fetching events:', error);
-      if (isWeb) {
-        alert('Failed to load calendar events');
-      } else {
-        Alert.alert('Error', 'Failed to load calendar events');
-      }
+      showError('Failed to load calendar events');
     } finally {
       setLoading(false);
     }
@@ -539,7 +557,7 @@ const CalendarPage = () => {
       console.log('IDs já associados:', Array.from(alreadyAssignedIds));
       
       // Filtrar registros que não estão associados
-      const filteredData = data.filter(item => !alreadyAssignedIds.has(item.id.toString()));
+      const filteredData = data?.filter(item => !alreadyAssignedIds.has(item.id.toString())) || [];
       
       // Formatar os dados para exibição
       const formattedData = filteredData.map(item => ({
@@ -551,7 +569,7 @@ const CalendarPage = () => {
       animateRecordLoad();
     } catch (error) {
       console.error(`Error fetching ${recordType}:`, error);
-      Alert.alert('Error', `Failed to load ${recordType} records`);
+      showError(`Failed to load ${recordType} records`);
     } finally {
       setLoading(false);
     }
@@ -577,11 +595,35 @@ const CalendarPage = () => {
     setShowExistingRecords(false);
   };
 
+  const getMaxRecurrenceLimit = (frequencyDays) => {
+    if (frequencyDays <= 1) {
+      // Daily: 1 month = ~30 occurrences
+      return 30;
+    } else if (frequencyDays <= 7) {
+      // Weekly: 6 months = ~26 occurrences
+      return 26;
+    } else {
+      // Monthly or longer: 12 months = 12 occurrences  
+      return 12;
+    }
+  };
+
+  const getFrequencyDisplayName = (frequencyDays) => {
+    if (frequencyDays <= 1) return 'Daily';
+    if (frequencyDays <= 7) return 'Weekly';
+    if (frequencyDays <= 30) return 'Monthly';
+    return 'Custom';
+  };
+
   const openExistingRecordSelector = (type) => {
     setRecordType(type);
     setSearchTerm('');
     // Clear existing records immediately to avoid showing old data
     setExistingRecords([]);
+    // Reset recurrence settings
+    setIsRecurring(false);
+    setRecurrenceCount(1);
+    setMaxRecurrenceAllowed(30);
     // Set loading to true immediately
     setLoading(true);
     // Fetch new records
@@ -591,54 +633,164 @@ const CalendarPage = () => {
 
   const addExistingToCalendar = async (record) => {
     setLoading(true);
+    console.log('🔄 Starting addExistingToCalendar with:', {
+      recordType,
+      recordId: record.id,
+      selectedDate,
+      isRecurring,
+      recurrenceCount,
+      record
+    });
+    
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        console.log('❌ No user found');
+        return;
+      }
+      console.log('✅ User found:', user.id);
 
-      // Verificar se este registro já está atribuído à data selecionada
-      const eventKey = `${recordType}-${record.id}`;
-      if (assignedRecords[selectedDate] && assignedRecords[selectedDate].has(eventKey)) {
-        Alert.alert('Duplicate Event', 'This record is already added to this date');
+      // Update max recurrence limit based on selected record's frequency
+      if (isRecurring && record.frequencies) {
+        const maxLimit = getMaxRecurrenceLimit(record.frequencies.days);
+        setMaxRecurrenceAllowed(maxLimit);
+        // Ensure current count doesn't exceed the limit
+        if (recurrenceCount > maxLimit) {
+          setRecurrenceCount(maxLimit);
+        }
+        console.log(`📊 Frequency: ${getFrequencyDisplayName(record.frequencies.days)} (${record.frequencies.days} days), Max limit: ${maxLimit}`);
+      }
+
+      // Enhanced duplicate prevention - check if any of the dates would conflict
+      let conflictingDates = [];
+      
+      if (isRecurring) {
+        // For recurring events, generate the dates first and check each one
+        const frequencyDays = (record.frequencies && record.frequencies.days) ? record.frequencies.days : 30;
+        const testDates = generateRecurringDates(
+          selectedDate, 
+          record.frequencies || { days: frequencyDays },
+          recurrenceCount
+        );
+        
+        // Check each generated date for conflicts
+        for (const testDate of testDates) {
+          const eventKey = `${recordType}-${record.id}`;
+          
+          // Check in assigned records tracking
+          if (assignedRecords[testDate] && assignedRecords[testDate].has(eventKey)) {
+            conflictingDates.push(testDate);
+          }
+          
+          // Check in database
+          const { data: existingEvents, error: checkError } = await supabase
+            .from('calendar_events')
+            .select('id, date')
+            .eq('user_id', user.id)
+            .eq('type', recordType)
+            .eq('event_id', record.id)
+            .eq('date', testDate);
+            
+          if (checkError) {
+            console.error('❌ Error checking existing events for date', testDate, ':', checkError);
+          } else if (existingEvents && existingEvents.length > 0) {
+            conflictingDates.push(testDate);
+          }
+        }
+      } else {
+        // For single events, check only the selected date
+        const eventKey = `${recordType}-${record.id}`;
+        
+        if (assignedRecords[selectedDate] && assignedRecords[selectedDate].has(eventKey)) {
+          conflictingDates.push(selectedDate);
+        }
+        
+        const { data: existingEvents, error: checkError } = await supabase
+          .from('calendar_events')
+          .select('id, date')
+          .eq('user_id', user.id)
+          .eq('type', recordType)
+          .eq('event_id', record.id)
+          .eq('date', selectedDate);
+
+        if (checkError) {
+          console.error('❌ Error checking existing events:', checkError);
+        } else if (existingEvents && existingEvents.length > 0) {
+          conflictingDates.push(selectedDate);
+        }
+      }
+      
+      // If there are any conflicts, show error and stop
+      if (conflictingDates.length > 0) {
+        const uniqueConflicts = [...new Set(conflictingDates)];
+        if (uniqueConflicts.length === 1) {
+          showError(`This ${recordType} is already scheduled for ${uniqueConflicts[0]}`);
+        } else {
+          showError(`This ${recordType} is already scheduled for ${uniqueConflicts.length} of the selected dates`);
+        }
         setLoading(false);
         return;
       }
-
-      // Log para debug
-      console.log('Adicionando ao calendário:', {
-        recordType,
-        recordId: record.id,
-        date: selectedDate,
-        name: record.name,
-        amount: record.amount,
-        isRecurring,
-        frequency: record.frequencies?.name
-      });
+      
+      console.log('✅ No conflicts found for any dates');
 
       // Array para armazenar todos os eventos a serem criados
       const eventsToCreate = [];
       
-      // Se for recorrente, criar apenas o primeiro e o último evento da série
+      // Se for recorrente, criar eventos individuais para cada data
       if (isRecurring) {
+        console.log('📅 Creating recurring events...');
+        
         // Determinar a frequência em dias
-        // Definir datas de início e fim (12 meses à frente)
-        const startDate = new Date(selectedDate);
-        const endDate = new Date(startDate);
-        endDate.setMonth(endDate.getMonth() + 12);
+        let frequencyDays = 30; // Padrão mensal
         
-        console.log(`Criando evento recorrente de ${startDate.toISOString()} até ${endDate.toISOString()}`);
+        if (record.frequencies && record.frequencies.days) {
+          frequencyDays = record.frequencies.days;
+          console.log('✅ Using frequency from record:', frequencyDays, 'days');
+        } else {
+          console.log('⚠️ No frequency found, using default 30 days');
+        }
         
-        // Com o novo modelo, criamos apenas um evento com data de início e fim
-        eventsToCreate.push({
-          user_id: user.id,
-          type: recordType,
-          date: startDate.toISOString().split('T')[0],
-          event_id: record.id,
-          is_recurring: true,
-          end_date: endDate.toISOString().split('T')[0]
-        });
+        console.log(`📅 Generating ${recurrenceCount} occurrences starting from ${selectedDate}`);
         
-        console.log(`Total de ${eventsToCreate.length} eventos recorrentes criados`);
+        // Gerar todas as datas baseado na frequência e quantidade especificada
+        const dates = generateRecurringDates(
+          selectedDate, 
+          record.frequencies || { days: frequencyDays },
+          recurrenceCount
+        );
+        
+        console.log(`✅ Generated ${dates.length} dates:`, dates.slice(0, 5), '...');
+        
+        if (dates.length === 0) {
+          console.log('❌ No dates generated! Falling back to single event');
+          eventsToCreate.push({
+            user_id: user.id,
+            type: recordType,
+            date: selectedDate,
+            event_id: record.id,
+            is_recurring: false
+          });
+        } else {
+          // Criar um evento individual para cada data
+          dates.forEach((date, index) => {
+            eventsToCreate.push({
+              user_id: user.id,
+              type: recordType,
+              date: date,
+              event_id: record.id,
+              is_recurring: true
+            });
+            
+            if (index < 3) { // Log apenas os primeiros 3 para não poluir
+              console.log(`📅 Event ${index + 1}: ${date}`);
+            }
+          });
+        }
+        
+        console.log(`✅ Total recurring events to create: ${eventsToCreate.length}`);
       } else {
+        console.log('📅 Creating single event...');
         // Evento único (não recorrente)
         eventsToCreate.push({
           user_id: user.id,
@@ -647,7 +799,13 @@ const CalendarPage = () => {
           event_id: record.id,
           is_recurring: false
         });
+        console.log('✅ Single event prepared');
       }
+
+      console.log('💾 Inserting events into database...', {
+        count: eventsToCreate.length,
+        sample: eventsToCreate[0]
+      });
 
       // Inserir todos os eventos no banco de dados
       const { error, data: newEvents } = await supabase
@@ -655,9 +813,15 @@ const CalendarPage = () => {
         .insert(eventsToCreate)
         .select();
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Database insert error:', error);
+        throw error;
+      }
       
-      console.log('Eventos adicionados com sucesso:', newEvents);
+      console.log('✅ Events inserted successfully:', {
+        insertedCount: newEvents?.length || 0,
+        sample: newEvents?.[0]
+      });
       
       // Update the assigned records tracking para o evento atual
       const updatedAssigned = {...assignedRecords};
@@ -671,6 +835,7 @@ const CalendarPage = () => {
       setExistingRecords(prev => prev.filter(item => item.id !== record.id));
       
       // Refresh events
+      console.log('🔄 Refreshing calendar events...');
       await fetchEvents();
       
       // Update the selectedEvents array with the newly fetched data for this date
@@ -684,385 +849,62 @@ const CalendarPage = () => {
 
       // Mostrar mensagem de sucesso com informação de recorrência
       const successMessage = isRecurring 
-        ? `Recurring ${recordType} added to calendar (for the next 12 months)` 
+        ? `Recurring ${recordType} added: ${eventsToCreate.length} occurrences created` 
         : `${recordType.charAt(0).toUpperCase() + recordType.slice(1)} added to calendar`;
       
-      Alert.alert('Success', successMessage);
+      showSuccess(successMessage);
+      console.log('✅ addExistingToCalendar completed successfully');
     } catch (error) {
-      console.error('Error adding to calendar:', error);
-      Alert.alert('Error', 'Failed to add record to calendar');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Função para forçar a deleção direta do evento problemático do banco de dados
-  const forceDeleteProblemEvent = async () => {
-    try {
-      setLoading(true);
-      console.log("Força-deletando o evento problemático 5e631ae3-0ae3-46a1-8848-13f2248f3365");
-      
-      // Direct deletion by ID
-      const { error } = await supabase
-        .from('calendar_events')
-        .delete()
-        .or(`id.eq.5e631ae3-0ae3-46a1-8848-13f2248f3365,event_id.eq.814ecd2f-a517-4d47-a5d4-0da502ae1afe`);
-      
-      if (error) {
-        console.error("Erro na remoção forçada:", error);
-        Alert.alert("Error", "Could not force delete the problem event");
-        return false;
-      }
-      
-      console.log("Evento problemático removido com sucesso");
-      await fetchEvents();
-      Alert.alert("Success", "Problem event removed successfully");
-      return true;
-    } catch (error) {
-      console.error("Erro na remoção forçada:", error);
-      return false;
+      console.error('❌ Error in addExistingToCalendar:', error);
+      showError('Failed to add record to calendar');
     } finally {
       setLoading(false);
     }
   };
 
   const handleDeleteEvent = async (eventId) => {
-    console.log("Deletando evento com ID:", eventId);
+    console.log("🗑️ Starting delete process for event ID:", eventId);
+    
     try {
-      setLoading(true);
-      
-      // Check if this is the problematic event with invalid date range
-      if (eventId === "5e631ae3-0ae3-46a1-8848-13f2248f3365") {
-        console.log("Detected problematic event, using forced deletion");
-        await forceDeleteProblemEvent();
-        return;
-      }
-      
-      // Primeiro encontrar o evento nos eventos selecionados
-      const eventToDelete = selectedEvents.find(event => event.id === eventId) || 
+      // Encontrar o evento nos eventos selecionados
+      const eventToBeDeleted = selectedEvents.find(event => event.id === eventId) || 
                            filteredEvents.find(event => event.id === eventId);
       
-      if (!eventToDelete) {
+      if (!eventToBeDeleted) {
         console.error('Could not find event with ID:', eventId);
-        Alert.alert('Error', 'Could not find the event to delete');
-        setLoading(false);
+        showError('Could not find the event to delete');
         return;
       }
       
-      console.log("Evento encontrado para deleção:", eventToDelete);
+      console.log("Evento encontrado para deleção:", eventToBeDeleted);
       
-      // Se o evento for recorrente, perguntar se deseja excluir todas as ocorrências
-      if (eventToDelete.is_recurring && eventToDelete.event_id) {
-        // Verificar se end_date está antes de date (caso inválido)
-        if (eventToDelete.end_date && new Date(eventToDelete.end_date) < new Date(eventToDelete.date)) {
-          console.log("Detected invalid date range, using forced deletion");
-          // For events with invalid date ranges, use direct deletion
-          const { error } = await supabase
-            .from('calendar_events')
-            .delete()
-            .eq('id', eventId);
-            
-          if (error) {
-            console.error('Error deleting event with invalid date:', error);
-            Alert.alert('Error', 'Could not delete event with invalid date range');
-          } else {
-            await fetchEvents();
-            Alert.alert('Success', 'Event with invalid date range removed');
-          }
-          setLoading(false);
-          return;
-        }
-        
-        // No ambiente web, usar confirm
-        if (isWeb) {
-          const deleteAll = confirm('This is a recurring event. Do you want to delete all future occurrences?');
-          
-          if (deleteAll) {
-            const eventDate = new Date(eventToDelete.date);
-            
-            // Deletar apenas o evento atual e os futuros com o mesmo record_id
-            const { error } = await supabase
-              .from('calendar_events')
-              .update({ end_date: new Date(eventDate.getTime() - 86400000).toISOString().split('T')[0] })
-              .eq('event_id', eventToDelete.event_id)
-              .eq('type', eventToDelete.type)
-              .eq('is_recurring', true);
-            
-            if (error) {
-              console.error('Erro ao deletar eventos recorrentes:', error);
-              
-              // Try direct deletion if update fails
-              const { error: deleteError } = await supabase
-                .from('calendar_events')
-                .delete()
-                .eq('id', eventId);
-                
-              if (deleteError) {
-                console.error('Erro na deleção direta:', deleteError);
-                throw deleteError;
-              } else {
-                console.log("Deleção direta bem-sucedida para evento recorrente");
-              }
-            } else {
-              console.log("Todas as ocorrências futuras excluídas com sucesso");
-            }
-            
-            // Atualizar todos os eventos
-            await fetchEvents();
-            
-            // Atualizar os eventos selecionados
-            setSelectedEvents(events[selectedDate]?.events || []);
-            
-            alert('All future occurrences of this event have been deleted');
-            setLoading(false);
-            return;
-          }
-        } else {
-          // No ambiente mobile, usar Alert
-          return new Promise((resolve) => {
-                          Alert.alert(
-                'Delete Recurring Event',
-                'What would you like to delete?',
-                [
-                {
-                  text: 'Just this occurrence',
-                  onPress: async () => {
-                    // Simply check if this is a recurring event
-                    const isRecurring = eventToDelete.is_recurring;
-                    console.log("Delete just this occurrence. Is recurring?", isRecurring);
-                    
-                    if (isRecurring) {
-                      await deleteOriginalRecurringEvent(eventToDelete, eventId);
-                    } else {
-                      await deleteCurrentEvent(eventToDelete, eventId);
-                    }
-                    resolve();
-                  }
-                },
-                {
-                  text: 'This and all future occurrences',
-                  onPress: async () => {
-                    try {
-                      const eventDate = new Date(eventToDelete.date);
-                      
-                      // Deletar apenas o evento atual e os futuros com o mesmo record_id
-                      const { error } = await supabase
-                        .from('calendar_events')
-                        .update({ end_date: new Date(eventDate.getTime() - 86400000).toISOString().split('T')[0] })
-                        .eq('event_id', eventToDelete.event_id)
-                        .eq('type', eventToDelete.type)
-                        .eq('is_recurring', true);
-                      
-                      if (error) {
-                        console.error('Erro ao deletar eventos recorrentes:', error);
-                        // Try direct deletion
-                        const { error: deleteError } = await supabase
-                          .from('calendar_events')
-                          .delete()
-                          .eq('id', eventId);
-                          
-                        if (deleteError) {
-                          console.error('Erro na deleção direta:', deleteError);
-                          throw deleteError;
-                        } else {
-                          console.log("Deleção direta bem-sucedida para evento recorrente");
-                        }
-                      } else {
-                        console.log("Todas as ocorrências futuras excluídas com sucesso");
-                      }
-                      
-                      // Atualizar todos os eventos
-                      await fetchEvents();
-                      
-                      // Atualizar os eventos selecionados
-                      setSelectedEvents(events[selectedDate]?.events || []);
-                      
-                      Alert.alert('Success', 'All future occurrences of this event have been deleted');
-                      resolve();
-                    } catch (error) {
-                      console.error('Error deleting recurring events:', error);
-                      Alert.alert('Error', 'Failed to delete future occurrences');
-                      resolve();
-                    }
-                  },
-                  style: 'destructive'
-                },
-                {
-                  text: 'Force Delete',
-                  onPress: async () => {
-                    const success = await forceDeleteProblemEvent();
-                    if (success) {
-                      console.log("Forçou a remoção com sucesso");
-                    } else {
-                      console.error("Falha na remoção forçada");
-                    }
-                    resolve();
-                  },
-                  style: 'destructive'
-                },
-                {
-                  text: 'Cancel',
-                  style: 'cancel',
-                  onPress: () => resolve()
-                }
-              ]
-            );
-          });
-        }
-      }
-      
-      // Para eventos não recorrentes ou se o usuário escolheu excluir apenas a ocorrência atual
-      // Check if this is the original event (first occurrence)
-      console.log("Checking if original event:", eventToDelete);
-      const isOriginalEvent = eventToDelete.is_recurring;
-      // The is_deleted_original field doesn't exist, so we just check if it's recurring
-      
-      if (isOriginalEvent) {
-        await deleteOriginalRecurringEvent(eventToDelete, eventId);
-      } else {
-        await deleteCurrentEvent(eventToDelete, eventId);
-      }
-      
+      // Definir o tipo de exclusão com base no evento ser recorrente ou não
+      setEventToDelete(eventToBeDeleted);
+      setIsRecurringDelete(eventToBeDeleted.is_recurring);
+      setDeleteModalVisible(true);
     } catch (error) {
-      console.error('Error deleting event:', error);
-      Alert.alert('Error', 'Failed to delete event');
-    } finally {
-      setLoading(false);
+      console.error('🗑️ Error in handleDeleteEvent:', error);
+      showError('Failed to delete event');
     }
   };
 
-  // Função auxiliar para excluir apenas o evento atual
+  // Função simplificada para excluir evento individual
   const deleteCurrentEvent = async (eventToDelete, eventId) => {
     try {
-      console.log("Deleting event with ID:", eventId, "Event details:", JSON.stringify(eventToDelete));
+      console.log("🗑️ deleteCurrentEvent - Starting deletion for:", eventId);
       
-      // Try direct deletion first for this specific problematic event
-      if (eventToDelete.event_id === '5e631ae3-0ae3-46a1-8848-13f2248f3365') {
-        console.log("Detected problematic event with invalid date range, using direct deletion");
-        
-        // Direct deletion by event_id
-        const { error } = await supabase
-          .from('calendar_events')
-          .delete()
-          .eq('event_id', '5e631ae3-0ae3-46a1-8848-13f2248f3365');
-        
-        if (error) {
-          console.error('Error deleting problematic event:', error);
-          // Try directly by id as fallback
-          const { error: error2 } = await supabase
-            .from('calendar_events')
-            .delete()
-            .eq('id', eventId);
-            
-          if (error2) {
-            console.error('Error with fallback deletion:', error2);
-            throw error2;
-          } else {
-            console.log("Successfully deleted problematic event via fallback");
-          }
-        } else {
-          console.log("Successfully deleted problematic event");
-        }
-      }
-      // Standard deletion logic for normal events
-      else if (eventToDelete.is_recurring) {
-        console.log("Handling recurring event deletion");
-        
-        // Verificar se há datas inválidas (end_date antes de start_date)
-        if (eventToDelete.end_date && new Date(eventToDelete.end_date) < new Date(eventToDelete.date)) {
-          console.log("Invalid date range detected, end date before start date");
-          
-          // Delete directly by event_id for invalid date ranges
-          const { error } = await supabase
-            .from('calendar_events')
-            .delete()
-            .eq('event_id', eventToDelete.event_id);
-            
-          if (error) {
-            console.error('Error deleting event with invalid date range:', error);
-            throw error;
-          }
-          
-          console.log("Successfully deleted event with invalid date range");
-        } else {
-          // Normal recurring event deletion flow
-          let isLastInstance = false;
-          
-          // Buscar todos os eventos recorrentes com o mesmo event_id
-          const { data: relatedEvents, error: fetchError } = await supabase
-            .from('calendar_events')
-            .select('id, date')
-            .eq('event_id', eventToDelete.event_id)
-            .eq('type', eventToDelete.type)
-            .eq('is_recurring', true);
-            
-          if (fetchError) {
-            console.error('Error fetching related events:', fetchError);
-            throw fetchError;
-          }
-          
-          console.log("Found related events:", relatedEvents?.length);
-          
-          // Se só existe um evento ou este é o único restante, marcar como última instância
-          if (!relatedEvents || relatedEvents.length <= 1) {
-            isLastInstance = true;
-            console.log("This is the last instance of this recurring event");
-          }
-          
-          if (isLastInstance) {
-            // Se for a última instância, excluir o evento recorrente completamente
-            const { error } = await supabase
-              .from('calendar_events')
-              .delete()
-              .eq('event_id', eventToDelete.event_id)
-              .eq('type', eventToDelete.type)
-              .eq('is_recurring', true);
-              
-            if (error) {
-              console.error('Error deleting recurring event:', error);
-              
-              // Fallback to direct ID deletion if the above fails
-              const { error: directError } = await supabase
-                .from('calendar_events')
-                .delete()
-                .eq('id', eventId);
-                
-              if (directError) {
-                console.error('Error with fallback direct deletion:', directError);
-                throw directError;
-              } else {
-                console.log("Successfully deleted via fallback direct deletion");
-              }
-            } else {
-              console.log("Successfully deleted the last instance of recurring event");
-            }
-          } else {
-            // Caso contrário, excluir apenas esta instância como normalmente
-            const { error } = await supabase
-              .from('calendar_events')
-              .delete()
-              .eq('id', eventId);
-              
-            if (error) {
-              console.error('Error deleting event instance:', error);
-              throw error;
-            }
-          }
-        }
-      } else {
-        // Para eventos não recorrentes, excluir normalmente
-        const { error } = await supabase
-          .from('calendar_events')
-          .delete()
-          .eq('id', eventId);
-        
-        if (error) {
-          console.error('Error deleting event:', error);
-          throw error;
-        }
+      // Excluir o evento do banco de dados
+      const { error } = await supabase
+        .from('calendar_events')
+        .delete()
+        .eq('id', eventId);
+      
+      if (error) {
+        console.error('🗑️ deleteCurrentEvent - Error deleting event:', error);
+        throw error;
       }
       
-      console.log("Event deleted successfully from database");
+      console.log("🗑️ deleteCurrentEvent - Event deleted successfully");
       
       // Atualizar estado local para remover o evento
       if (showFilteredEvents) {
@@ -1075,105 +917,39 @@ const CalendarPage = () => {
         );
       }
       
-      // Atualizar o rastreamento de registros atribuídos
-      const eventDate = new Date(eventToDelete.date).toISOString().split('T')[0];
-      if (assignedRecords[eventDate]) {
-        const updatedAssigned = {...assignedRecords};
-        const eventKey = `${eventToDelete.type}-${eventToDelete.event_id}`;
-        updatedAssigned[eventDate].delete(eventKey);
-        setAssignedRecords(updatedAssigned);
-        
-        console.log(`Removed event ${eventKey} from date ${eventDate}`);
-      }
-      
       // Atualizar os eventos do calendário
       await fetchEvents();
       
-      Alert.alert('Success', 'Event removed from calendar');
     } catch (error) {
       console.error('Error in deleteCurrentEvent:', error);
       throw error;
     }
   };
 
-  // Função para lidar com a exclusão do evento original em uma série recorrente
-  const deleteOriginalRecurringEvent = async (eventToDelete, eventId) => {
+  // Função para excluir todos os eventos recorrentes com o mesmo event_id
+  const deleteAllRecurringEvents = async (eventToDelete, eventId) => {
     try {
-      console.log("Deleting original event of a recurring series:", eventId);
-      console.log("Event details:", JSON.stringify(eventToDelete));
-
-      // For the web implementation, we need to take a more direct approach:
-      // 1. Calculate the next occurrence date programmatically
-      // 2. Update the main recurring event record directly
+      console.log("🗑️ deleteAllRecurringEvents - Starting for:", eventId, "with event_id:", eventToDelete.event_id);
       
-      // Calculate next occurrence based on the event's frequency
-      const currentDate = new Date(eventToDelete.date);
-      let frequencyDays = 30; // Default to monthly
-      
-      if (eventToDelete.frequencies && eventToDelete.frequencies.days) {
-        frequencyDays = eventToDelete.frequencies.days;
-      }
-      
-      // Calculate the next date by adding the frequency days
-      const millisecondsInDay = 24 * 60 * 60 * 1000;
-      const nextDate = new Date(currentDate.getTime() + (frequencyDays * millisecondsInDay));
-      const nextDateStr = nextDate.toISOString().split('T')[0];
-      
-      console.log(`Calculated next occurrence: ${nextDateStr} (adding ${frequencyDays} days to ${currentDate.toISOString()})`);
-      
-      // Update the event with the new date - only update the date field
-      const { error: updateError } = await supabase
+      const { error } = await supabase
         .from('calendar_events')
-        .update({
-          date: nextDateStr
-          // Removed is_deleted_original as the column doesn't exist in the database
-        })
-        .eq('id', eventId);
-      
-      if (updateError) {
-        console.error('Error updating recurring event:', updateError);
+        .delete()
+        .eq('event_id', eventToDelete.event_id)
+        .eq('type', eventToDelete.type)
+        .eq('is_recurring', true);
         
-        // Attempt to delete just this occurrence as fallback
-        console.log("Falling back to deleting just this occurrence");
-        const { error: deleteError } = await supabase
-          .from('calendar_events')
-          .delete()
-          .eq('id', eventId);
-          
-        if (deleteError) {
-          console.error('Error with fallback deletion:', deleteError);
-          throw deleteError;
-        }
-        
-        console.log("Successfully deleted just this occurrence");
-        
-        // Refresh the events to show the changes
-        await fetchEvents();
-        
-        Alert.alert(
-          'Event Deleted',
-          'This occurrence has been removed from the calendar',
-          [{ text: 'OK', onPress: () => console.log('OK Pressed') }]
-        );
-      } else {
-        console.log("Successfully updated recurring event to next occurrence date:", nextDateStr);
-        
-        // Refresh the events to show the changes
-        await fetchEvents();
-        
-        Alert.alert(
-          'Event Updated',
-          `The recurring series now starts from ${nextDate.toLocaleDateString()}`,
-          [{ text: 'OK', onPress: () => console.log('OK Pressed') }]
-        );
+      if (error) {
+        console.error('🗑️ deleteAllRecurringEvents - Error:', error);
+        throw error;
       }
+      
+      console.log("🗑️ deleteAllRecurringEvents - Successfully deleted all occurrences");
+      
+      // Atualizar os eventos do calendário
+      await fetchEvents();
+      
     } catch (error) {
-      console.error('Error in deleteOriginalRecurringEvent:', error);
-      Alert.alert(
-        'Error', 
-        'Failed to update recurring event',
-        [{ text: 'OK', onPress: () => console.log('OK Pressed') }]
-      );
+      console.error('Error in deleteAllRecurringEvents:', error);
       throw error;
     }
   };
@@ -1317,7 +1093,7 @@ const CalendarPage = () => {
     const balanceColor = balance >= 0 ? '#4CAF50' : '#F44336';
     
     return (
-      <View style={styles.simplifiedSummaryContainer}>
+      <View style={styles.mainEventSimplifiedSummaryContainer}>
         <Text style={styles.simplifiedSummaryText}>
           Balance: <Text style={{ color: balanceColor, fontWeight: 'bold' }}>
             {balance.toFixed(2)}{userCurrency}
@@ -1334,7 +1110,18 @@ const CalendarPage = () => {
     }}>
       <TouchableOpacity 
         style={styles.recordItem}
-        onPress={() => addExistingToCalendar(item)}
+        onPress={() => {
+          // Update max recurrence limit based on this record's frequency before adding
+          if (isRecurring && item.frequencies) {
+            const maxLimit = getMaxRecurrenceLimit(item.frequencies.days);
+            setMaxRecurrenceAllowed(maxLimit);
+            // Ensure current count doesn't exceed the limit
+            if (recurrenceCount > maxLimit) {
+              setRecurrenceCount(maxLimit);
+            }
+          }
+          addExistingToCalendar(item);
+        }}
       >
         {/* Nome do registro */}
         <Text style={styles.recordText}>
@@ -1351,7 +1138,7 @@ const CalendarPage = () => {
             {/* Mostrar frequência se disponível */}
             {item.frequencies && (
               <Text style={styles.recordFrequency}>
-                {item.frequencies.name || 'Monthly'}
+                {getFrequencyDisplayName(item.frequencies.days)} ({item.frequencies.name || 'Custom'})
               </Text>
             )}
             {!item.frequencies && (
@@ -1384,12 +1171,14 @@ const CalendarPage = () => {
 
     return (
       <View style={styles.recordSelectorContainer}>
+        {/* Header Section */}
         <View style={styles.recordSelectorHeader}>
           <Text style={styles.recordSelectorTitle}>
             Select {recordType.charAt(0).toUpperCase() + recordType.slice(1)} Item
           </Text>
         </View>
 
+        {/* Search Input */}
         <TextInput
           style={styles.searchInput}
           placeholder={`Search ${recordType}...`}
@@ -1397,66 +1186,154 @@ const CalendarPage = () => {
           onChangeText={setSearchTerm}
         />
         
-        {/* Opção para tornar o evento recorrente */}
+        {/* Recurring Option */}
         <View style={styles.recurringOptionContainer}>
           <View style={styles.recurringCheckboxRow}>
-            <Text style={styles.recurringLabel}>Make this a recurring event?</Text>
+            <Text style={styles.recurringLabel}>Make this recurring?</Text>
             <TouchableOpacity 
               style={[
                 styles.checkbox, 
                 isRecurring ? styles.checkboxChecked : {}
               ]}
-              onPress={() => setIsRecurring(!isRecurring)}
+              onPress={() => {
+                setIsRecurring(!isRecurring);
+                if (!isRecurring) {
+                  // When enabling recurring, set default count based on first record's frequency
+                  const firstRecord = existingRecords[0];
+                  if (firstRecord && firstRecord.frequencies) {
+                    const maxLimit = getMaxRecurrenceLimit(firstRecord.frequencies.days);
+                    setMaxRecurrenceAllowed(maxLimit);
+                    setRecurrenceCount(Math.min(2, maxLimit)); // Default to 2 occurrences
+                  }
+                }
+              }}
             >
               {isRecurring && (
                 <Ionicons name="checkmark" size={16} color="white" />
               )}
             </TouchableOpacity>
           </View>
+          
           {isRecurring && (
-            <View style={styles.recurringNoteContainer}>
-              <Text style={styles.frequencyNote}>
-                This will create recurring events for the next 12 months based on the record's frequency
-              </Text>
-              <Text style={styles.frequencySubNote}>
-                You can later delete individual occurrences or the entire series from the calendar
+            <View style={styles.compactRecurringContainer}>
+              <View style={styles.recurrenceInputRow}>
+                <Text style={styles.recurrenceInputLabel}>Occurrences:</Text>
+                
+                <View style={styles.recurrenceControlsContainer}>
+                  <TouchableOpacity 
+                    style={[styles.countButton, recurrenceCount <= 1 ? styles.countButtonDisabled : {}]}
+                    onPress={() => setRecurrenceCount(Math.max(1, recurrenceCount - 1))}
+                    disabled={recurrenceCount <= 1}
+                  >
+                    <Ionicons name="remove" size={16} color={recurrenceCount <= 1 ? "#ccc" : "#3F51B5"} />
+                  </TouchableOpacity>
+                  
+                  <TextInput
+                    style={[
+                      styles.recurrenceInput,
+                      recurrenceCount >= maxRecurrenceAllowed ? styles.recurrenceInputAtLimit : {}
+                    ]}
+                    value={recurrenceCount.toString()}
+                    onChangeText={(text) => {
+                      // Allow empty string temporarily for editing
+                      if (text === '') {
+                        return; // Don't update state, let user continue typing
+                      }
+                      
+                      // Only allow numbers
+                      const numericValue = text.replace(/[^0-9]/g, '');
+                      if (numericValue === '') {
+                        return;
+                      }
+                      
+                      let count = parseInt(numericValue);
+                      
+                      // Ensure minimum of 1
+                      if (count < 1) {
+                        count = 1;
+                      }
+                      
+                      // Cap at 30 maximum (universal limit)
+                      if (count > 30) {
+                        count = 30;
+                      }
+                      
+                      // Also respect the frequency-based limit if it's lower than 30
+                      if (count > maxRecurrenceAllowed) {
+                        count = maxRecurrenceAllowed;
+                      }
+                      
+                      setRecurrenceCount(count);
+                    }}
+                    onBlur={() => {
+                      // Ensure we have a valid number when user finishes editing
+                      if (recurrenceCount < 1 || isNaN(recurrenceCount)) {
+                        setRecurrenceCount(1);
+                      }
+                    }}
+                    keyboardType="numeric"
+                    maxLength={2}
+                    placeholder="1"
+                    selectTextOnFocus={true}
+                  />
+                  
+                  <TouchableOpacity 
+                    style={[styles.countButton, recurrenceCount >= maxRecurrenceAllowed ? styles.countButtonDisabled : {}]}
+                    onPress={() => setRecurrenceCount(Math.min(maxRecurrenceAllowed, recurrenceCount + 1))}
+                    disabled={recurrenceCount >= maxRecurrenceAllowed}
+                  >
+                    <Ionicons name="add" size={16} color={recurrenceCount >= maxRecurrenceAllowed ? "#ccc" : "#3F51B5"} />
+                  </TouchableOpacity>
+                </View>
+                
+                <Text style={styles.maxLimitText}>max {maxRecurrenceAllowed}</Text>
+              </View>
+              
+              <Text style={styles.compactFrequencyNote}>
+                Limits: Daily (30) • Weekly (26) • Monthly (12)
               </Text>
             </View>
           )}
         </View>
 
-        {existingRecords.length > 0 ? (
-          <FlatList
-            data={filteredRecords}
-            renderItem={renderExistingRecordItem}
-            keyExtractor={item => item.id}
-            style={styles.recordsList}
-            contentContainerStyle={styles.recordsListContent}
-          />
-        ) : (
-          <View style={styles.noRecordsContainer}>
-            <Text style={styles.noRecordsText}>
-              {loading ? 'Loading...' : 
-                `No ${recordType} items${searchTerm ? ' matching your search' : ''}`}
-            </Text>
-            {!loading && (
-              <TouchableOpacity
-                style={styles.createNewButton}
-                onPress={() => {
-                  setModalVisible(false);
-                  navigation.navigate(
-                    recordType === 'income' ? 'IncomePage' : 'ExpensesPage'
-                  );
-                }}
-              >
-                <Text style={styles.createNewButtonText}>
-                  Create New {recordType.charAt(0).toUpperCase() + recordType.slice(1)}
-                </Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        )}
+        {/* Records List or No Records */}
+        <View style={{ flex: 1 }}>
+          {existingRecords.length > 0 ? (
+            <FlatList
+              data={filteredRecords}
+              renderItem={renderExistingRecordItem}
+              keyExtractor={item => item.id}
+              style={styles.recordsList}
+              contentContainerStyle={styles.recordsListContent}
+              showsVerticalScrollIndicator={false}
+              nestedScrollEnabled={true}
+            />
+          ) : (
+            <View style={styles.noRecordsContainer}>
+              <Text style={styles.noRecordsText}>
+                {loading ? 'Loading...' : 
+                  `No ${recordType} items${searchTerm ? ' matching your search' : ''}`}
+              </Text>
+              {!loading && (
+                <TouchableOpacity
+                  style={styles.createNewButton}
+                  onPress={() => {
+                    setModalVisible(false);
+                    navigation.navigate(
+                      recordType === 'income' ? 'IncomePage' : 'ExpensesPage'
+                    );
+                  }}
+                >
+                  <Text style={styles.createNewButtonText}>
+                    Create New {recordType.charAt(0).toUpperCase() + recordType.slice(1)}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
+        </View>
 
+        {/* Back Button */}
         <TouchableOpacity 
           style={styles.backButton}
           onPress={() => setShowExistingRecords(false)}
@@ -1467,9 +1344,6 @@ const CalendarPage = () => {
       </View>
     );
   };
-
-  // Adicionar um helper para verificar se está sendo executado na web
-  const isWeb = Platform.OS === 'web';
 
   // Função renderEventItem atualizada para mostrar todas as informações solicitadas
   const renderEventItem = (event, key) => {
@@ -1501,36 +1375,13 @@ const CalendarPage = () => {
             </Text>
           </View>
           
-          {/* Botão de delete adaptado para web/mobile */}
-          {isWeb ? (
-            <TouchableOpacity
-              onPress={() => {
-                if (confirm('Are you sure you want to remove this event from the calendar?')) {
-                  handleDeleteEvent(event.id);
-                }
-              }}
-              style={styles.webDeleteButton}
-              activeOpacity={0.7}
-            >
-              <MaterialIcons name="delete" size={16} color="white" />
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity
-              onPress={() => {
-                Alert.alert(
-                  'Delete Event',
-                  'Are you sure you want to remove this event from the calendar?',
-                  [
-                    { text: 'Cancel', style: 'cancel' },
-                    { text: 'Delete', onPress: () => handleDeleteEvent(event.id), style: 'destructive' }
-                  ]
-                );
-              }}
-              style={styles.deleteButton}
-            >
-              <MaterialIcons name="delete" size={18} color="#F44336" />
-            </TouchableOpacity>
-          )}
+          {/* Botão de delete */}
+          <TouchableOpacity
+            onPress={() => handleDeleteEvent(event.id)}
+            style={styles.deleteButton}
+          >
+            <MaterialIcons name="delete" size={18} color="white" />
+          </TouchableOpacity>
         </View>
         
         <View style={styles.eventDetailsContainer}>
@@ -1705,29 +1556,7 @@ const CalendarPage = () => {
                   
                   <TouchableOpacity 
                     style={styles.deleteButtonFiltered}
-                    onPress={() => {
-                      const eventId = item.id;
-                      if (!eventId) return;
-                      
-                      if (isWeb) {
-                        if (confirm('Are you sure you want to remove this event from the calendar?')) {
-                          handleDeleteEvent(eventId);
-                        }
-                      } else {
-                        Alert.alert(
-                          'Delete Event',
-                          'Are you sure you want to remove this event from the calendar?',
-                          [
-                            { text: 'Cancel', style: 'cancel' },
-                            { 
-                              text: 'Delete', 
-                              onPress: () => handleDeleteEvent(eventId),
-                              style: 'destructive'
-                            }
-                          ]
-                        );
-                      }
-                    }}
+                    onPress={() => handleDeleteEvent(item.id)}
                   >
                     <MaterialIcons name="delete" size={18} color="white" />
                   </TouchableOpacity>
@@ -1886,6 +1715,7 @@ const CalendarPage = () => {
   return (
     <View style={styles.mainContainer}>
       <Header title="Calendar" />
+      <AlertComponent />
       
       {loading && (
         <View style={styles.loadingContainer}>
@@ -1961,12 +1791,12 @@ const CalendarPage = () => {
           onRequestClose={() => setModalVisible(false)}
         >
           <View style={styles.modalContainer}>
-            <View style={styles.modalContent}>
-              {showExistingRecords ? (
-                renderExistingRecordsList()
-              ) : (
+            <View style={showExistingRecords ? styles.modalContent : styles.mainEventModalContent}>
+                {showExistingRecords ? (
+                  renderExistingRecordsList()
+                ) : (
                 <>
-                  <View style={styles.modalHeader}>
+                  <View style={styles.mainEventModalHeader}>
                     <Text style={styles.modalTitle}>
                       {new Date(selectedDate).toLocaleDateString('en-US', { 
                         weekday: 'long', 
@@ -1985,19 +1815,19 @@ const CalendarPage = () => {
                   {renderSimplifiedSummary()}
                   
                   {selectedEvents.length > 0 ? (
-                    <View style={styles.eventListContainer}>
+                    <View style={styles.mainEventListContainer}>
                       {selectedEvents.map((event) => renderEventItem(event, `event-${event.id}-${event.date}`))}
                     </View>
                   ) : (
-                    <View style={styles.noEventsContainer}>
+                    <View style={styles.mainEventNoEventsContainer}>
                       <FontAwesome5 name="calendar-day" size={40} color="#CCCCCC" />
                       <Text style={styles.noEventsText}>No events for this date</Text>
                     </View>
                   )}
 
-                  <View style={styles.addButtonsContainer}>
+                  <View style={styles.mainEventAddButtonsContainer}>
                     <TouchableOpacity
-                      style={[styles.addButton, { backgroundColor: '#4CAF50' }]}
+                      style={[styles.mainEventAddButton, { backgroundColor: '#4CAF50' }]}
                       onPress={() => openExistingRecordSelector('income')}
                     >
                       <MaterialIcons name="add" size={20} color="white" />
@@ -2005,7 +1835,7 @@ const CalendarPage = () => {
                     </TouchableOpacity>
 
                     <TouchableOpacity
-                      style={[styles.addButton, { backgroundColor: '#F44336' }]}
+                      style={[styles.mainEventAddButton, { backgroundColor: '#F44336' }]}
                       onPress={() => openExistingRecordSelector('expense')}
                     >
                       <MaterialIcons name="add" size={20} color="white" />
@@ -2015,13 +1845,115 @@ const CalendarPage = () => {
 
                   <View style={styles.buttonRow}>
                     <TouchableOpacity
-                      style={styles.closeButton}
+                      style={styles.mainEventCloseButton}
                       onPress={() => setModalVisible(false)}
                     >
                       <Text style={styles.closeButtonText}>Close</Text>
                     </TouchableOpacity>
                   </View>
                 </>
+              )}
+            </View>
+          </View>
+        </Modal>
+
+        {/* Delete Confirmation Modal */}
+        <Modal
+          animationType="fade"
+          transparent={true}
+          visible={deleteModalVisible}
+          onRequestClose={() => setDeleteModalVisible(false)}
+        >
+          <View style={styles.deleteModalContainer}>
+            <View style={styles.deleteModalContent}>
+              <View style={styles.deleteModalHeader}>
+                <MaterialIcons name="delete-forever" size={32} color="#F44336" />
+                <Text style={styles.deleteModalTitle}>
+                  {isRecurringDelete ? 'Delete Recurring Event' : 'Delete Event'}
+                </Text>
+              </View>
+              
+              <Text style={styles.deleteModalMessage}>
+                {isRecurringDelete 
+                  ? 'This event repeats. What would you like to delete?'
+                  : 'Are you sure you want to remove this event from the calendar?'}
+              </Text>
+              
+              {isRecurringDelete ? (
+                <View style={styles.deleteModalButtonsContainer}>
+                  <TouchableOpacity
+                    style={styles.deleteModalAllOccurrencesButton}
+                    onPress={async () => {
+                      setDeleteModalVisible(false);
+                      setLoading(true);
+                      try {
+                        await deleteAllRecurringEvents(eventToDelete, eventToDelete.id);
+                        showSuccess('All occurrences have been removed');
+                      } catch (error) {
+                        console.error('Error deleting all occurrences:', error);
+                        showError('Failed to delete all occurrences');
+                      } finally {
+                        setLoading(false);
+                      }
+                    }}
+                  >
+                    <Text style={styles.deleteModalButtonTextDanger}>ALL OCCURRENCES</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity
+                    style={styles.deleteModalSingleOccurrenceButton}
+                    onPress={async () => {
+                      setDeleteModalVisible(false);
+                      setLoading(true);
+                      try {
+                        await deleteCurrentEvent(eventToDelete, eventToDelete.id);
+                        showSuccess('This occurrence has been removed');
+                      } catch (error) {
+                        console.error('Error deleting single occurrence:', error);
+                        showError('Failed to delete this occurrence');
+                      } finally {
+                        setLoading(false);
+                      }
+                    }}
+                  >
+                    <Text style={styles.deleteModalButtonTextPrimary}>JUST THIS OCCURRENCE</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity
+                    style={styles.deleteModalCancelButton}
+                    onPress={() => setDeleteModalVisible(false)}
+                  >
+                    <Text style={styles.deleteModalButtonTextCancel}>CANCEL</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <View style={styles.deleteModalButtonsContainer}>
+                  <TouchableOpacity
+                    style={styles.deleteModalDeleteButton}
+                    onPress={async () => {
+                      setDeleteModalVisible(false);
+                      setLoading(true);
+                      try {
+                        await deleteCurrentEvent(eventToDelete, eventToDelete.id);
+                        showSuccess('Event removed from calendar');
+                      } catch (error) {
+                        console.error('Error deleting event:', error);
+                        showError('Failed to delete event');
+                      } finally {
+                        setLoading(false);
+                      }
+                    }}
+                  >
+                    <Text style={styles.deleteModalButtonTextDanger}>DELETE</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity
+                    style={styles.deleteModalCancelButton}
+                    onPress={() => setDeleteModalVisible(false)}
+                  >
+                    <Text style={styles.deleteModalButtonTextCancel}>CANCEL</Text>
+                  </TouchableOpacity>
+                </View>
               )}
             </View>
           </View>
