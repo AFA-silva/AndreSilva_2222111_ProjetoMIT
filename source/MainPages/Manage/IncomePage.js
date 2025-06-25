@@ -709,99 +709,35 @@ const IncomePage = ({ navigation }) => {
         </>
       )}
 
-      {/* Add/Edit Modal - Fixed */}
-      {isModalVisible && (
-        <View
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.5)',
-            justifyContent: 'center',
-            alignItems: 'center',
-            zIndex: 1000,
-          }}
-        >
-          <TouchableOpacity
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-            }}
-            onPress={() => setModalVisible(false)}
-            activeOpacity={1}
-          />
-          <View
-            style={{
-              width: '90%',
-              maxWidth: 350,
-              backgroundColor: '#FFFFFF',
-              borderRadius: 12,
-              padding: 20,
-              maxHeight: '80%',
-              alignSelf: 'center',
-            }}
-          >
+      {/* Add/Edit Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={isModalVisible}
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
             <ScrollView 
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
             >
-              <Text style={{
-                fontSize: 18,
-                fontWeight: '700',
-                color: '#FF9800',
-                marginBottom: 16,
-                textAlign: 'center',
-              }}>
+              <Text style={styles.modalHeader}>
                 {selectedIncome ? 'Edit Income' : 'Add Income'}
               </Text>
               
-              <Text style={{
-                fontSize: 14,
-                fontWeight: '600',
-                color: '#E65100',
-                marginBottom: 4,
-              }}>Income Name</Text>
+              <Text style={styles.inputLabel}>Income Name</Text>
               <TextInput
-                style={{
-                  borderWidth: 1,
-                  borderColor: '#FFE082',
-                  borderRadius: 8,
-                  padding: 12,
-                  marginBottom: 12,
-                  backgroundColor: '#FFFFFF',
-                  fontSize: 16,
-                  color: '#E65100',
-                  minHeight: 44,
-                }}
+                style={styles.modalInput}
                 placeholder="Enter income name"
                 placeholderTextColor="#B0BEC5"
                 value={formData.name}
                 onChangeText={(text) => setFormData({ ...formData, name: text })}
               />
               
-              <Text style={{
-                fontSize: 14,
-                fontWeight: '600',
-                color: '#E65100',
-                marginBottom: 4,
-              }}>Amount</Text>
+              <Text style={styles.inputLabel}>Amount</Text>
               <TextInput
-                style={{
-                  borderWidth: 1,
-                  borderColor: '#FFE082',
-                  borderRadius: 8,
-                  padding: 12,
-                  marginBottom: 12,
-                  backgroundColor: '#FFFFFF',
-                  fontSize: 16,
-                  color: '#E65100',
-                  minHeight: 44,
-                }}
+                style={styles.modalInput}
                 placeholder="Enter amount"
                 placeholderTextColor="#B0BEC5"
                 keyboardType="numeric"
@@ -809,20 +745,8 @@ const IncomePage = ({ navigation }) => {
                 onChangeText={(text) => setFormData({ ...formData, amount: text })}
               />
               
-              <Text style={{
-                fontSize: 14,
-                fontWeight: '600',
-                color: '#E65100',
-                marginBottom: 4,
-              }}>Frequency</Text>
-              <View style={{
-                borderWidth: 1,
-                borderColor: '#FFE082',
-                borderRadius: 8,
-                marginBottom: 12,
-                backgroundColor: '#FFFFFF',
-                minHeight: 44,
-              }}>
+              <Text style={styles.inputLabel}>Frequency</Text>
+              <View style={styles.picker}>
                 <Picker
                   selectedValue={formData.frequency_id}
                   onValueChange={(itemValue) => setFormData({ ...formData, frequency_id: itemValue })}
@@ -834,20 +758,8 @@ const IncomePage = ({ navigation }) => {
                 </Picker>
               </View>
               
-              <Text style={{
-                fontSize: 14,
-                fontWeight: '600',
-                color: '#E65100',
-                marginBottom: 4,
-              }}>Category</Text>
-              <View style={{
-                borderWidth: 1,
-                borderColor: '#FFE082',
-                borderRadius: 8,
-                marginBottom: 16,
-                backgroundColor: '#FFFFFF',
-                minHeight: 44,
-              }}>
+              <Text style={styles.inputLabel}>Category</Text>
+              <View style={styles.picker}>
                 <Picker
                   selectedValue={formData.category_id}
                   onValueChange={(itemValue) => setFormData({ ...formData, category_id: itemValue })}
@@ -859,201 +771,79 @@ const IncomePage = ({ navigation }) => {
                 </Picker>
               </View>
               
-              <View style={{
-                flexDirection: 'row',
-                justifyContent: 'space-between',
-                gap: 12,
-              }}>
+              <View style={styles.modalButtonsContainer}>
                 <TouchableOpacity
-                  style={{
-                    flex: 1,
-                    backgroundColor: '#E0E0E0',
-                    padding: 16,
-                    borderRadius: 8,
-                    alignItems: 'center',
-                    minHeight: 48,
-                    justifyContent: 'center',
-                  }}
+                  style={styles.closeButton}
                   onPress={() => setModalVisible(false)}
                   activeOpacity={0.7}
                 >
-                  <Text style={{
-                    color: '#616161',
-                    fontWeight: '600',
-                    fontSize: 16,
-                  }}>Cancel</Text>
+                  <Text style={styles.closeButtonText}>Cancel</Text>
                 </TouchableOpacity>
                 <TouchableOpacity 
-                  style={{
-                    flex: 1,
-                    backgroundColor: '#FF9800',
-                    padding: 16,
-                    borderRadius: 8,
-                    alignItems: 'center',
-                    minHeight: 48,
-                    justifyContent: 'center',
-                  }}
+                  style={styles.saveButton}
                   onPress={handleSaveIncome}
                   activeOpacity={0.7}
                 >
-                  <Text style={{
-                    color: '#FFFFFF',
-                    fontWeight: '600',
-                    fontSize: 16,
-                  }}>Save</Text>
+                  <Text style={styles.saveButtonText}>Save</Text>
                 </TouchableOpacity>
               </View>
             </ScrollView>
           </View>
         </View>
-      )}
+      </Modal>
 
-      {/* Delete Confirmation Modal - Fixed */}
-      {isDeleteModalVisible && (
-        <TouchableOpacity
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.5)',
-            justifyContent: 'center',
-            alignItems: 'center',
-            zIndex: 1000,
-          }}
-          activeOpacity={1}
-          onPress={() => setDeleteModalVisible(false)}
+      {/* Delete Confirmation Modal */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={isDeleteModalVisible}
+        onRequestClose={() => setDeleteModalVisible(false)}
         >
-          <TouchableOpacity
-            style={{
-              width: '90%',
-              maxWidth: 350,
-              backgroundColor: '#FFFFFF',
-              borderRadius: 12,
-              padding: 20,
-              alignSelf: 'center',
-            }}
-            activeOpacity={1}
-            onPress={(e) => e.stopPropagation()}
-          >
-            <View style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginBottom: 16,
-              gap: 12,
-            }}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <View style={styles.deleteModalHeader}>
               <Ionicons name="warning" size={32} color="#FF6B6B" />
-              <Text style={{
-                fontSize: 20,
-                fontWeight: '700',
-                color: '#FF5722',
-                letterSpacing: 0.5,
-              }}>Delete Income</Text>
+              <Text style={styles.deleteModalTitle}>Delete Income</Text>
             </View>
-            <Text style={{
-              fontSize: 16,
-              color: '#E65100',
-              textAlign: 'center',
-              marginBottom: 8,
-              letterSpacing: 0.3,
-            }}>
+            
+            <Text style={styles.deleteModalText}>
               Are you sure you want to delete "{incomeToDelete?.name}"?
             </Text>
-            <Text style={{
-              fontSize: 14,
-              color: '#F57C00',
-              textAlign: 'center',
-              marginBottom: 20,
-              letterSpacing: 0.2,
-            }}>
+            <Text style={styles.deleteModalSubtext}>
               This action cannot be undone.
             </Text>
-            <View style={{
-              flexDirection: 'row',
-              justifyContent: 'space-between',
-              gap: 12,
-            }}>
+            
+            <View style={styles.modalButtonsContainer}>
               <TouchableOpacity
-                style={{
-                  flex: 1,
-                  backgroundColor: '#FF5722',
-                  padding: 16,
-                  borderRadius: 8,
-                  alignItems: 'center',
-                  minHeight: 48,
-                  justifyContent: 'center',
-                  flexDirection: 'row',
-                }}
+                style={styles.deleteButton}
                 onPress={handleDeleteIncome}
                 activeOpacity={0.7}
               >
                 <Ionicons name="trash" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
-                <Text style={{
-                  color: '#FFFFFF',
-                  fontWeight: '600',
-                  fontSize: 16,
-                  letterSpacing: 0.5,
-                }}>Delete</Text>
+                <Text style={styles.deleteButtonText}>Delete</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={{
-                  flex: 1,
-                  backgroundColor: '#FFE082',
-                  padding: 16,
-                  borderRadius: 8,
-                  alignItems: 'center',
-                  minHeight: 48,
-                  justifyContent: 'center',
-                  flexDirection: 'row',
-                }}
+                style={styles.cancelButton}
                 onPress={() => setDeleteModalVisible(false)}
                 activeOpacity={0.7}
               >
                 <Ionicons name="close" size={20} color="#E65100" style={{ marginRight: 8 }} />
-                <Text style={{
-                  color: '#E65100',
-                  fontWeight: '600',
-                  fontSize: 16,
-                  letterSpacing: 0.5,
-                }}>Cancel</Text>
+                <Text style={styles.cancelButtonText}>Cancel</Text>
               </TouchableOpacity>
             </View>
-          </TouchableOpacity>
-        </TouchableOpacity>
-      )}
+          </View>
+        </View>
+      </Modal>
 
-      {/* Management Modal with Tabs - Fixed */}
-      {isManageModalVisible && (
-        <TouchableOpacity
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.7)',
-            justifyContent: 'center',
-            alignItems: 'center',
-            zIndex: 1000,
-          }}
-          activeOpacity={1}
-          onPress={() => setManageModalVisible(false)}
+      {/* Management Modal with Tabs */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={isManageModalVisible}
+        onRequestClose={() => setManageModalVisible(false)}
         >
-          <TouchableOpacity
-            style={{
-              width: '90%',
-              maxWidth: 400,
-              backgroundColor: '#FFFFFF',
-              borderRadius: 12,
-              padding: 20,
-              maxHeight: '80%',
-              alignSelf: 'center',
-            }}
-            activeOpacity={1}
-            onPress={(e) => e.stopPropagation()}
-          >
+        <View style={styles.manageModalOverlay}>
+          <View style={styles.manageModalContainer}>
             <Text style={{
               fontSize: 18,
               fontWeight: '700',
@@ -1313,33 +1103,18 @@ const IncomePage = ({ navigation }) => {
               )}
             </ScrollView>
             
-            <View style={{
-              flexDirection: 'row',
-              justifyContent: 'center',
-              marginTop: 16,
-            }}>
+            <View style={styles.manageModalButtons}>
               <TouchableOpacity
-                style={{
-                  backgroundColor: '#FF9800',
-                  paddingVertical: 12,
-                  paddingHorizontal: 24,
-                  borderRadius: 8,
-                  minHeight: 44,
-                  justifyContent: 'center',
-                }}
+                style={styles.manageCloseButton}
                 onPress={() => setManageModalVisible(false)}
                 activeOpacity={0.7}
               >
-                <Text style={{
-                  color: '#FFFFFF',
-                  fontWeight: '600',
-                  fontSize: 14,
-                }}>Close</Text>
+                <Text style={styles.manageCloseButtonText}>Close</Text>
               </TouchableOpacity>
             </View>
-          </TouchableOpacity>
-        </TouchableOpacity>
-      )}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };

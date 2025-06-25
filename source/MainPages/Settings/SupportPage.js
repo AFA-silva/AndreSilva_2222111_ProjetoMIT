@@ -238,21 +238,7 @@ const SupportPage = () => {
               <View style={styles.supportInfoIcon}>
                 <Ionicons name="mail-outline" size={20} color="#F9A825" />
               </View>
-              <Text style={styles.supportInfoText}>support@financialmind.pt</Text>
-            </View>
-            
-            <View style={styles.supportInfo}>
-              <View style={styles.supportInfoIcon}>
-                <Ionicons name="time-outline" size={20} color="#F9A825" />
-              </View>
-              <Text style={styles.supportInfoText}>Monday-Friday, 9:00 AM - 6:00 PM (GMT)</Text>
-            </View>
-            
-            <View style={styles.supportInfo}>
-              <View style={styles.supportInfoIcon}>
-                <Ionicons name="globe-outline" size={20} color="#F9A825" />
-              </View>
-              <Text style={styles.supportInfoText}>www.financialmind.pt/support</Text>
+              <Text style={styles.supportInfoText}>AndreSupabase@gmail.com</Text>
             </View>
           </View>
 

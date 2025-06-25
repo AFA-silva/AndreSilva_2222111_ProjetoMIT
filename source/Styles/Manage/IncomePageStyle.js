@@ -95,7 +95,7 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#E65100',
+    color: '#FF9800',
     marginBottom: 8,
     marginTop: 4,
     letterSpacing: 0.3,
@@ -108,7 +108,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     backgroundColor: '#FFFFFF',
     fontSize: 16,
-    color: '#E65100',
+    color: '#000000',
     fontWeight: '500',
   },
   picker: {
