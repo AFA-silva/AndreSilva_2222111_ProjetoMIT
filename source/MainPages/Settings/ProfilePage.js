@@ -431,9 +431,8 @@ const ProfilePage = ({ navigation }) => {
   // Handle logout
   const handleLogout = async () => {
     try {
-      const { error } = await supabase.auth.signOut();
-      
-      if (error) throw error;
+      const { clearAuthData } = require('../../../Supabase');
+      await clearAuthData();
       
       navigation.navigate('Login');
     } catch (error) {
