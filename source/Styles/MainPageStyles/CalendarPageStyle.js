@@ -862,6 +862,11 @@ const styles = StyleSheet.create({
   },
   mainEventListContainer: {
     marginBottom: 8,
+    maxHeight: 200, // Limit height to prevent pushing close button down
+    flex: 0, // Don't allow it to grow beyond maxHeight
+  },
+  mainEventListContent: {
+    paddingBottom: 8, // Add some padding at the bottom for scroll
   },
   mainEventAddButtonsContainer: {
     marginTop: 12,

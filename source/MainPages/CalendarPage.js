@@ -650,6 +650,9 @@ const CalendarPage = () => {
       }
       console.log('✅ User found:', user.id);
 
+      // Define eventKey at function scope level so it can be used throughout
+      const eventKey = `${recordType}-${record.id}`;
+
       // Update max recurrence limit based on selected record's frequency
       if (isRecurring && record.frequencies) {
         const maxLimit = getMaxRecurrenceLimit(record.frequencies.days);
@@ -675,8 +678,6 @@ const CalendarPage = () => {
         
         // Check each generated date for conflicts
         for (const testDate of testDates) {
-          const eventKey = `${recordType}-${record.id}`;
-          
           // Check in assigned records tracking
           if (assignedRecords[testDate] && assignedRecords[testDate].has(eventKey)) {
             conflictingDates.push(testDate);
@@ -699,8 +700,6 @@ const CalendarPage = () => {
         }
       } else {
         // For single events, check only the selected date
-        const eventKey = `${recordType}-${record.id}`;
-        
         if (assignedRecords[selectedDate] && assignedRecords[selectedDate].has(eventKey)) {
           conflictingDates.push(selectedDate);
         }
@@ -1161,13 +1160,29 @@ const CalendarPage = () => {
   );
 
   const renderExistingRecordsList = () => {
-    // Filter records based on search term
+    // First filter out records that are already assigned to the selected date
+    const unassignedRecords = existingRecords.filter(record => {
+      const eventKey = `${recordType}-${record.id}`;
+      
+      // Check if this record is already assigned to the selected date
+      const isAlreadyAssigned = assignedRecords[selectedDate] && 
+                                assignedRecords[selectedDate].has(eventKey);
+      
+      // Also check if there are any events in selectedEvents that match this record
+      const isInSelectedEvents = selectedEvents.some(event => 
+        event.type === recordType && event.event_id === record.id
+      );
+      
+      return !isAlreadyAssigned && !isInSelectedEvents;
+    });
+    
+    // Then filter based on search term
     const filteredRecords = searchTerm.length > 0 
-      ? existingRecords.filter(record => 
+      ? unassignedRecords.filter(record => 
           record.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
           record.categories?.name?.toLowerCase().includes(searchTerm.toLowerCase())
         )
-      : existingRecords;
+      : unassignedRecords;
 
     return (
       <View style={styles.recordSelectorContainer}>
@@ -1298,7 +1313,7 @@ const CalendarPage = () => {
 
         {/* Records List or No Records */}
         <View style={{ flex: 1 }}>
-          {existingRecords.length > 0 ? (
+          {filteredRecords.length > 0 ? (
             <FlatList
               data={filteredRecords}
               renderItem={renderExistingRecordItem}
@@ -1312,7 +1327,11 @@ const CalendarPage = () => {
             <View style={styles.noRecordsContainer}>
               <Text style={styles.noRecordsText}>
                 {loading ? 'Loading...' : 
-                  `No ${recordType} items${searchTerm ? ' matching your search' : ''}`}
+                  existingRecords.length === 0 
+                    ? `No ${recordType} items available`
+                    : searchTerm 
+                      ? `No ${recordType} items matching your search`
+                      : `All ${recordType} items are already assigned to this date`}
               </Text>
               {!loading && (
                 <TouchableOpacity
@@ -1815,9 +1834,14 @@ const CalendarPage = () => {
                   {renderSimplifiedSummary()}
                   
                   {selectedEvents.length > 0 ? (
-                    <View style={styles.mainEventListContainer}>
+                    <ScrollView 
+                      style={styles.mainEventListContainer}
+                      contentContainerStyle={styles.mainEventListContent}
+                      showsVerticalScrollIndicator={false}
+                      nestedScrollEnabled={true}
+                    >
                       {selectedEvents.map((event) => renderEventItem(event, `event-${event.id}-${event.date}`))}
-                    </View>
+                    </ScrollView>
                   ) : (
                     <View style={styles.mainEventNoEventsContainer}>
                       <FontAwesome5 name="calendar-day" size={40} color="#CCCCCC" />
