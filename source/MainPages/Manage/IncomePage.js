@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Modal, FlatList, TextInput, ScrollView, Animated as RNAnimated } from 'react-native';
-import { Picker } from '@react-native-picker/picker';
+import { View, Text, TouchableOpacity, ScrollView, Animated as RNAnimated, Modal, TextInput } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { Picker } from '@react-native-picker/picker';
 import { supabase } from '../../../Supabase';
 import styles from '../../Styles/Manage/IncomePageStyle';
 import AlertComponent from '../../Utility/Alerts';
@@ -11,22 +11,15 @@ import Header from '../../Utility/Header';
 import { formatCurrency, getCurrentCurrency, addCurrencyChangeListener, removeCurrencyChangeListener, shouldConvertCurrencyValues } from '../../Utility/FetchCountries';
 import { convertValueToCurrentCurrency } from '../../Utility/CurrencyConverter';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import StatisticsUpdater from '../../Utility/StatisticsUpdater';
 
 const IncomePage = ({ navigation }) => {
   const [incomes, setIncomes] = useState([]);
-  const [originalIncomes, setOriginalIncomes] = useState([]); // Armazenar os valores originais
+  const [originalIncomes, setOriginalIncomes] = useState([]);
   const [filteredIncomes, setFilteredIncomes] = useState([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState(null);
   const [chartRenderKey, setChartRenderKey] = useState(Date.now());
   const [frequencies, setFrequencies] = useState([]);
   const [categories, setCategories] = useState([]);
-  const [chartData, setChartData] = useState([]);
-  const [isModalVisible, setModalVisible] = useState(false);
-  const [isDeleteModalVisible, setDeleteModalVisible] = useState(false);
-  const [isFilterModalVisible, setFilterModalVisible] = useState(false); // Modal para exibir itens filtrados
-  const [isCategoryFilterVisible, setCategoryFilterVisible] = useState(false);
-  const [isManageModalVisible, setManageModalVisible] = useState(false); // New modal for management
   const [incomeToDelete, setIncomeToDelete] = useState(null);
   const [userId, setUserId] = useState(null);
   const [selectedIncome, setSelectedIncome] = useState(null);
@@ -36,21 +29,23 @@ const IncomePage = ({ navigation }) => {
     frequency_id: '',
     category_id: '',
   });
-  const [originalCurrency, setOriginalCurrency] = useState('EUR'); // Moeda original do sistema
+  const [originalCurrency, setOriginalCurrency] = useState('EUR');
 
   const [alertMessage, setAlertMessage] = useState('');
   const [alertType, setAlertType] = useState('');
   const [showAlert, setShowAlert] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Estados simples dos modais
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   // Use filteredIncomes para a lista e se estiver vazia, use incomes
   const incomesToDisplay = filteredIncomes.length > 0 ? filteredIncomes : incomes;
-  const incomesWithButtons = [...incomesToDisplay, { isAddButton: true }, { isManageButton: true }];
+  const incomesWithButtons = [...incomesToDisplay, { isAddButton: true }];
+  
 
-  // Add state for managing tabs in modal
-  const [activeManageTab, setActiveManageTab] = useState('categories');
-
-  // Add loading state
-  const [isLoading, setIsLoading] = useState(true);
 
   // Obter a moeda do usuário diretamente do banco de dados
   const loadUserCurrency = async () => {
@@ -122,9 +117,6 @@ const IncomePage = ({ navigation }) => {
       
       const sourceCurrency = origCurrency || originalCurrency || 'EUR';
       console.log(`[IncomePage] Convertendo ${data.length} receitas de ${sourceCurrency}`);
-      
-      // Não salva mais no AsyncStorage
-      console.log(`[IncomePage] Usando moeda ${sourceCurrency} para conversão`);
       
       const convertedIncomes = await Promise.all(data.map(async (income, index) => {
         try {
@@ -233,8 +225,6 @@ const IncomePage = ({ navigation }) => {
       legendFontColor: '#333',
       legendFontSize: 12,
     }));
-
-    setChartData(chartData);
   };
 
   useEffect(() => {
@@ -270,26 +260,20 @@ const IncomePage = ({ navigation }) => {
       }
     }, [userId])
   );
-  
 
-  const handleAddIncome = () => {
-    try {
-      // Reseta o estado do formulário e abre o modal
-      setSelectedIncome(null);
-      setFormData({
-        name: '',
-        amount: '',
-        frequency_id: '',
-        category_id: '',
-      });
-      setModalVisible(true); // Exibe o modal
-    } catch (error) {
-      console.error('Error in handleAddIncome:', error);
-    }
+  // Funções simples dos modais
+  const openAddModal = () => {
+    setSelectedIncome(null);
+    setFormData({
+      name: '',
+      amount: '',
+      frequency_id: '',
+      category_id: '',
+    });
+    setShowAddModal(true);
   };
 
-  const handleEditIncome = (income) => {
-    // Configura o estado do formulário com os dados do income selecionado e abre o modal
+  const openEditModal = (income) => {
     setSelectedIncome(income);
     setFormData({
       name: income.name,
@@ -297,7 +281,20 @@ const IncomePage = ({ navigation }) => {
       frequency_id: income.frequency_id,
       category_id: income.category_id,
     });
-    setModalVisible(true); // Exibe o modal
+    setShowEditModal(true);
+  };
+
+  const openDeleteModal = (income) => {
+    setIncomeToDelete(income);
+    setShowDeleteModal(true);
+  };
+
+  const closeModals = () => {
+    setShowAddModal(false);
+    setShowEditModal(false);
+    setShowDeleteModal(false);
+    setSelectedIncome(null);
+    setIncomeToDelete(null);
   };
 
   const handleSaveIncome = async () => {
@@ -313,7 +310,7 @@ const IncomePage = ({ navigation }) => {
       const userId = user?.id;
 
       if (!userId) {
-        alert('Error: Unauthenticated user. Unable to add income.');
+        alert('Error: Unauthenticated user. Unable to save income.');
         return;
       }
 
@@ -350,27 +347,21 @@ const IncomePage = ({ navigation }) => {
         return;
       }
 
-      // Update statistics only when adding new income (not editing)
-      if (!selectedIncome) {
-        await StatisticsUpdater.incrementIncome(userId);
-        console.log('Statistics updated: income count incremented');
-      }
-
-      // Exibe mensagem de sucesso em um alerta
-      setAlertMessage(selectedIncome ? 'Income updated successfully!' : 'Income added successfully!');
-      setAlertType('success');
-      setShowAlert(true);
+              // Exibe mensagem de sucesso em um alerta
+        setAlertMessage(selectedIncome ? 'Income updated successfully!' : 'Income added successfully!');
+        setAlertType('success');
+        setShowAlert(true);
 
       fetchUserIncomes(userId); // Atualiza lista após salvar
       
-      // Limpar o filtro quando um novo income é adicionado
+      // Limpar o filtro quando um income é editado
       setFilteredIncomes([]);
       setSelectedCategoryId(null);
     } catch (error) {
       console.error('Unexpected error saving income:', error);
       alert('Unexpected error. Please try again.');
     } finally {
-      setModalVisible(false); // Fecha o modal após salvar
+      closeModals(); // Fecha todos os modais após salvar
     }
   };
 
@@ -380,10 +371,6 @@ const IncomePage = ({ navigation }) => {
       if (error) {
         console.error('Error deleting income:', error);
       } else {
-        // Update statistics when deleting income
-        await StatisticsUpdater.decrementIncome(userId);
-        console.log('Statistics updated: income count decremented');
-        
         fetchUserIncomes(userId); // Atualiza lista após exclusão
         
         // Limpar o filtro quando um income é excluído
@@ -398,13 +385,8 @@ const IncomePage = ({ navigation }) => {
     } catch (error) {
       console.error('Unexpected error deleting income:', error);
     } finally {
-      setDeleteModalVisible(false); // Fecha o modal após concluir a exclusão
+      closeModals(); // Fecha todos os modais após concluir a exclusão
     }
-  };
-
-  const confirmDeleteIncome = (income) => {
-    setIncomeToDelete(income); // Define o income selecionado
-    setDeleteModalVisible(true); // Abre o modal de confirmação
   };
 
   // Método simplificado de seleção da categoria do gráfico
@@ -442,33 +424,7 @@ const IncomePage = ({ navigation }) => {
   };
 
   const renderIncomeItem = (item, index) => {
-    if (item.isAddButton) {
-      return (
-        <TouchableOpacity
-          key="add-button"
-          style={styles.addButton}
-          onPress={handleAddIncome}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="add" size={20} color="#FFFFFF" />
-          <Text style={styles.addButtonText}>Add Income</Text>
-        </TouchableOpacity>
-      );
-    }
-
-    if (item.isManageButton) {
-      return (
-        <TouchableOpacity
-          key="manage-button"
-          style={[styles.addButton, { backgroundColor: '#FFC107' }]}
-          onPress={() => setManageModalVisible(true)}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="settings" size={20} color="#FFFFFF" />
-          <Text style={styles.addButtonText}>Manage Categories</Text>
-        </TouchableOpacity>
-      );
-    }
+    // Agora só renderiza income cards, não o botão Add
 
     const isHighlighted = selectedCategoryId === item.category_id;
 
@@ -476,105 +432,72 @@ const IncomePage = ({ navigation }) => {
       <View 
         key={item.id || `income-${index}`}
         style={[
-          styles.incomeItem, 
-          isHighlighted && styles.highlightedIncomeItem
+          beautifulStyles.incomeCard, 
+          isHighlighted && beautifulStyles.highlightedCard
         ]}
       >
-        <View style={styles.incomeRow}>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <View style={[styles.priorityIndicator, { backgroundColor: '#FF9800' }]} />
-            <Text style={styles.incomeTitle}>{item.name}</Text>
+        {/* Header Row */}
+        <View style={beautifulStyles.cardHeader}>
+          <View style={beautifulStyles.cardHeaderLeft}>
+            <View style={beautifulStyles.incomeIcon}>
+              <Ionicons name="trending-up" size={18} color="#FF9800" />
+            </View>
+            <View>
+              <Text style={beautifulStyles.incomeTitle}>{item.name}</Text>
+              <Text style={beautifulStyles.incomeAmount}>
+                {formatCurrency(item.amount)}
+              </Text>
+            </View>
           </View>
-          <Text style={styles.incomeDetails}>
-            {formatCurrency(item.amount)}
-          </Text>
+          <View style={beautifulStyles.actionButtons}>
+            <TouchableOpacity
+              style={beautifulStyles.editButton}
+              onPress={() => {
+                console.log('Edit button clicked for:', item.name); // Debug
+                openEditModal(item);
+              }}
+            >
+              <Ionicons name="pencil" size={14} color="#FFF" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={beautifulStyles.deleteButton}
+              onPress={() => {
+                console.log('Delete button clicked for:', item.name); // Debug
+                openDeleteModal(item);
+              }}
+            >
+              <Ionicons name="trash" size={14} color="#FFF" />
+            </TouchableOpacity>
+          </View>
         </View>
 
-        <View style={styles.incomeRow}>
+        {/* Tags Row */}
+        <View style={beautifulStyles.tagsRow}>
           {item.categories && (
             <View style={[
-              styles.categoryTag,
-              isHighlighted && styles.highlightedCategoryTag
+              beautifulStyles.categoryTag,
+              isHighlighted && beautifulStyles.highlightedTag
             ]}>
+              <Ionicons name="folder" size={12} color={isHighlighted ? "#FFFFFF" : "#E65100"} />
               <Text style={[
-                styles.categoryText,
-                isHighlighted && styles.highlightedCategoryText
+                beautifulStyles.tagText,
+                isHighlighted && beautifulStyles.highlightedTagText
               ]}>
                 {item.categories.name}
               </Text>
             </View>
           )}
           {item.frequencies && (
-            <View style={styles.frequencyTag}>
-              <Text style={styles.frequencyText}>
+            <View style={beautifulStyles.frequencyTag}>
+              <Ionicons name="time" size={12} color="#2196F3" />
+              <Text style={beautifulStyles.frequencyText}>
                 {item.frequencies.name}
               </Text>
             </View>
           )}
         </View>
-
-        <View style={[styles.incomeRow, { marginTop: 8, justifyContent: 'flex-end' }]}>
-          <TouchableOpacity
-            style={[styles.actionButtonEdit, { marginRight: 8 }]}
-            onPress={() => handleEditIncome(item)}
-          >
-            <Ionicons name="pencil" size={16} color="#FFF" />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.actionButtonDelete}
-            onPress={() => confirmDeleteIncome(item)}
-          >
-            <Ionicons name="trash" size={16} color="#FFF" />
-          </TouchableOpacity>
-        </View>
       </View>
     );
-  };
-
-  // Nova função simplificada para calcular os dados do gráfico de pizza
-  const calculatePieData = () => {
-    if (!incomes || !categories || !frequencies) return [];
-
-    // Cores predefinidas para o gráfico
-    const pieColors = [
-      '#FF9500',  // Laranja
-      '#9C27B0',  // Roxo
-      '#2196F3',  // Azul
-      '#4CAF50',  // Verde
-      '#F44336',  // Vermelho
-      '#FFEB3B',  // Amarelo
-    ];
-    
-    // Agrupar por categoria
-    const catTotals = {};
-    
-    // Inicializar categorias
-    categories.forEach(cat => {
-      catTotals[cat.id] = { 
-        id: cat.id,
-        name: cat.name, 
-        value: 0, 
-        color: pieColors[cat.id % pieColors.length]
-      };
-    });
-    
-    // Somar valores por categoria
-    incomes.forEach(income => {
-      if (catTotals[income.category_id]) {
-        const frequency = frequencies.find(f => f.id === income.frequency_id);
-          const days = frequency?.days || 30;
-        // Converter para valor mensal
-          const monthlyAmount = income.amount * (30 / days);
-        catTotals[income.category_id].value += monthlyAmount;
-      }
-    });
-    
-    // Filtrar para excluir categorias sem valores ou com valores muito pequenos
-    let result = Object.values(catTotals)
-      .filter(cat => cat.name && cat.value > 0) // Só incluir categorias com valor > 0
-      .sort((a, b) => b.value - a.value);
-
-    return result;
   };
 
   // Add skeleton component
@@ -619,49 +542,6 @@ const IncomePage = ({ navigation }) => {
     );
   };
 
-  // Add methods for manage modal actions
-  const handleAddCategory = () => {
-    // TODO: Implement add category logic
-    setAlertMessage('Add category feature coming soon!');
-    setAlertType('info');
-    setShowAlert(true);
-  };
-
-  const handleEditCategory = (category) => {
-    // TODO: Implement edit category logic
-    setAlertMessage(`Edit category "${category.name}" feature coming soon!`);
-    setAlertType('info');
-    setShowAlert(true);
-  };
-
-  const handleDeleteCategory = (category) => {
-    // TODO: Implement delete category logic
-    setAlertMessage(`Delete category "${category.name}" feature coming soon!`);
-    setAlertType('info');
-    setShowAlert(true);
-  };
-
-  const handleAddFrequency = () => {
-    // TODO: Implement add frequency logic
-    setAlertMessage('Add frequency feature coming soon!');
-    setAlertType('info');
-    setShowAlert(true);
-  };
-
-  const handleEditFrequency = (frequency) => {
-    // TODO: Implement edit frequency logic
-    setAlertMessage(`Edit frequency "${frequency.name}" feature coming soon!`);
-    setAlertType('info');
-    setShowAlert(true);
-  };
-
-  const handleDeleteFrequency = (frequency) => {
-    // TODO: Implement delete frequency logic
-    setAlertMessage(`Delete frequency "${frequency.name}" feature coming soon!`);
-    setAlertType('info');
-    setShowAlert(true);
-  };
-
   return (
     <View style={styles.container}>
       {showAlert && <AlertComponent type={alertType} message={alertMessage} onClose={() => setShowAlert(false)} />}
@@ -671,7 +551,12 @@ const IncomePage = ({ navigation }) => {
       {isLoading ? (
         <SkeletonLoader />
       ) : (
-        <>
+        <ScrollView 
+          style={{ flex: 1 }}
+          showsVerticalScrollIndicator={false} 
+          contentContainerStyle={beautifulStyles.pageScrollContent}
+          keyboardShouldPersistTaps="handled"
+        >
           <View style={styles.chartContainer}>
             <Chart
               key={chartRenderKey}
@@ -698,425 +583,819 @@ const IncomePage = ({ navigation }) => {
             </TouchableOpacity>
           )}
 
-          <ScrollView 
-            showsVerticalScrollIndicator={false} 
-            style={{ flex: 1 }}
-            keyboardShouldPersistTaps="handled"
-            nestedScrollEnabled={true}
+          {/* Section Header */}
+          <View style={beautifulStyles.sectionHeader}>
+            <Text style={beautifulStyles.sectionTitle}>Your Incomes</Text>
+            <Text style={beautifulStyles.sectionSubtitle}>
+              {filteredIncomes.length > 0 ? `${filteredIncomes.length} filtered` : `${incomes.length} total`}
+            </Text>
+          </View>
+
+          {/* Income Cards - agora renderizados diretamente no scroll principal */}
+          {incomesToDisplay.map((item, index) => renderIncomeItem(item, index))}
+          
+          {/* Add Button - sempre renderizado */}
+          <TouchableOpacity
+            style={beautifulStyles.addButton}
+            onPress={openAddModal}
+            activeOpacity={0.7}
           >
-            {incomesWithButtons.map((item, index) => renderIncomeItem(item, index))}
-          </ScrollView>
-        </>
+            <View style={beautifulStyles.addButtonIcon}>
+              <Ionicons name="add" size={24} color="#FFFFFF" />
+            </View>
+            <View>
+              <Text style={beautifulStyles.addButtonText}>Add New Income</Text>
+              <Text style={beautifulStyles.addButtonSubtext}>Track your income sources</Text>
+            </View>
+          </TouchableOpacity>
+          
+          {/* Empty State */}
+          {incomes.length === 0 && (
+            <View style={beautifulStyles.emptyState}>
+              <Ionicons name="wallet-outline" size={64} color="#FFE082" />
+              <Text style={beautifulStyles.emptyTitle}>No Incomes Yet</Text>
+              <Text style={beautifulStyles.emptySubtitle}>
+                Start by adding your first income source to track your earnings
+              </Text>
+            </View>
+          )}
+        </ScrollView>
       )}
 
-      {/* Add/Edit Modal */}
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={isModalVisible}
-        onRequestClose={() => setModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
+      {/* Add/Edit Modal - Copied from ExpensesPage */}
+      {showAddModal && (
+        <View
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: 1000,
+          }}
+        >
+          <TouchableOpacity
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+            }}
+            onPress={closeModals}
+            activeOpacity={1}
+          />
+          <View
+            style={{
+              width: '90%',
+              maxWidth: 350,
+              backgroundColor: '#FFFFFF',
+              borderRadius: 12,
+              padding: 20,
+              maxHeight: '80%',
+              alignSelf: 'center',
+            }}
+          >
             <ScrollView 
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
             >
-              <Text style={styles.modalHeader}>
-                {selectedIncome ? 'Edit Income' : 'Add Income'}
+              <Text style={{
+                fontSize: 18,
+                fontWeight: '700',
+                color: '#FF9800',
+                marginBottom: 16,
+                textAlign: 'center',
+              }}>
+                Add Income
               </Text>
-              
-              <Text style={styles.inputLabel}>Income Name</Text>
+
+              <Text style={{
+                fontSize: 14,
+                fontWeight: '600',
+                color: '#E65100',
+                marginBottom: 4,
+              }}>Income Name</Text>
               <TextInput
-                style={styles.modalInput}
+                style={{
+                  borderWidth: 1,
+                  borderColor: '#FFE082',
+                  borderRadius: 8,
+                  padding: 12,
+                  marginBottom: 12,
+                  backgroundColor: '#FFFFFF',
+                  fontSize: 16,
+                  color: '#E65100',
+                  minHeight: 44,
+                }}
                 placeholder="Enter income name"
                 placeholderTextColor="#B0BEC5"
                 value={formData.name}
                 onChangeText={(text) => setFormData({ ...formData, name: text })}
               />
-              
-              <Text style={styles.inputLabel}>Amount</Text>
+
+              <Text style={{
+                fontSize: 14,
+                fontWeight: '600',
+                color: '#E65100',
+                marginBottom: 4,
+              }}>Amount</Text>
               <TextInput
-                style={styles.modalInput}
+                style={{
+                  borderWidth: 1,
+                  borderColor: '#FFE082',
+                  borderRadius: 8,
+                  padding: 12,
+                  marginBottom: 12,
+                  backgroundColor: '#FFFFFF',
+                  fontSize: 16,
+                  color: '#E65100',
+                  minHeight: 44,
+                }}
                 placeholder="Enter amount"
                 placeholderTextColor="#B0BEC5"
                 keyboardType="numeric"
                 value={formData.amount}
                 onChangeText={(text) => setFormData({ ...formData, amount: text })}
               />
-              
-              <Text style={styles.inputLabel}>Frequency</Text>
-              <View style={styles.picker}>
+
+              <Text style={{
+                fontSize: 14,
+                fontWeight: '600',
+                color: '#E65100',
+                marginBottom: 4,
+              }}>Frequency</Text>
+              <View style={{
+                borderWidth: 1,
+                borderColor: '#FFE082',
+                borderRadius: 8,
+                marginBottom: 12,
+                backgroundColor: '#FFFFFF',
+                minHeight: 44,
+              }}>
                 <Picker
                   selectedValue={formData.frequency_id}
-                  onValueChange={(itemValue) => setFormData({ ...formData, frequency_id: itemValue })}
+                  onValueChange={(value) => setFormData({ ...formData, frequency_id: value })}
                 >
                   <Picker.Item label="Select Frequency" value="" />
                   {frequencies.map((frequency) => (
-                    <Picker.Item key={frequency.id} label={frequency.name} value={frequency.id} />
+                    <Picker.Item
+                      key={frequency.id}
+                      label={frequency.name}
+                      value={frequency.id}
+                    />
                   ))}
                 </Picker>
               </View>
-              
-              <Text style={styles.inputLabel}>Category</Text>
-              <View style={styles.picker}>
+
+              <Text style={{
+                fontSize: 14,
+                fontWeight: '600',
+                color: '#E65100',
+                marginBottom: 4,
+              }}>Category</Text>
+              <View style={{
+                borderWidth: 1,
+                borderColor: '#FFE082',
+                borderRadius: 8,
+                marginBottom: 16,
+                backgroundColor: '#FFFFFF',
+                minHeight: 44,
+              }}>
                 <Picker
                   selectedValue={formData.category_id}
-                  onValueChange={(itemValue) => setFormData({ ...formData, category_id: itemValue })}
+                  onValueChange={(value) => setFormData({ ...formData, category_id: value })}
                 >
                   <Picker.Item label="Select Category" value="" />
                   {categories.map((category) => (
-                    <Picker.Item key={category.id} label={category.name} value={category.id} />
+                    <Picker.Item
+                      key={category.id}
+                      label={category.name}
+                      value={category.id}
+                    />
                   ))}
                 </Picker>
               </View>
-              
-              <View style={styles.modalButtonsContainer}>
+
+              <View style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                gap: 12,
+              }}>
                 <TouchableOpacity
-                  style={styles.closeButton}
-                  onPress={() => setModalVisible(false)}
+                  style={{
+                    flex: 1,
+                    backgroundColor: '#E0E0E0',
+                    padding: 16,
+                    borderRadius: 8,
+                    alignItems: 'center',
+                    minHeight: 48,
+                    justifyContent: 'center',
+                  }}
+                  onPress={closeModals}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.closeButtonText}>Cancel</Text>
+                  <Text style={{
+                    color: '#616161',
+                    fontWeight: '600',
+                    fontSize: 16,
+                  }}>Cancel</Text>
                 </TouchableOpacity>
-                <TouchableOpacity 
-                  style={styles.saveButton}
+                <TouchableOpacity
+                  style={{
+                    flex: 1,
+                    backgroundColor: '#FF9800',
+                    padding: 16,
+                    borderRadius: 8,
+                    alignItems: 'center',
+                    minHeight: 48,
+                    justifyContent: 'center',
+                  }}
                   onPress={handleSaveIncome}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.saveButtonText}>Save</Text>
+                  <Text style={{
+                    color: '#FFFFFF',
+                    fontWeight: '600',
+                    fontSize: 16,
+                  }}>Save</Text>
                 </TouchableOpacity>
               </View>
             </ScrollView>
           </View>
         </View>
-      </Modal>
+      )}
 
-      {/* Delete Confirmation Modal */}
-      <Modal
-        animationType="fade"
-        transparent={true}
-        visible={isDeleteModalVisible}
-        onRequestClose={() => setDeleteModalVisible(false)}
+      {/* Edit Modal - Copied from ExpensesPage */}
+      {showEditModal && (
+        <View
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: 1000,
+          }}
         >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
-            <View style={styles.deleteModalHeader}>
+          <TouchableOpacity
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+            }}
+            onPress={closeModals}
+            activeOpacity={1}
+          />
+          <View
+            style={{
+              width: '90%',
+              maxWidth: 350,
+              backgroundColor: '#FFFFFF',
+              borderRadius: 12,
+              padding: 20,
+              maxHeight: '80%',
+              alignSelf: 'center',
+            }}
+          >
+            <ScrollView 
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
+              <Text style={{
+                fontSize: 18,
+                fontWeight: '700',
+                color: '#FF9800',
+                marginBottom: 16,
+                textAlign: 'center',
+              }}>
+                Edit Income
+              </Text>
+
+              <Text style={{
+                fontSize: 14,
+                fontWeight: '600',
+                color: '#E65100',
+                marginBottom: 4,
+              }}>Income Name</Text>
+              <TextInput
+                style={{
+                  borderWidth: 1,
+                  borderColor: '#FFE082',
+                  borderRadius: 8,
+                  padding: 12,
+                  marginBottom: 12,
+                  backgroundColor: '#FFFFFF',
+                  fontSize: 16,
+                  color: '#E65100',
+                  minHeight: 44,
+                }}
+                placeholder="Enter income name"
+                placeholderTextColor="#B0BEC5"
+                value={formData.name}
+                onChangeText={(text) => setFormData({ ...formData, name: text })}
+              />
+
+              <Text style={{
+                fontSize: 14,
+                fontWeight: '600',
+                color: '#E65100',
+                marginBottom: 4,
+              }}>Amount</Text>
+              <TextInput
+                style={{
+                  borderWidth: 1,
+                  borderColor: '#FFE082',
+                  borderRadius: 8,
+                  padding: 12,
+                  marginBottom: 12,
+                  backgroundColor: '#FFFFFF',
+                  fontSize: 16,
+                  color: '#E65100',
+                  minHeight: 44,
+                }}
+                placeholder="Enter amount"
+                placeholderTextColor="#B0BEC5"
+                keyboardType="numeric"
+                value={formData.amount}
+                onChangeText={(text) => setFormData({ ...formData, amount: text })}
+              />
+
+              <Text style={{
+                fontSize: 14,
+                fontWeight: '600',
+                color: '#E65100',
+                marginBottom: 4,
+              }}>Frequency</Text>
+              <View style={{
+                borderWidth: 1,
+                borderColor: '#FFE082',
+                borderRadius: 8,
+                marginBottom: 12,
+                backgroundColor: '#FFFFFF',
+                minHeight: 44,
+              }}>
+                <Picker
+                  selectedValue={formData.frequency_id}
+                  onValueChange={(value) => setFormData({ ...formData, frequency_id: value })}
+                >
+                  <Picker.Item label="Select Frequency" value="" />
+                  {frequencies.map((frequency) => (
+                    <Picker.Item
+                      key={frequency.id}
+                      label={frequency.name}
+                      value={frequency.id}
+                    />
+                  ))}
+                </Picker>
+              </View>
+
+              <Text style={{
+                fontSize: 14,
+                fontWeight: '600',
+                color: '#E65100',
+                marginBottom: 4,
+              }}>Category</Text>
+              <View style={{
+                borderWidth: 1,
+                borderColor: '#FFE082',
+                borderRadius: 8,
+                marginBottom: 16,
+                backgroundColor: '#FFFFFF',
+                minHeight: 44,
+              }}>
+                <Picker
+                  selectedValue={formData.category_id}
+                  onValueChange={(value) => setFormData({ ...formData, category_id: value })}
+                >
+                  <Picker.Item label="Select Category" value="" />
+                  {categories.map((category) => (
+                    <Picker.Item
+                      key={category.id}
+                      label={category.name}
+                      value={category.id}
+                    />
+                  ))}
+                </Picker>
+              </View>
+
+              <View style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                gap: 12,
+              }}>
+                <TouchableOpacity
+                  style={{
+                    flex: 1,
+                    backgroundColor: '#E0E0E0',
+                    padding: 16,
+                    borderRadius: 8,
+                    alignItems: 'center',
+                    minHeight: 48,
+                    justifyContent: 'center',
+                  }}
+                  onPress={closeModals}
+                  activeOpacity={0.7}
+                >
+                  <Text style={{
+                    color: '#616161',
+                    fontWeight: '600',
+                    fontSize: 16,
+                  }}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={{
+                    flex: 1,
+                    backgroundColor: '#FF9800',
+                    padding: 16,
+                    borderRadius: 8,
+                    alignItems: 'center',
+                    minHeight: 48,
+                    justifyContent: 'center',
+                  }}
+                  onPress={handleSaveIncome}
+                  activeOpacity={0.7}
+                >
+                  <Text style={{
+                    color: '#FFFFFF',
+                    fontWeight: '600',
+                    fontSize: 16,
+                  }}>Save</Text>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      )}
+
+      {/* Delete Confirmation Modal - Copied from ExpensesPage */}
+      {showDeleteModal && (
+        <TouchableOpacity
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: 1000,
+          }}
+          activeOpacity={1}
+          onPress={closeModals}
+        >
+          <TouchableOpacity
+            style={{
+              width: '90%',
+              maxWidth: 350,
+              backgroundColor: '#FFFFFF',
+              borderRadius: 12,
+              padding: 20,
+              alignSelf: 'center',
+            }}
+            activeOpacity={1}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: 16,
+              gap: 12,
+            }}>
               <Ionicons name="warning" size={32} color="#FF6B6B" />
-              <Text style={styles.deleteModalTitle}>Delete Income</Text>
+              <Text style={{
+                fontSize: 20,
+                fontWeight: '700',
+                color: '#FF9800',
+                letterSpacing: 0.5,
+              }}>Delete Income</Text>
             </View>
-            
-            <Text style={styles.deleteModalText}>
+            <Text style={{
+              fontSize: 16,
+              color: '#E65100',
+              textAlign: 'center',
+              marginBottom: 8,
+              letterSpacing: 0.3,
+            }}>
               Are you sure you want to delete "{incomeToDelete?.name}"?
             </Text>
-            <Text style={styles.deleteModalSubtext}>
+            <Text style={{
+              fontSize: 14,
+              color: '#F57C00',
+              textAlign: 'center',
+              marginBottom: 20,
+              letterSpacing: 0.2,
+            }}>
               This action cannot be undone.
             </Text>
-            
-            <View style={styles.modalButtonsContainer}>
+            <View style={{
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              gap: 12,
+            }}>
               <TouchableOpacity
-                style={styles.deleteButton}
+                style={{
+                  flex: 1,
+                  backgroundColor: '#FF9800',
+                  padding: 16,
+                  borderRadius: 8,
+                  alignItems: 'center',
+                  minHeight: 48,
+                  justifyContent: 'center',
+                  flexDirection: 'row',
+                }}
                 onPress={handleDeleteIncome}
                 activeOpacity={0.7}
               >
                 <Ionicons name="trash" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
-                <Text style={styles.deleteButtonText}>Delete</Text>
+                <Text style={{
+                  color: '#FFFFFF',
+                  fontWeight: '600',
+                  fontSize: 16,
+                  letterSpacing: 0.5,
+                }}>Delete</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={styles.cancelButton}
-                onPress={() => setDeleteModalVisible(false)}
+                style={{
+                  flex: 1,
+                  backgroundColor: '#FFE082',
+                  padding: 16,
+                  borderRadius: 8,
+                  alignItems: 'center',
+                  minHeight: 48,
+                  justifyContent: 'center',
+                  flexDirection: 'row',
+                }}
+                onPress={closeModals}
                 activeOpacity={0.7}
               >
                 <Ionicons name="close" size={20} color="#E65100" style={{ marginRight: 8 }} />
-                <Text style={styles.cancelButtonText}>Cancel</Text>
+                <Text style={{
+                  color: '#E65100',
+                  fontWeight: '600',
+                  fontSize: 16,
+                  letterSpacing: 0.5,
+                }}>Cancel</Text>
               </TouchableOpacity>
             </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Management Modal with Tabs */}
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={isManageModalVisible}
-        onRequestClose={() => setManageModalVisible(false)}
-        >
-        <View style={styles.manageModalOverlay}>
-          <View style={styles.manageModalContainer}>
-            <Text style={{
-              fontSize: 18,
-              fontWeight: '700',
-              color: '#FF9800',
-              marginBottom: 16,
-              textAlign: 'center',
-              letterSpacing: 0.5,
-            }}>Manage Settings</Text>
-            
-            {/* Tab Selection */}
-            <View style={{
-              flexDirection: 'row',
-              backgroundColor: '#FFF8E1',
-              borderRadius: 8,
-              padding: 4,
-              marginBottom: 16,
-              borderWidth: 1,
-              borderColor: '#FFE082',
-            }}>
-              <TouchableOpacity 
-                style={[
-                  {
-                    flex: 1,
-                    paddingVertical: 10,
-                    paddingHorizontal: 16,
-                    borderRadius: 6,
-                    alignItems: 'center',
-                  },
-                  activeManageTab === 'categories' && {
-                    backgroundColor: '#FF9800',
-                  }
-                ]}
-                onPress={() => setActiveManageTab('categories')}
-                activeOpacity={0.7}
-              >
-                <Text style={[
-                  {
-                    fontSize: 14,
-                    fontWeight: '600',
-                    color: '#F57C00',
-                  },
-                  activeManageTab === 'categories' && {
-                    color: '#FFFFFF',
-                    fontWeight: '700',
-                  }
-                ]}>
-                  Categories
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={[
-                  {
-                    flex: 1,
-                    paddingVertical: 10,
-                    paddingHorizontal: 16,
-                    borderRadius: 6,
-                    alignItems: 'center',
-                  },
-                  activeManageTab === 'frequencies' && {
-                    backgroundColor: '#FF9800',
-                  }
-                ]}
-                onPress={() => setActiveManageTab('frequencies')}
-                activeOpacity={0.7}
-              >
-                <Text style={[
-                  {
-                    fontSize: 14,
-                    fontWeight: '600',
-                    color: '#F57C00',
-                  },
-                  activeManageTab === 'frequencies' && {
-                    color: '#FFFFFF',
-                    fontWeight: '700',
-                  }
-                ]}>
-                  Frequencies
-                </Text>
-              </TouchableOpacity>
-            </View>
-            
-            <ScrollView 
-              style={{ maxHeight: 200 }} 
-              showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
-            >
-              {/* Categories Section */}
-              {activeManageTab === 'categories' && (
-                <View style={{ flex: 1 }}>
-                  <Text style={{
-                    fontSize: 16,
-                    fontWeight: '600',
-                    color: '#E65100',
-                    marginBottom: 12,
-                    letterSpacing: 0.3,
-                  }}>Income Categories</Text>
-                  {categories.map((category) => (
-                    <View key={category.id} style={{
-                      flexDirection: 'row',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      backgroundColor: '#FFF8E1',
-                      padding: 12,
-                      borderRadius: 8,
-                      marginBottom: 8,
-                      borderWidth: 1,
-                      borderColor: '#FFE082',
-                    }}>
-                      <Text style={{
-                        fontSize: 14,
-                        color: '#F57C00',
-                        fontWeight: '500',
-                        flex: 1,
-                      }}>{category.name}</Text>
-                      <View style={{
-                        flexDirection: 'row',
-                        gap: 8,
-                      }}>
-                        <TouchableOpacity 
-                          style={{
-                            padding: 8,
-                            borderRadius: 6,
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            backgroundColor: '#FFC107',
-                          }}
-                          onPress={() => handleEditCategory(category)}
-                          activeOpacity={0.7}
-                        >
-                          <Ionicons name="pencil" size={14} color="#FFF" />
-                        </TouchableOpacity>
-                        <TouchableOpacity 
-                          style={{
-                            padding: 8,
-                            borderRadius: 6,
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            backgroundColor: '#FF5722',
-                          }}
-                          onPress={() => handleDeleteCategory(category)}
-                          activeOpacity={0.7}
-                        >
-                          <Ionicons name="trash" size={14} color="#FFF" />
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  ))}
-                  <TouchableOpacity 
-                    style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      backgroundColor: '#FF9800',
-                      paddingVertical: 10,
-                      paddingHorizontal: 16,
-                      borderRadius: 8,
-                      marginTop: 8,
-                    }}
-                    onPress={handleAddCategory}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons name="add" size={16} color="#FFFFFF" />
-                    <Text style={{
-                      color: '#FFFFFF',
-                      fontWeight: '600',
-                      fontSize: 14,
-                      marginLeft: 6,
-                    }}>Add Category</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-
-              {/* Frequencies Section */}
-              {activeManageTab === 'frequencies' && (
-                <View style={{ flex: 1 }}>
-                  <Text style={{
-                    fontSize: 16,
-                    fontWeight: '600',
-                    color: '#E65100',
-                    marginBottom: 12,
-                    letterSpacing: 0.3,
-                  }}>Frequencies</Text>
-                  {frequencies.map((frequency) => (
-                    <View key={frequency.id} style={{
-                      flexDirection: 'row',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      backgroundColor: '#FFF8E1',
-                      padding: 12,
-                      borderRadius: 8,
-                      marginBottom: 8,
-                      borderWidth: 1,
-                      borderColor: '#FFE082',
-                    }}>
-                      <Text style={{
-                        fontSize: 14,
-                        color: '#F57C00',
-                        fontWeight: '500',
-                        flex: 1,
-                      }}>{frequency.name} ({frequency.days} days)</Text>
-                      <View style={{
-                        flexDirection: 'row',
-                        gap: 8,
-                      }}>
-                        <TouchableOpacity 
-                          style={{
-                            padding: 8,
-                            borderRadius: 6,
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            backgroundColor: '#FFC107',
-                          }}
-                          onPress={() => handleEditFrequency(frequency)}
-                          activeOpacity={0.7}
-                        >
-                          <Ionicons name="pencil" size={14} color="#FFF" />
-                        </TouchableOpacity>
-                        <TouchableOpacity 
-                          style={{
-                            padding: 8,
-                            borderRadius: 6,
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            backgroundColor: '#FF5722',
-                          }}
-                          onPress={() => handleDeleteFrequency(frequency)}
-                          activeOpacity={0.7}
-                        >
-                          <Ionicons name="trash" size={14} color="#FFF" />
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  ))}
-                  <TouchableOpacity 
-                    style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      backgroundColor: '#FF9800',
-                      paddingVertical: 10,
-                      paddingHorizontal: 16,
-                      borderRadius: 8,
-                      marginTop: 8,
-                    }}
-                    onPress={handleAddFrequency}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons name="add" size={16} color="#FFFFFF" />
-                    <Text style={{
-                      color: '#FFFFFF',
-                      fontWeight: '600',
-                      fontSize: 14,
-                      marginLeft: 6,
-                    }}>Add Frequency</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-            </ScrollView>
-            
-            <View style={styles.manageModalButtons}>
-              <TouchableOpacity
-                style={styles.manageCloseButton}
-                onPress={() => setManageModalVisible(false)}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.manageCloseButtonText}>Close</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      )}
     </View>
   );
+};
+
+
+
+// Estilos bonitos para elementos visuais
+const beautifulStyles = {
+  summaryCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 20,
+    marginHorizontal: 16,
+    marginBottom: 16,
+    shadowColor: '#FF9800',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 5,
+    borderLeftWidth: 4,
+    borderLeftColor: '#FF9800',
+  },
+  summaryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  summaryTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#FF9800',
+    marginLeft: 8,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  summaryItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  summaryNumber: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#E65100',
+    marginBottom: 4,
+  },
+  summaryLabel: {
+    fontSize: 12,
+    color: '#F57C00',
+    fontWeight: '600',
+  },
+  summaryDivider: {
+    width: 1,
+    height: 40,
+    backgroundColor: '#FFE082',
+    marginHorizontal: 20,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    backgroundColor: '#FFF8E1',
+    marginBottom: 8,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#E65100',
+  },
+  sectionSubtitle: {
+    fontSize: 12,
+    color: '#F57C00',
+    fontWeight: '600',
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: 20,
+  },
+  pageScrollContent: {
+    flexGrow: 1,
+    paddingBottom: 30,
+  },
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 40,
+    marginTop: 60,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#FF9800',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    color: '#F57C00',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  addButton: {
+    backgroundColor: '#FF9800',
+    borderRadius: 16,
+    padding: 20,
+    marginHorizontal: 16,
+    marginBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowColor: '#FF9800',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  addButtonIcon: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 12,
+    padding: 8,
+    marginRight: 16,
+  },
+  addButtonText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    marginBottom: 2,
+  },
+  addButtonSubtext: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.8)',
+  },
+  incomeCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    marginHorizontal: 16,
+    marginBottom: 12,
+    shadowColor: '#FF9800',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 3,
+    borderLeftWidth: 4,
+    borderLeftColor: '#FF9800',
+  },
+  highlightedCard: {
+    borderLeftColor: '#E65100',
+    backgroundColor: '#FFF8E1',
+    shadowOpacity: 0.2,
+    elevation: 6,
+    transform: [{scale: 1.02}],
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  cardHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  incomeIcon: {
+    backgroundColor: '#FFE082',
+    borderRadius: 10,
+    padding: 8,
+    marginRight: 12,
+  },
+  incomeTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#E65100',
+    marginBottom: 2,
+  },
+  incomeAmount: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#FF9800',
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  editButton: {
+    backgroundColor: '#FFC107',
+    borderRadius: 8,
+    padding: 8,
+    shadowColor: '#FFC107',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  deleteButton: {
+    backgroundColor: '#FF5722',
+    borderRadius: 8,
+    padding: 8,
+    shadowColor: '#FF5722',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  tagsRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  categoryTag: {
+    backgroundColor: '#FFE082',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  highlightedTag: {
+    backgroundColor: '#FF9800',
+  },
+  frequencyTag: {
+    backgroundColor: '#E3F2FD',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  tagText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#E65100',
+  },
+  highlightedTagText: {
+    color: '#FFFFFF',
+  },
+  frequencyText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#2196F3',
+  },
 };
 
 export default IncomePage;

@@ -11,7 +11,7 @@ import Header from '../../Utility/Header';
 import { formatCurrency, getCurrentCurrency, addCurrencyChangeListener, removeCurrencyChangeListener, shouldConvertCurrencyValues } from '../../Utility/FetchCountries';
 import { convertValueToCurrentCurrency } from '../../Utility/CurrencyConverter';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import StatisticsUpdater from '../../Utility/StatisticsUpdater';
+
 
 const ExpensesPage = ({ navigation }) => {
   const [expenses, setExpenses] = useState([]);
@@ -430,7 +430,7 @@ const ExpensesPage = ({ navigation }) => {
 
       // Update statistics only when adding new expense (not editing)
       if (!selectedExpense) {
-        await StatisticsUpdater.incrementExpenses(userId);
+        // Statistics update removed - StatisticsUpdater deleted
         console.log('Statistics updated: expenses count incremented');
       }
 
@@ -468,7 +468,7 @@ const ExpensesPage = ({ navigation }) => {
       if (error) throw error;
 
       // Update statistics when deleting expense
-      await StatisticsUpdater.decrementExpenses(userId);
+              // Statistics update removed - StatisticsUpdater deleted
       console.log('Statistics updated: expenses count decremented');
 
       setAlertMessage('Expense deleted successfully!');

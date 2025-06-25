@@ -23,7 +23,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { Picker } from '@react-native-picker/picker';
 import { fetchCountries } from '../../Utility/FetchCountries';
 import { useFocusEffect } from '@react-navigation/native';
-import StatisticsUpdater from '../../Utility/StatisticsUpdater';
+
 import SkeletonLoading, { CardSkeleton, TextRowSkeleton, AvatarSkeleton } from '../../Utility/SkeletonLoading';
 
 const ProfilePage = ({ navigation }) => {
@@ -212,11 +212,27 @@ const ProfilePage = ({ navigation }) => {
   // Refresh statistics from database
   const refreshStatistics = async () => {
     try {
-      const stats = await StatisticsUpdater.getUserStatistics(userId);
-      if (stats) {
-        setStatistics(stats);
-        console.log('Statistics refreshed:', stats);
+      // Fetch statistics directly from user_profile table
+      const { data, error } = await supabase
+        .from('user_profile')
+        .select('account_age, goals_created, expenses_created, income_created')
+        .eq('user_id', userId)
+        .single();
+
+      if (error) {
+        console.error('Error fetching user statistics:', error);
+        return;
       }
+
+      const stats = {
+        account_age: data.account_age || 0,
+        goals_created: data.goals_created || 0,
+        expenses_created: data.expenses_created || 0,
+        income_created: data.income_created || 0,
+      };
+      
+      setStatistics(stats);
+      console.log('Statistics refreshed:', stats);
     } catch (error) {
       console.error('Error refreshing statistics:', error);
     }
@@ -275,8 +291,19 @@ const ProfilePage = ({ navigation }) => {
         .eq('user_id', userId)
         .single();
       
-      // Load statistics using StatisticsUpdater
-      const stats = await StatisticsUpdater.getUserStatistics(userId);
+          // Load statistics directly from user_profile
+    const { data: statsData, error: statsError } = await supabase
+      .from('user_profile')
+      .select('account_age, goals_created, expenses_created, income_created')
+      .eq('user_id', userId)
+      .single();
+
+    const stats = statsError ? null : {
+      account_age: statsData.account_age || 0,
+      goals_created: statsData.goals_created || 0,
+      expenses_created: statsData.expenses_created || 0,
+      income_created: statsData.income_created || 0,
+    };
       if (stats) {
         setStatistics(stats);
       }
