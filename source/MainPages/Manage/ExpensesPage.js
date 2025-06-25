@@ -45,13 +45,22 @@ const ExpensesPage = ({ navigation }) => {
 
   // Use filteredExpenses para a lista e se estiver vazia, use expenses
   const expensesToDisplay = filteredExpenses.length > 0 ? filteredExpenses : expenses;
-  const expensesWithButtons = [...expensesToDisplay, { isAddButton: true }, { isManageButton: true }];
 
   // Add state for managing tabs in modal
   const [activeManageTab, setActiveManageTab] = useState('categories');
 
   // Add loading state
   const [isLoading, setIsLoading] = useState(true);
+
+  // Estados para modais de categoria/frequência
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [showFrequencyModal, setShowFrequencyModal] = useState(false);
+  const [categoryModalMode, setCategoryModalMode] = useState('add'); // 'add' or 'edit'
+  const [frequencyModalMode, setFrequencyModalMode] = useState('add'); // 'add' or 'edit'
+  const [editingCategory, setEditingCategory] = useState(null);
+  const [editingFrequency, setEditingFrequency] = useState(null);
+  const [categoryFormData, setCategoryFormData] = useState({ name: '' });
+  const [frequencyFormData, setFrequencyFormData] = useState({ name: '', days: '' });
 
   // Novo método para lidar com a seleção de categoria no gráfico
   const handleChartCategorySelect = (selectedCategory) => {
@@ -527,82 +536,85 @@ const ExpensesPage = ({ navigation }) => {
     return formatCurrency(amount);
   };
 
-  const renderExpenseItem = (item, index) => {
-    if (item.isAddButton) {
-      return (
-        <TouchableOpacity
-          key="add-button"
-          style={[styles.addButton, { backgroundColor: '#F44336' }]}
-          onPress={handleAddExpense}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="add" size={20} color="#FFFFFF" />
-          <Text style={styles.addButtonText}>Add Expense</Text>
-        </TouchableOpacity>
-      );
-    }
-
-    if (item.isManageButton) {
-      return (
-        <TouchableOpacity
-          key="manage-button"
-          style={[styles.addButton, { backgroundColor: '#FF9800' }]}
-          onPress={() => setManageModalVisible(true)}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="settings" size={20} color="#FFFFFF" />
-          <Text style={styles.addButtonText}>Manage Categories</Text>
-        </TouchableOpacity>
-      );
-    }
+  const renderExpenseCard = (item, index) => {
+    // Renderiza apenas cards de despesa, não botões
+    const isHighlighted = selectedCategoryId === item.category_id;
 
     return (
-      <View key={item.id || `expense-${index}`} style={styles.expenseItem}>
-        <View style={styles.expenseRow}>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <View style={[styles.priorityIndicator, getPriorityColor(item.priority)]} />
-            <Text style={styles.expenseTitle}>{item.name}</Text>
+      <View 
+        key={item.id || `expense-${index}`}
+        style={[
+          beautifulStyles.expenseCard, 
+          isHighlighted && beautifulStyles.highlightedCard
+        ]}
+      >
+        {/* Header Row */}
+        <View style={beautifulStyles.cardHeader}>
+          <View style={beautifulStyles.cardHeaderLeft}>
+            <View style={beautifulStyles.expenseIcon}>
+              <Ionicons name="trending-down" size={18} color="#F44336" />
+            </View>
+            <View>
+              <Text style={beautifulStyles.expenseTitle}>{item.name}</Text>
+              <Text style={beautifulStyles.expenseAmount}>
+                {formatCurrency(item.amount)}
+              </Text>
+            </View>
           </View>
-          <Text style={styles.expenseDetails}>
-            {formatAmount(item.amount)}
-          </Text>
+          <View style={beautifulStyles.actionButtons}>
+            <TouchableOpacity
+              style={beautifulStyles.editButton}
+              onPress={() => {
+                console.log('Edit button clicked for:', item.name);
+                handleEditExpense(item);
+              }}
+            >
+              <Ionicons name="pencil" size={14} color="#FFF" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={beautifulStyles.deleteButton}
+              onPress={() => {
+                console.log('Delete button clicked for:', item.name);
+                confirmDeleteExpense(item);
+              }}
+            >
+              <Ionicons name="trash" size={14} color="#FFF" />
+            </TouchableOpacity>
+          </View>
         </View>
 
-        <View style={styles.expenseRow}>
+        {/* Tags and Priority Row */}
+        <View style={beautifulStyles.tagsRow}>
+          <View style={[beautifulStyles.priorityIndicator, getPriorityColor(item.priority)]} />
           {item.categories && (
-            <View style={styles.categoryTag}>
-              <Text style={styles.categoryText}>
+            <View style={[
+              beautifulStyles.categoryTag,
+              isHighlighted && beautifulStyles.highlightedTag
+            ]}>
+              <Ionicons name="folder" size={12} color={isHighlighted ? "#FFFFFF" : "#C62828"} />
+              <Text style={[
+                beautifulStyles.tagText,
+                isHighlighted && beautifulStyles.highlightedTagText
+              ]}>
                 {item.categories.name}
               </Text>
             </View>
           )}
           {item.frequencies && (
-            <View style={styles.frequencyTag}>
-              <Text style={styles.frequencyText}>
+            <View style={beautifulStyles.frequencyTag}>
+              <Ionicons name="time" size={12} color="#2196F3" />
+              <Text style={beautifulStyles.frequencyText}>
                 {item.frequencies.name}
               </Text>
             </View>
           )}
         </View>
 
-        <View style={[styles.expenseRow, { marginTop: 8 }]}>
-          <Text style={styles.expenseDetails}>
+        {/* Priority Label */}
+        <View style={beautifulStyles.priorityRow}>
+          <Text style={beautifulStyles.priorityText}>
             Priority: {getPriorityLabel(item.priority)}
           </Text>
-          <View style={{ flexDirection: 'row' }}>
-            <TouchableOpacity
-              style={[styles.actionButtonEdit, { marginRight: 8 }]}
-              onPress={() => handleEditExpense(item)}
-            >
-              <Ionicons name="pencil" size={16} color="#FFF" />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.actionButtonDelete}
-              onPress={() => confirmDeleteExpense(item)}
-            >
-              <Ionicons name="trash" size={16} color="#FFF" />
-            </TouchableOpacity>
-          </View>
         </View>
       </View>
     );
@@ -731,47 +743,434 @@ const ExpensesPage = ({ navigation }) => {
     );
   };
 
-  // Add methods for manage modal actions
+  // Management functions
   const handleAddCategory = () => {
-    // TODO: Implement add category logic
-    setAlertMessage('Add category feature coming soon!');
-    setAlertType('info');
-    setShowAlert(true);
+    setCategoryModalMode('add');
+    setCategoryFormData({ name: '' });
+    setEditingCategory(null);
+    setShowCategoryModal(true);
+  };
+
+  const createExpenseCategory = async (categoryName) => {
+    try {
+
+      // Check if category already exists for this user
+      const { data: existingCategories } = await supabase
+        .from('categories')
+        .select('name')
+        .eq('user_id', userId)
+        .eq('type', 'expense')
+        .eq('name', categoryName);
+
+      if (existingCategories && existingCategories.length > 0) {
+        setAlertMessage('Category with this name already exists');
+        setAlertType('error');
+        setShowAlert(true);
+        return;
+      }
+
+      // Create new category
+      const { data, error } = await supabase
+        .from('categories')
+        .insert([{
+          name: categoryName,
+          type: 'expense',
+          user_id: userId
+        }])
+        .select();
+
+      if (error) {
+        console.error('Error creating category:', error);
+        setAlertMessage('Failed to create category');
+        setAlertType('error');
+        setShowAlert(true);
+        return;
+      }
+
+      setAlertMessage('Category created successfully!');
+      setAlertType('success');
+      setShowAlert(true);
+      
+      // Refresh categories list
+      fetchCategoriesAndFrequencies(userId);
+    } catch (error) {
+      console.error('Unexpected error creating category:', error);
+      setAlertMessage('Unexpected error occurred');
+      setAlertType('error');
+      setShowAlert(true);
+    }
   };
 
   const handleEditCategory = (category) => {
-    // TODO: Implement edit category logic
-    setAlertMessage(`Edit category "${category.name}" feature coming soon!`);
-    setAlertType('info');
-    setShowAlert(true);
+    setCategoryModalMode('edit');
+    setCategoryFormData({ name: category.name });
+    setEditingCategory(category);
+    setShowCategoryModal(true);
   };
 
-  const handleDeleteCategory = (category) => {
-    // TODO: Implement delete category logic
-    setAlertMessage(`Delete category "${category.name}" feature coming soon!`);
-    setAlertType('info');
-    setShowAlert(true);
+  const updateExpenseCategory = async (category, newCategoryName) => {
+    try {
+
+      // Check if the new name already exists for this user (excluding current category)
+      const { data: existingCategories } = await supabase
+        .from('categories')
+        .select('name')
+        .eq('user_id', userId)
+        .eq('type', 'expense')
+        .eq('name', newCategoryName)
+        .neq('id', category.id);
+
+      if (existingCategories && existingCategories.length > 0) {
+        setAlertMessage('Category with this name already exists');
+        setAlertType('error');
+        setShowAlert(true);
+        return;
+      }
+
+      // Update category
+      const { error } = await supabase
+        .from('categories')
+        .update({ name: newCategoryName })
+        .eq('id', category.id)
+        .eq('user_id', userId);
+
+      if (error) {
+        console.error('Error updating category:', error);
+        setAlertMessage('Failed to update category');
+        setAlertType('error');
+        setShowAlert(true);
+        return;
+      }
+
+      setAlertMessage('Category updated successfully!');
+      setAlertType('success');
+      setShowAlert(true);
+      
+      // Refresh categories list
+      fetchCategoriesAndFrequencies(userId);
+    } catch (error) {
+      console.error('Unexpected error updating category:', error);
+      setAlertMessage('Unexpected error occurred');
+      setAlertType('error');
+      setShowAlert(true);
+    }
+  };
+
+  const handleDeleteCategory = async (category) => {
+    try {
+      // Confirm deletion
+      Alert.alert(
+        'Delete Category',
+        `Are you sure you want to delete the category "${category.name}"?\n\nThis action cannot be undone and may affect existing expenses using this category.`,
+        [
+          {
+            text: 'Cancel',
+            style: 'cancel',
+          },
+          {
+            text: 'Delete',
+            style: 'destructive',
+            onPress: async () => {
+              await deleteExpenseCategory(category);
+            },
+          },
+        ]
+      );
+    } catch (error) {
+      console.error('Unexpected error deleting category:', error);
+      setAlertMessage('Unexpected error occurred');
+      setAlertType('error');
+      setShowAlert(true);
+    }
+  };
+
+  const deleteExpenseCategory = async (category) => {
+    try {
+
+      // Check if category is being used by any expenses
+      const { data: expensesUsingCategory } = await supabase
+        .from('expenses')
+        .select('id')
+        .eq('category_id', category.id)
+        .eq('user_id', userId);
+
+      if (expensesUsingCategory && expensesUsingCategory.length > 0) {
+        setAlertMessage(`Cannot delete category "${category.name}" because it is being used by ${expensesUsingCategory.length} expense(s). Please update or delete those expenses first.`);
+        setAlertType('error');
+        setShowAlert(true);
+        return;
+      }
+
+      // Delete category
+      const { error } = await supabase
+        .from('categories')
+        .delete()
+        .eq('id', category.id)
+        .eq('user_id', userId);
+
+      if (error) {
+        console.error('Error deleting category:', error);
+        setAlertMessage('Failed to delete category');
+        setAlertType('error');
+        setShowAlert(true);
+        return;
+      }
+
+      setAlertMessage('Category deleted successfully!');
+      setAlertType('success');
+      setShowAlert(true);
+      
+      // Refresh categories list
+      fetchCategoriesAndFrequencies(userId);
+    } catch (error) {
+      console.error('Unexpected error deleting category:', error);
+      setAlertMessage('Unexpected error occurred');
+      setAlertType('error');
+      setShowAlert(true);
+    }
   };
 
   const handleAddFrequency = () => {
-    // TODO: Implement add frequency logic
-    setAlertMessage('Add frequency feature coming soon!');
-    setAlertType('info');
-    setShowAlert(true);
+    setFrequencyModalMode('add');
+    setFrequencyFormData({ name: '', days: '' });
+    setEditingFrequency(null);
+    setShowFrequencyModal(true);
+  };
+
+  const createExpenseFrequency = async (frequencyName, days) => {
+    try {
+
+      // Check if frequency already exists for this user
+      const { data: existingFrequencies } = await supabase
+        .from('frequencies')
+        .select('name')
+        .eq('user_id', userId)
+        .eq('name', frequencyName.trim());
+
+      if (existingFrequencies && existingFrequencies.length > 0) {
+        setAlertMessage('Frequency with this name already exists');
+        setAlertType('error');
+        setShowAlert(true);
+        return;
+      }
+
+      // Create new frequency
+      const { data, error } = await supabase
+        .from('frequencies')
+        .insert([{
+          name: frequencyName.trim(),
+          days: days,
+          user_id: userId
+        }])
+        .select();
+
+      if (error) {
+        console.error('Error creating frequency:', error);
+        setAlertMessage('Failed to create frequency');
+        setAlertType('error');
+        setShowAlert(true);
+        return;
+      }
+
+      setAlertMessage('Frequency created successfully!');
+      setAlertType('success');
+      setShowAlert(true);
+      
+      // Refresh frequencies list
+      fetchCategoriesAndFrequencies(userId);
+    } catch (error) {
+      console.error('Unexpected error creating frequency:', error);
+      setAlertMessage('Unexpected error occurred');
+      setAlertType('error');
+      setShowAlert(true);
+    }
   };
 
   const handleEditFrequency = (frequency) => {
-    // TODO: Implement edit frequency logic
-    setAlertMessage(`Edit frequency "${frequency.name}" feature coming soon!`);
-    setAlertType('info');
-    setShowAlert(true);
+    setFrequencyModalMode('edit');
+    setFrequencyFormData({ name: frequency.name, days: frequency.days.toString() });
+    setEditingFrequency(frequency);
+    setShowFrequencyModal(true);
   };
 
-  const handleDeleteFrequency = (frequency) => {
-    // TODO: Implement delete frequency logic
-    setAlertMessage(`Delete frequency "${frequency.name}" feature coming soon!`);
-    setAlertType('info');
-    setShowAlert(true);
+  const handleSaveCategory = async () => {
+    try {
+      if (!categoryFormData.name || categoryFormData.name.trim() === '') {
+        setAlertMessage('Category name cannot be empty');
+        setAlertType('error');
+        setShowAlert(true);
+        return;
+      }
+
+      if (categoryModalMode === 'add') {
+        await createExpenseCategory(categoryFormData.name.trim());
+      } else {
+        await updateExpenseCategory(editingCategory, categoryFormData.name.trim());
+      }
+      
+      setShowCategoryModal(false);
+    } catch (error) {
+      console.error('Error saving category:', error);
+      setAlertMessage('Failed to save category');
+      setAlertType('error');
+      setShowAlert(true);
+    }
+  };
+
+  const handleSaveFrequency = async () => {
+    try {
+      if (!frequencyFormData.name || frequencyFormData.name.trim() === '') {
+        setAlertMessage('Frequency name cannot be empty');
+        setAlertType('error');
+        setShowAlert(true);
+        return;
+      }
+
+      const days = parseInt(frequencyFormData.days);
+      if (!frequencyFormData.days || isNaN(days) || days <= 0) {
+        setAlertMessage('Please enter a valid number of days (greater than 0)');
+        setAlertType('error');
+        setShowAlert(true);
+        return;
+      }
+
+      if (frequencyModalMode === 'add') {
+        await createExpenseFrequency(frequencyFormData.name.trim(), days);
+      } else {
+        await updateExpenseFrequency(editingFrequency, frequencyFormData.name.trim(), days);
+      }
+      
+      setShowFrequencyModal(false);
+    } catch (error) {
+      console.error('Error saving frequency:', error);
+      setAlertMessage('Failed to save frequency');
+      setAlertType('error');
+      setShowAlert(true);
+    }
+  };
+
+  const updateExpenseFrequency = async (frequency, newFrequencyName, days) => {
+    try {
+
+      // Check if the new name already exists for this user (excluding current frequency)
+      const { data: existingFrequencies } = await supabase
+        .from('frequencies')
+        .select('name')
+        .eq('user_id', userId)
+        .eq('name', newFrequencyName)
+        .neq('id', frequency.id);
+
+      if (existingFrequencies && existingFrequencies.length > 0) {
+        setAlertMessage('Frequency with this name already exists');
+        setAlertType('error');
+        setShowAlert(true);
+        return;
+      }
+
+      // Update frequency
+      const { error } = await supabase
+        .from('frequencies')
+        .update({ 
+          name: newFrequencyName,
+          days: days
+        })
+        .eq('id', frequency.id)
+        .eq('user_id', userId);
+
+      if (error) {
+        console.error('Error updating frequency:', error);
+        setAlertMessage('Failed to update frequency');
+        setAlertType('error');
+        setShowAlert(true);
+        return;
+      }
+
+      setAlertMessage('Frequency updated successfully!');
+      setAlertType('success');
+      setShowAlert(true);
+      
+      // Refresh frequencies list
+      fetchCategoriesAndFrequencies(userId);
+    } catch (error) {
+      console.error('Unexpected error updating frequency:', error);
+      setAlertMessage('Unexpected error occurred');
+      setAlertType('error');
+      setShowAlert(true);
+    }
+  };
+
+  const handleDeleteFrequency = async (frequency) => {
+    try {
+      // Confirm deletion
+      Alert.alert(
+        'Delete Frequency',
+        `Are you sure you want to delete the frequency "${frequency.name}"?\n\nThis action cannot be undone and may affect existing expenses using this frequency.`,
+        [
+          {
+            text: 'Cancel',
+            style: 'cancel',
+          },
+          {
+            text: 'Delete',
+            style: 'destructive',
+            onPress: async () => {
+              await deleteExpenseFrequency(frequency);
+            },
+          },
+        ]
+      );
+    } catch (error) {
+      console.error('Unexpected error deleting frequency:', error);
+      setAlertMessage('Unexpected error occurred');
+      setAlertType('error');
+      setShowAlert(true);
+    }
+  };
+
+  const deleteExpenseFrequency = async (frequency) => {
+    try {
+
+      // Check if frequency is being used by any expenses
+      const { data: expensesUsingFrequency } = await supabase
+        .from('expenses')
+        .select('id')
+        .eq('frequency_id', frequency.id)
+        .eq('user_id', userId);
+
+      if (expensesUsingFrequency && expensesUsingFrequency.length > 0) {
+        setAlertMessage(`Cannot delete frequency "${frequency.name}" because it is being used by ${expensesUsingFrequency.length} expense(s). Please update or delete those expenses first.`);
+        setAlertType('error');
+        setShowAlert(true);
+        return;
+      }
+
+      // Delete frequency
+      const { error } = await supabase
+        .from('frequencies')
+        .delete()
+        .eq('id', frequency.id)
+        .eq('user_id', userId);
+
+      if (error) {
+        console.error('Error deleting frequency:', error);
+        setAlertMessage('Failed to delete frequency');
+        setAlertType('error');
+        setShowAlert(true);
+        return;
+      }
+
+      setAlertMessage('Frequency deleted successfully!');
+      setAlertType('success');
+      setShowAlert(true);
+      
+      // Refresh frequencies list
+      fetchCategoriesAndFrequencies(userId);
+    } catch (error) {
+      console.error('Unexpected error deleting frequency:', error);
+      setAlertMessage('Unexpected error occurred');
+      setAlertType('error');
+      setShowAlert(true);
+    }
   };
 
   return (
@@ -783,7 +1182,12 @@ const ExpensesPage = ({ navigation }) => {
       {isLoading ? (
         <SkeletonLoader />
       ) : (
-        <>
+        <ScrollView 
+          style={{ flex: 1 }}
+          showsVerticalScrollIndicator={false} 
+          contentContainerStyle={beautifulStyles.pageScrollContent}
+          keyboardShouldPersistTaps="handled"
+        >
           <View style={styles.chartContainer}>
             <Chart
               incomes={expenses}
@@ -794,7 +1198,7 @@ const ExpensesPage = ({ navigation }) => {
               onCategorySelect={handleChartCategorySelect}
             />
           </View>
-          
+
           {/* Se existir um filtro ativo, mostrar botão para limpar */}
           {filteredExpenses.length > 0 && (
             <TouchableOpacity 
@@ -809,17 +1213,60 @@ const ExpensesPage = ({ navigation }) => {
               <Text style={styles.clearFilterButtonText}>Clear Filter</Text>
             </TouchableOpacity>
           )}
+
+          {/* Section Header */}
+          <View style={beautifulStyles.sectionHeader}>
+            <Text style={beautifulStyles.sectionTitle}>Your Expenses</Text>
+            <Text style={beautifulStyles.sectionSubtitle}>
+              {filteredExpenses.length > 0 ? `${filteredExpenses.length} filtered` : `${expenses.length} total`}
+            </Text>
+          </View>
+
+          {/* Expense Cards - renderizados diretamente no scroll principal */}
+          {expensesToDisplay.map((item, index) => renderExpenseCard(item, index))}
           
-          <ScrollView 
-            showsVerticalScrollIndicator={false} 
-            style={{ flex: 1 }}
-            keyboardShouldPersistTaps="handled"
-            nestedScrollEnabled={true}
+          {/* Add Button - sempre renderizado */}
+          <TouchableOpacity
+            style={beautifulStyles.addButton}
+            onPress={handleAddExpense}
+            activeOpacity={0.7}
           >
-            {expensesWithButtons.map((item, index) => renderExpenseItem(item, index))}
-          </ScrollView>
-        </>
-        )}
+            <View style={beautifulStyles.addButtonIcon}>
+              <Ionicons name="add" size={24} color="#FFFFFF" />
+            </View>
+            <View>
+              <Text style={beautifulStyles.addButtonText}>Add New Expense</Text>
+              <Text style={beautifulStyles.addButtonSubtext}>Track your expenses</Text>
+            </View>
+          </TouchableOpacity>
+
+          {/* Manage Button */}
+          <TouchableOpacity
+            style={[beautifulStyles.addButton, { backgroundColor: '#FF9800' }]}
+            onPress={() => setManageModalVisible(true)}
+            activeOpacity={0.7}
+          >
+            <View style={[beautifulStyles.addButtonIcon, { backgroundColor: 'rgba(0,0,0,0.1)' }]}>
+              <Ionicons name="settings" size={24} color="#FFFFFF" />
+            </View>
+            <View>
+              <Text style={beautifulStyles.addButtonText}>Manage Extra</Text>
+              <Text style={beautifulStyles.addButtonSubtext}>Add or edit categories & frequencies</Text>
+            </View>
+          </TouchableOpacity>
+          
+          {/* Empty State */}
+          {expenses.length === 0 && (
+            <View style={beautifulStyles.emptyState}>
+              <Ionicons name="receipt-outline" size={64} color="#FFCDD2" />
+              <Text style={beautifulStyles.emptyTitle}>No Expenses Yet</Text>
+              <Text style={beautifulStyles.emptySubtitle}>
+                Start by adding your first expense to track your spending
+              </Text>
+            </View>
+          )}
+        </ScrollView>
+      )}
 
       {/* Add/Edit Modal - Fixed */}
       {modalVisible && (
@@ -887,7 +1334,7 @@ const ExpensesPage = ({ navigation }) => {
                   marginBottom: 12,
                   backgroundColor: '#FFFFFF',
                   fontSize: 16,
-                  color: '#C62828',
+                  color: '#000000',
                   minHeight: 44,
                 }}
                 placeholder="Enter expense name"
@@ -1194,8 +1641,10 @@ const ExpensesPage = ({ navigation }) => {
               backgroundColor: '#FFFFFF',
               borderRadius: 12,
               padding: 20,
-              maxHeight: '80%',
+              maxHeight: '85%',
               alignSelf: 'center',
+              flex: 1,
+              marginVertical: 40,
             }}
             activeOpacity={1}
             onPress={(e) => e.stopPropagation()}
@@ -1207,7 +1656,7 @@ const ExpensesPage = ({ navigation }) => {
               marginBottom: 16,
               textAlign: 'center',
               letterSpacing: 0.5,
-            }}>Manage Settings</Text>
+            }}>Manage Extra</Text>
             
             {/* Tab Selection */}
             <View style={{
@@ -1282,9 +1731,10 @@ const ExpensesPage = ({ navigation }) => {
             </View>
             
             <ScrollView 
-              style={{ maxHeight: 200 }} 
-              showsVerticalScrollIndicator={false}
+              style={{ maxHeight: 300, flex: 1 }} 
+              showsVerticalScrollIndicator={true}
               keyboardShouldPersistTaps="handled"
+              nestedScrollEnabled={true}
             >
               {/* Categories Section */}
               {activeManageTab === 'categories' && (
@@ -1296,57 +1746,80 @@ const ExpensesPage = ({ navigation }) => {
                     marginBottom: 12,
                     letterSpacing: 0.3,
                   }}>Expense Categories</Text>
-                  {categories.map((category) => (
-                    <View key={category.id} style={{
-                      flexDirection: 'row',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      backgroundColor: '#FFEBEE',
-                      padding: 12,
-                      borderRadius: 8,
-                      marginBottom: 8,
-                      borderWidth: 1,
-                      borderColor: '#FFCDD2',
-                    }}>
-                      <Text style={{
-                        fontSize: 14,
-                        color: '#D32F2F',
-                        fontWeight: '500',
-                        flex: 1,
-                      }}>{category.name}</Text>
+                  
+                  <ScrollView 
+                    style={{ maxHeight: 200, flex: 1 }}
+                    showsVerticalScrollIndicator={true}
+                    nestedScrollEnabled={true}
+                  >
+                    {categories.filter(category => category.user_id === userId).length === 0 ? (
                       <View style={{
-                        flexDirection: 'row',
-                        gap: 8,
+                        padding: 20,
+                        alignItems: 'center',
+                        backgroundColor: '#FFEBEE',
+                        borderRadius: 8,
+                        marginBottom: 12,
                       }}>
-                        <TouchableOpacity 
-                          style={{
-                            padding: 8,
-                            borderRadius: 6,
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            backgroundColor: '#FF9800',
-                          }}
-                          onPress={() => handleEditCategory(category)}
-                          activeOpacity={0.7}
-                        >
-                          <Ionicons name="pencil" size={14} color="#FFF" />
-                        </TouchableOpacity>
-                        <TouchableOpacity 
-                          style={{
-                            padding: 8,
-                            borderRadius: 6,
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            backgroundColor: '#F44336',
-                          }}
-                          onPress={() => handleDeleteCategory(category)}
-                          activeOpacity={0.7}
-                        >
-                          <Ionicons name="trash" size={14} color="#FFF" />
-                        </TouchableOpacity>
+                        <Text style={{
+                          fontSize: 14,
+                          color: '#D32F2F',
+                          textAlign: 'center',
+                          fontStyle: 'italic',
+                        }}>No custom categories yet. Add your first one!</Text>
                       </View>
-                    </View>
-                  ))}
+                    ) : categories.filter(category => category.user_id === userId).map((category) => (
+                      <View key={category.id} style={{
+                        flexDirection: 'row',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        backgroundColor: '#FFEBEE',
+                        padding: 12,
+                        borderRadius: 8,
+                        marginBottom: 8,
+                        borderWidth: 1,
+                        borderColor: '#FFCDD2',
+                      }}>
+                        <Text style={{
+                          fontSize: 14,
+                          color: '#D32F2F',
+                          fontWeight: '500',
+                          flex: 1,
+                        }}>{category.name}</Text>
+                        <View style={{
+                          flexDirection: 'row',
+                          gap: 8,
+                        }}>
+                          <TouchableOpacity 
+                            style={{
+                              padding: 8,
+                              borderRadius: 6,
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              backgroundColor: '#FF9800',
+                            }}
+                            onPress={() => handleEditCategory(category)}
+                            activeOpacity={0.7}
+                          >
+                            <Ionicons name="pencil" size={14} color="#FFF" />
+                          </TouchableOpacity>
+                          <TouchableOpacity 
+                            style={{
+                              padding: 8,
+                              borderRadius: 6,
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              backgroundColor: '#F44336',
+                            }}
+                            onPress={() => handleDeleteCategory(category)}
+                            activeOpacity={0.7}
+                          >
+                            <Ionicons name="trash" size={14} color="#FFF" />
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    ))}
+                  </ScrollView>
+                  
                   <TouchableOpacity 
                     style={{
                       flexDirection: 'row',
@@ -1382,57 +1855,80 @@ const ExpensesPage = ({ navigation }) => {
                     marginBottom: 12,
                     letterSpacing: 0.3,
                   }}>Frequencies</Text>
-                  {frequencies.map((frequency) => (
-                    <View key={frequency.id} style={{
-                      flexDirection: 'row',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      backgroundColor: '#FFEBEE',
-                      padding: 12,
-                      borderRadius: 8,
-                      marginBottom: 8,
-                      borderWidth: 1,
-                      borderColor: '#FFCDD2',
-                    }}>
-                      <Text style={{
-                        fontSize: 14,
-                        color: '#D32F2F',
-                        fontWeight: '500',
-                        flex: 1,
-                      }}>{frequency.name} ({frequency.days} days)</Text>
+                  
+                  <ScrollView 
+                    style={{ maxHeight: 200, flex: 1 }}
+                    showsVerticalScrollIndicator={true}
+                    nestedScrollEnabled={true}
+                  >
+                    {frequencies.filter(frequency => frequency.user_id === userId).length === 0 ? (
                       <View style={{
-                        flexDirection: 'row',
-                        gap: 8,
+                        padding: 20,
+                        alignItems: 'center',
+                        backgroundColor: '#FFEBEE',
+                        borderRadius: 8,
+                        marginBottom: 12,
                       }}>
-                        <TouchableOpacity 
-                          style={{
-                            padding: 8,
-                            borderRadius: 6,
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            backgroundColor: '#FF9800',
-                          }}
-                          onPress={() => handleEditFrequency(frequency)}
-                          activeOpacity={0.7}
-                        >
-                          <Ionicons name="pencil" size={14} color="#FFF" />
-                        </TouchableOpacity>
-                        <TouchableOpacity 
-                          style={{
-                            padding: 8,
-                            borderRadius: 6,
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            backgroundColor: '#F44336',
-                          }}
-                          onPress={() => handleDeleteFrequency(frequency)}
-                          activeOpacity={0.7}
-                        >
-                          <Ionicons name="trash" size={14} color="#FFF" />
-                        </TouchableOpacity>
+                        <Text style={{
+                          fontSize: 14,
+                          color: '#D32F2F',
+                          textAlign: 'center',
+                          fontStyle: 'italic',
+                        }}>No custom frequencies yet. Add your first one!</Text>
                       </View>
-                    </View>
-                  ))}
+                    ) : frequencies.filter(frequency => frequency.user_id === userId).map((frequency) => (
+                      <View key={frequency.id} style={{
+                        flexDirection: 'row',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        backgroundColor: '#FFEBEE',
+                        padding: 12,
+                        borderRadius: 8,
+                        marginBottom: 8,
+                        borderWidth: 1,
+                        borderColor: '#FFCDD2',
+                      }}>
+                        <Text style={{
+                          fontSize: 14,
+                          color: '#D32F2F',
+                          fontWeight: '500',
+                          flex: 1,
+                        }}>{frequency.name} ({frequency.days} days)</Text>
+                        <View style={{
+                          flexDirection: 'row',
+                          gap: 8,
+                        }}>
+                          <TouchableOpacity 
+                            style={{
+                              padding: 8,
+                              borderRadius: 6,
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              backgroundColor: '#FF9800',
+                            }}
+                            onPress={() => handleEditFrequency(frequency)}
+                            activeOpacity={0.7}
+                          >
+                            <Ionicons name="pencil" size={14} color="#FFF" />
+                          </TouchableOpacity>
+                          <TouchableOpacity 
+                            style={{
+                              padding: 8,
+                              borderRadius: 6,
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              backgroundColor: '#F44336',
+                            }}
+                            onPress={() => handleDeleteFrequency(frequency)}
+                            activeOpacity={0.7}
+                          >
+                            <Ionicons name="trash" size={14} color="#FFF" />
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    ))}
+                  </ScrollView>
+                  
                   <TouchableOpacity 
                     style={{
                       flexDirection: 'row',
@@ -1486,8 +1982,527 @@ const ExpensesPage = ({ navigation }) => {
           </TouchableOpacity>
         </TouchableOpacity>
       )}
+
+      {/* Category Modal */}
+      {showCategoryModal && (
+        <View
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: 1000,
+          }}
+        >
+          <TouchableOpacity
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+            }}
+            onPress={() => setShowCategoryModal(false)}
+            activeOpacity={1}
+          />
+          <View
+            style={{
+              width: '90%',
+              maxWidth: 350,
+              backgroundColor: '#FFFFFF',
+              borderRadius: 12,
+              padding: 20,
+              alignSelf: 'center',
+            }}
+          >
+            <Text style={{
+              fontSize: 18,
+              fontWeight: '700',
+              color: '#F44336',
+              marginBottom: 16,
+              textAlign: 'center',
+            }}>
+              {categoryModalMode === 'add' ? 'Add Category' : 'Edit Category'}
+            </Text>
+
+            <Text style={{
+              fontSize: 14,
+              fontWeight: '600',
+              color: '#C62828',
+              marginBottom: 4,
+            }}>Category Name</Text>
+            <TextInput
+              style={{
+                borderWidth: 1,
+                borderColor: '#FFCDD2',
+                borderRadius: 8,
+                padding: 12,
+                marginBottom: 16,
+                backgroundColor: '#FFFFFF',
+                fontSize: 16,
+                color: '#000000',
+                minHeight: 44,
+              }}
+              placeholder="Enter category name"
+              placeholderTextColor="#B0BEC5"
+              value={categoryFormData.name}
+              onChangeText={(text) => setCategoryFormData({ ...categoryFormData, name: text })}
+              autoFocus={true}
+            />
+
+            <View style={{
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              gap: 12,
+            }}>
+              <TouchableOpacity
+                style={{
+                  flex: 1,
+                  backgroundColor: '#E0E0E0',
+                  padding: 16,
+                  borderRadius: 8,
+                  alignItems: 'center',
+                  minHeight: 48,
+                  justifyContent: 'center',
+                }}
+                onPress={() => setShowCategoryModal(false)}
+                activeOpacity={0.7}
+              >
+                <Text style={{
+                  color: '#616161',
+                  fontWeight: '600',
+                  fontSize: 16,
+                }}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{
+                  flex: 1,
+                  backgroundColor: '#F44336',
+                  padding: 16,
+                  borderRadius: 8,
+                  alignItems: 'center',
+                  minHeight: 48,
+                  justifyContent: 'center',
+                }}
+                onPress={handleSaveCategory}
+                activeOpacity={0.7}
+              >
+                <Text style={{
+                  color: '#FFFFFF',
+                  fontWeight: '600',
+                  fontSize: 16,
+                }}>{categoryModalMode === 'add' ? 'Add' : 'Update'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
+
+      {/* Frequency Modal */}
+      {showFrequencyModal && (
+        <View
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: 1000,
+          }}
+        >
+          <TouchableOpacity
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+            }}
+            onPress={() => setShowFrequencyModal(false)}
+            activeOpacity={1}
+          />
+          <View
+            style={{
+              width: '90%',
+              maxWidth: 350,
+              backgroundColor: '#FFFFFF',
+              borderRadius: 12,
+              padding: 20,
+              alignSelf: 'center',
+            }}
+          >
+            <Text style={{
+              fontSize: 18,
+              fontWeight: '700',
+              color: '#F44336',
+              marginBottom: 16,
+              textAlign: 'center',
+            }}>
+              {frequencyModalMode === 'add' ? 'Add Frequency' : 'Edit Frequency'}
+            </Text>
+
+            <Text style={{
+              fontSize: 14,
+              fontWeight: '600',
+              color: '#C62828',
+              marginBottom: 4,
+            }}>Frequency Name</Text>
+            <TextInput
+              style={{
+                borderWidth: 1,
+                borderColor: '#FFCDD2',
+                borderRadius: 8,
+                padding: 12,
+                marginBottom: 12,
+                backgroundColor: '#FFFFFF',
+                fontSize: 16,
+                color: '#000000',
+                minHeight: 44,
+              }}
+              placeholder="e.g., Bi-weekly, Quarterly"
+              placeholderTextColor="#B0BEC5"
+              value={frequencyFormData.name}
+              onChangeText={(text) => setFrequencyFormData({ ...frequencyFormData, name: text })}
+              autoFocus={true}
+            />
+
+            <Text style={{
+              fontSize: 14,
+              fontWeight: '600',
+              color: '#C62828',
+              marginBottom: 4,
+            }}>Days</Text>
+            <TextInput
+              style={{
+                borderWidth: 1,
+                borderColor: '#FFCDD2',
+                borderRadius: 8,
+                padding: 12,
+                marginBottom: 16,
+                backgroundColor: '#FFFFFF',
+                fontSize: 16,
+                color: '#000000',
+                minHeight: 44,
+              }}
+              placeholder="Enter number of days"
+              placeholderTextColor="#B0BEC5"
+              keyboardType="numeric"
+              value={frequencyFormData.days}
+              onChangeText={(text) => setFrequencyFormData({ ...frequencyFormData, days: text })}
+            />
+
+            <View style={{
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              gap: 12,
+            }}>
+              <TouchableOpacity
+                style={{
+                  flex: 1,
+                  backgroundColor: '#E0E0E0',
+                  padding: 16,
+                  borderRadius: 8,
+                  alignItems: 'center',
+                  minHeight: 48,
+                  justifyContent: 'center',
+                }}
+                onPress={() => setShowFrequencyModal(false)}
+                activeOpacity={0.7}
+              >
+                <Text style={{
+                  color: '#616161',
+                  fontWeight: '600',
+                  fontSize: 16,
+                }}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{
+                  flex: 1,
+                  backgroundColor: '#F44336',
+                  padding: 16,
+                  borderRadius: 8,
+                  alignItems: 'center',
+                  minHeight: 48,
+                  justifyContent: 'center',
+                }}
+                onPress={handleSaveFrequency}
+                activeOpacity={0.7}
+              >
+                <Text style={{
+                  color: '#FFFFFF',
+                  fontWeight: '600',
+                  fontSize: 16,
+                }}>{frequencyModalMode === 'add' ? 'Add' : 'Update'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
     </View>
   );
+};
+
+// Beautiful styles for visual elements (expenses theme)
+const beautifulStyles = {
+  summaryCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 20,
+    marginHorizontal: 16,
+    marginBottom: 16,
+    shadowColor: '#F44336',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 5,
+    borderLeftWidth: 4,
+    borderLeftColor: '#F44336',
+  },
+  summaryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  summaryTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#F44336',
+    marginLeft: 8,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  summaryItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  summaryNumber: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#C62828',
+    marginBottom: 4,
+  },
+  summaryLabel: {
+    fontSize: 12,
+    color: '#E57373',
+    fontWeight: '600',
+  },
+  summaryDivider: {
+    width: 1,
+    height: 40,
+    backgroundColor: '#FFCDD2',
+    marginHorizontal: 20,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    backgroundColor: '#FFEBEE',
+    marginBottom: 8,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#C62828',
+  },
+  sectionSubtitle: {
+    fontSize: 12,
+    color: '#E57373',
+    fontWeight: '600',
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: 20,
+  },
+  pageScrollContent: {
+    flexGrow: 1,
+    paddingBottom: 30,
+  },
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 40,
+    marginTop: 60,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#F44336',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    color: '#E57373',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  addButton: {
+    backgroundColor: '#F44336',
+    borderRadius: 16,
+    padding: 20,
+    marginHorizontal: 16,
+    marginBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowColor: '#F44336',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  addButtonIcon: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 12,
+    padding: 8,
+    marginRight: 16,
+  },
+  addButtonText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    marginBottom: 2,
+  },
+  addButtonSubtext: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.8)',
+  },
+  expenseCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    marginHorizontal: 16,
+    marginBottom: 12,
+    shadowColor: '#F44336',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 3,
+    borderLeftWidth: 4,
+    borderLeftColor: '#F44336',
+  },
+  highlightedCard: {
+    borderLeftColor: '#C62828',
+    backgroundColor: '#FFEBEE',
+    shadowOpacity: 0.2,
+    elevation: 6,
+    transform: [{scale: 1.02}],
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  cardHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  expenseIcon: {
+    backgroundColor: '#FFCDD2',
+    borderRadius: 10,
+    padding: 8,
+    marginRight: 12,
+  },
+  expenseTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#C62828',
+    marginBottom: 2,
+  },
+  expenseAmount: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#F44336',
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  editButton: {
+    backgroundColor: '#FF9800',
+    borderRadius: 8,
+    padding: 8,
+    shadowColor: '#FF9800',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  deleteButton: {
+    backgroundColor: '#F44336',
+    borderRadius: 8,
+    padding: 8,
+    shadowColor: '#F44336',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  tagsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+  },
+  priorityIndicator: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 8,
+  },
+  categoryTag: {
+    backgroundColor: '#FFCDD2',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  highlightedTag: {
+    backgroundColor: '#F44336',
+  },
+  frequencyTag: {
+    backgroundColor: '#E3F2FD',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  tagText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#C62828',
+  },
+  highlightedTagText: {
+    color: '#FFFFFF',
+  },
+  frequencyText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#2196F3',
+  },
+  priorityRow: {
+    marginTop: 8,
+  },
+  priorityText: {
+    fontSize: 12,
+    color: '#E57373',
+    fontWeight: '500',
+  },
 };
 
 export default ExpensesPage;

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Animated as RNAnimated, Modal, TextInput } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Animated as RNAnimated, Modal, TextInput, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
 import { supabase } from '../../../Supabase';
@@ -42,6 +42,16 @@ const IncomePage = ({ navigation }) => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showManageModal, setShowManageModal] = useState(false);
   const [activeManageTab, setActiveManageTab] = useState('categories');
+
+  // Estados para modais de categoria/frequência
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [showFrequencyModal, setShowFrequencyModal] = useState(false);
+  const [categoryModalMode, setCategoryModalMode] = useState('add'); // 'add' or 'edit'
+  const [frequencyModalMode, setFrequencyModalMode] = useState('add'); // 'add' or 'edit'
+  const [editingCategory, setEditingCategory] = useState(null);
+  const [editingFrequency, setEditingFrequency] = useState(null);
+  const [categoryFormData, setCategoryFormData] = useState({ name: '' });
+  const [frequencyFormData, setFrequencyFormData] = useState({ name: '', days: '' });
 
   // Use filteredIncomes para a lista e se estiver vazia, use incomes
   const incomesToDisplay = filteredIncomes.length > 0 ? filteredIncomes : incomes;
@@ -304,39 +314,432 @@ const IncomePage = ({ navigation }) => {
 
   // Management functions
   const handleAddCategory = () => {
-    setAlertMessage('Add category feature coming soon!');
-    setAlertType('info');
-    setShowAlert(true);
+    setCategoryModalMode('add');
+    setCategoryFormData({ name: '' });
+    setEditingCategory(null);
+    setShowCategoryModal(true);
+  };
+
+  const createCategory = async (categoryName) => {
+    try {
+
+      // Check if category already exists for this user
+      const { data: existingCategories } = await supabase
+        .from('categories')
+        .select('name')
+        .eq('user_id', userId)
+        .eq('type', 'income')
+        .eq('name', categoryName);
+
+      if (existingCategories && existingCategories.length > 0) {
+        setAlertMessage('Category with this name already exists');
+        setAlertType('error');
+        setShowAlert(true);
+        return;
+      }
+
+      // Create new category
+      const { data, error } = await supabase
+        .from('categories')
+        .insert([{
+          name: categoryName,
+          type: 'income',
+          user_id: userId
+        }])
+        .select();
+
+      if (error) {
+        console.error('Error creating category:', error);
+        setAlertMessage('Failed to create category');
+        setAlertType('error');
+        setShowAlert(true);
+        return;
+      }
+
+      setAlertMessage('Category created successfully!');
+      setAlertType('success');
+      setShowAlert(true);
+      
+      // Refresh categories list
+      fetchUserCategoriesAndFrequencies(userId);
+    } catch (error) {
+      console.error('Unexpected error creating category:', error);
+      setAlertMessage('Unexpected error occurred');
+      setAlertType('error');
+      setShowAlert(true);
+    }
   };
 
   const handleEditCategory = (category) => {
-    setAlertMessage(`Edit category "${category.name}" feature coming soon!`);
-    setAlertType('info');
-    setShowAlert(true);
+    setCategoryModalMode('edit');
+    setCategoryFormData({ name: category.name });
+    setEditingCategory(category);
+    setShowCategoryModal(true);
   };
 
-  const handleDeleteCategory = (category) => {
-    setAlertMessage(`Delete category "${category.name}" feature coming soon!`);
-    setAlertType('info');
-    setShowAlert(true);
+  const updateCategory = async (category, newCategoryName) => {
+    try {
+
+      // Check if the new name already exists for this user (excluding current category)
+      const { data: existingCategories } = await supabase
+        .from('categories')
+        .select('name')
+        .eq('user_id', userId)
+        .eq('type', 'income')
+        .eq('name', newCategoryName)
+        .neq('id', category.id);
+
+      if (existingCategories && existingCategories.length > 0) {
+        setAlertMessage('Category with this name already exists');
+        setAlertType('error');
+        setShowAlert(true);
+        return;
+      }
+
+      // Update category
+      const { error } = await supabase
+        .from('categories')
+        .update({ name: newCategoryName })
+        .eq('id', category.id)
+        .eq('user_id', userId);
+
+      if (error) {
+        console.error('Error updating category:', error);
+        setAlertMessage('Failed to update category');
+        setAlertType('error');
+        setShowAlert(true);
+        return;
+      }
+
+      setAlertMessage('Category updated successfully!');
+      setAlertType('success');
+      setShowAlert(true);
+      
+      // Refresh categories list
+      fetchUserCategoriesAndFrequencies(userId);
+    } catch (error) {
+      console.error('Unexpected error updating category:', error);
+      setAlertMessage('Unexpected error occurred');
+      setAlertType('error');
+      setShowAlert(true);
+    }
+  };
+
+  const handleDeleteCategory = async (category) => {
+    try {
+      // Confirm deletion
+      Alert.alert(
+        'Delete Category',
+        `Are you sure you want to delete the category "${category.name}"?\n\nThis action cannot be undone and may affect existing incomes using this category.`,
+        [
+          {
+            text: 'Cancel',
+            style: 'cancel',
+          },
+          {
+            text: 'Delete',
+            style: 'destructive',
+            onPress: async () => {
+              await deleteCategory(category);
+            },
+          },
+        ]
+      );
+    } catch (error) {
+      console.error('Unexpected error deleting category:', error);
+      setAlertMessage('Unexpected error occurred');
+      setAlertType('error');
+      setShowAlert(true);
+    }
+  };
+
+  const deleteCategory = async (category) => {
+    try {
+
+      // Check if category is being used by any incomes
+      const { data: incomesUsingCategory } = await supabase
+        .from('income')
+        .select('id')
+        .eq('category_id', category.id)
+        .eq('user_id', userId);
+
+      if (incomesUsingCategory && incomesUsingCategory.length > 0) {
+        setAlertMessage(`Cannot delete category "${category.name}" because it is being used by ${incomesUsingCategory.length} income(s). Please update or delete those incomes first.`);
+        setAlertType('error');
+        setShowAlert(true);
+        return;
+      }
+
+      // Delete category
+      const { error } = await supabase
+        .from('categories')
+        .delete()
+        .eq('id', category.id)
+        .eq('user_id', userId);
+
+      if (error) {
+        console.error('Error deleting category:', error);
+        setAlertMessage('Failed to delete category');
+        setAlertType('error');
+        setShowAlert(true);
+        return;
+      }
+
+      setAlertMessage('Category deleted successfully!');
+      setAlertType('success');
+      setShowAlert(true);
+      
+      // Refresh categories list
+      fetchUserCategoriesAndFrequencies(userId);
+    } catch (error) {
+      console.error('Unexpected error deleting category:', error);
+      setAlertMessage('Unexpected error occurred');
+      setAlertType('error');
+      setShowAlert(true);
+    }
   };
 
   const handleAddFrequency = () => {
-    setAlertMessage('Add frequency feature coming soon!');
-    setAlertType('info');
-    setShowAlert(true);
+    setFrequencyModalMode('add');
+    setFrequencyFormData({ name: '', days: '' });
+    setEditingFrequency(null);
+    setShowFrequencyModal(true);
+  };
+
+  const createFrequency = async (frequencyName, days) => {
+    try {
+
+      // Check if frequency already exists for this user
+      const { data: existingFrequencies } = await supabase
+        .from('frequencies')
+        .select('name')
+        .eq('user_id', userId)
+        .eq('name', frequencyName);
+
+      if (existingFrequencies && existingFrequencies.length > 0) {
+        setAlertMessage('Frequency with this name already exists');
+        setAlertType('error');
+        setShowAlert(true);
+        return;
+      }
+
+      // Create new frequency
+      const { data, error } = await supabase
+        .from('frequencies')
+        .insert([{
+          name: frequencyName,
+          days: days,
+          user_id: userId
+        }])
+        .select();
+
+      if (error) {
+        console.error('Error creating frequency:', error);
+        setAlertMessage('Failed to create frequency');
+        setAlertType('error');
+        setShowAlert(true);
+        return;
+      }
+
+      setAlertMessage('Frequency created successfully!');
+      setAlertType('success');
+      setShowAlert(true);
+      
+      // Refresh frequencies list
+      fetchUserCategoriesAndFrequencies(userId);
+    } catch (error) {
+      console.error('Unexpected error creating frequency:', error);
+      setAlertMessage('Unexpected error occurred');
+      setAlertType('error');
+      setShowAlert(true);
+    }
   };
 
   const handleEditFrequency = (frequency) => {
-    setAlertMessage(`Edit frequency "${frequency.name}" feature coming soon!`);
-    setAlertType('info');
-    setShowAlert(true);
+    setFrequencyModalMode('edit');
+    setFrequencyFormData({ name: frequency.name, days: frequency.days.toString() });
+    setEditingFrequency(frequency);
+    setShowFrequencyModal(true);
   };
 
-  const handleDeleteFrequency = (frequency) => {
-    setAlertMessage(`Delete frequency "${frequency.name}" feature coming soon!`);
-    setAlertType('info');
-    setShowAlert(true);
+  const handleSaveCategory = async () => {
+    try {
+      if (!categoryFormData.name || categoryFormData.name.trim() === '') {
+        setAlertMessage('Category name cannot be empty');
+        setAlertType('error');
+        setShowAlert(true);
+        return;
+      }
+
+      if (categoryModalMode === 'add') {
+        await createCategory(categoryFormData.name.trim());
+      } else {
+        await updateCategory(editingCategory, categoryFormData.name.trim());
+      }
+      
+      setShowCategoryModal(false);
+    } catch (error) {
+      console.error('Error saving category:', error);
+      setAlertMessage('Failed to save category');
+      setAlertType('error');
+      setShowAlert(true);
+    }
+  };
+
+  const handleSaveFrequency = async () => {
+    try {
+      if (!frequencyFormData.name || frequencyFormData.name.trim() === '') {
+        setAlertMessage('Frequency name cannot be empty');
+        setAlertType('error');
+        setShowAlert(true);
+        return;
+      }
+
+      const days = parseInt(frequencyFormData.days);
+      if (!frequencyFormData.days || isNaN(days) || days <= 0) {
+        setAlertMessage('Please enter a valid number of days (greater than 0)');
+        setAlertType('error');
+        setShowAlert(true);
+        return;
+      }
+
+      if (frequencyModalMode === 'add') {
+        await createFrequency(frequencyFormData.name.trim(), days);
+      } else {
+        await updateFrequency(editingFrequency, frequencyFormData.name.trim(), days);
+      }
+      
+      setShowFrequencyModal(false);
+    } catch (error) {
+      console.error('Error saving frequency:', error);
+      setAlertMessage('Failed to save frequency');
+      setAlertType('error');
+      setShowAlert(true);
+    }
+  };
+
+  const updateFrequency = async (frequency, newFrequencyName, days) => {
+    try {
+
+      // Check if the new name already exists for this user (excluding current frequency)
+      const { data: existingFrequencies } = await supabase
+        .from('frequencies')
+        .select('name')
+        .eq('user_id', userId)
+        .eq('name', newFrequencyName)
+        .neq('id', frequency.id);
+
+      if (existingFrequencies && existingFrequencies.length > 0) {
+        setAlertMessage('Frequency with this name already exists');
+        setAlertType('error');
+        setShowAlert(true);
+        return;
+      }
+
+      // Update frequency
+      const { error } = await supabase
+        .from('frequencies')
+        .update({ 
+          name: newFrequencyName,
+          days: days
+        })
+        .eq('id', frequency.id)
+        .eq('user_id', userId);
+
+      if (error) {
+        console.error('Error updating frequency:', error);
+        setAlertMessage('Failed to update frequency');
+        setAlertType('error');
+        setShowAlert(true);
+        return;
+      }
+
+      setAlertMessage('Frequency updated successfully!');
+      setAlertType('success');
+      setShowAlert(true);
+      
+      // Refresh frequencies list
+      fetchUserCategoriesAndFrequencies(userId);
+    } catch (error) {
+      console.error('Unexpected error updating frequency:', error);
+      setAlertMessage('Unexpected error occurred');
+      setAlertType('error');
+      setShowAlert(true);
+    }
+  };
+
+  const handleDeleteFrequency = async (frequency) => {
+    try {
+      // Confirm deletion
+      Alert.alert(
+        'Delete Frequency',
+        `Are you sure you want to delete the frequency "${frequency.name}"?\n\nThis action cannot be undone and may affect existing incomes using this frequency.`,
+        [
+          {
+            text: 'Cancel',
+            style: 'cancel',
+          },
+          {
+            text: 'Delete',
+            style: 'destructive',
+            onPress: async () => {
+              await deleteFrequency(frequency);
+            },
+          },
+        ]
+      );
+    } catch (error) {
+      console.error('Unexpected error deleting frequency:', error);
+      setAlertMessage('Unexpected error occurred');
+      setAlertType('error');
+      setShowAlert(true);
+    }
+  };
+
+  const deleteFrequency = async (frequency) => {
+    try {
+
+      // Check if frequency is being used by any incomes
+      const { data: incomesUsingFrequency } = await supabase
+        .from('income')
+        .select('id')
+        .eq('frequency_id', frequency.id)
+        .eq('user_id', userId);
+
+      if (incomesUsingFrequency && incomesUsingFrequency.length > 0) {
+        setAlertMessage(`Cannot delete frequency "${frequency.name}" because it is being used by ${incomesUsingFrequency.length} income(s). Please update or delete those incomes first.`);
+        setAlertType('error');
+        setShowAlert(true);
+        return;
+      }
+
+      // Delete frequency
+      const { error } = await supabase
+        .from('frequencies')
+        .delete()
+        .eq('id', frequency.id)
+        .eq('user_id', userId);
+
+      if (error) {
+        console.error('Error deleting frequency:', error);
+        setAlertMessage('Failed to delete frequency');
+        setAlertType('error');
+        setShowAlert(true);
+        return;
+      }
+
+      setAlertMessage('Frequency deleted successfully!');
+      setAlertType('success');
+      setShowAlert(true);
+      
+      // Refresh frequencies list
+      fetchUserCategoriesAndFrequencies(userId);
+    } catch (error) {
+      console.error('Unexpected error deleting frequency:', error);
+      setAlertMessage('Unexpected error occurred');
+      setAlertType('error');
+      setShowAlert(true);
+    }
   };
 
   const handleSaveIncome = async () => {
@@ -1328,106 +1731,114 @@ const IncomePage = ({ navigation }) => {
                keyboardShouldPersistTaps="handled"
                nestedScrollEnabled={true}
              >
-               {/* Categories Section */}
-               {activeManageTab === 'categories' && (
-                 <View style={{ flex: 1 }}>
-                   <Text style={{
-                     fontSize: 16,
-                     fontWeight: '600',
-                     color: '#E65100',
-                     marginBottom: 12,
-                     letterSpacing: 0.3,
-                   }}>Income Categories</Text>
-                   {categories.filter(category => category.user_id === userId).length === 0 ? (
-                     <View style={{
-                       padding: 20,
-                       alignItems: 'center',
-                       backgroundColor: '#FFF8E1',
-                       borderRadius: 8,
-                       marginBottom: 12,
-                     }}>
-                       <Text style={{
-                         fontSize: 14,
-                         color: '#F57C00',
-                         textAlign: 'center',
-                         fontStyle: 'italic',
-                       }}>No custom categories yet. Add your first one!</Text>
-                     </View>
-                   ) : categories.filter(category => category.user_id === userId).map((category) => (
-                     <View key={category.id} style={{
-                       flexDirection: 'row',
-                       justifyContent: 'space-between',
-                       alignItems: 'center',
-                       backgroundColor: '#FFF8E1',
-                       padding: 12,
-                       borderRadius: 8,
-                       marginBottom: 8,
-                       borderWidth: 1,
-                       borderColor: '#FFE082',
-                     }}>
-                       <Text style={{
-                         fontSize: 14,
-                         color: '#E65100',
-                         fontWeight: '500',
-                         flex: 1,
-                       }}>{category.name}</Text>
-                       <View style={{
-                         flexDirection: 'row',
-                         gap: 8,
-                       }}>
-                         <TouchableOpacity 
-                           style={{
-                             padding: 8,
-                             borderRadius: 6,
-                             alignItems: 'center',
-                             justifyContent: 'center',
-                             backgroundColor: '#FFC107',
-                           }}
-                           onPress={() => handleEditCategory(category)}
-                           activeOpacity={0.7}
-                         >
-                           <Ionicons name="pencil" size={14} color="#FFF" />
-                         </TouchableOpacity>
-                         <TouchableOpacity 
-                           style={{
-                             padding: 8,
-                             borderRadius: 6,
-                             alignItems: 'center',
-                             justifyContent: 'center',
-                             backgroundColor: '#FF5722',
-                           }}
-                           onPress={() => handleDeleteCategory(category)}
-                           activeOpacity={0.7}
-                         >
-                           <Ionicons name="trash" size={14} color="#FFF" />
-                         </TouchableOpacity>
-                       </View>
-                     </View>
-                   ))}
-                   <TouchableOpacity 
-                     style={{
-                       flexDirection: 'row',
-                       alignItems: 'center',
-                       justifyContent: 'center',
-                       backgroundColor: '#FF9800',
-                       paddingVertical: 10,
-                       paddingHorizontal: 16,
-                       borderRadius: 8,
-                       marginTop: 8,
-                     }}
-                     onPress={handleAddCategory}
-                     activeOpacity={0.7}
-                   >
-                     <Ionicons name="add" size={16} color="#FFFFFF" />
-                     <Text style={{
-                       color: '#FFFFFF',
-                       fontWeight: '600',
-                       fontSize: 14,
-                       marginLeft: 6,
-                     }}>Add Category</Text>
-                   </TouchableOpacity>
-                 </View>
-               )}
+                             {/* Categories Section */}
+              {activeManageTab === 'categories' && (
+                <View style={{ flex: 1 }}>
+                  <Text style={{
+                    fontSize: 16,
+                    fontWeight: '600',
+                    color: '#E65100',
+                    marginBottom: 12,
+                    letterSpacing: 0.3,
+                  }}>Income Categories</Text>
+                  
+                  <ScrollView 
+                    style={{ maxHeight: 200, flex: 1 }}
+                    showsVerticalScrollIndicator={true}
+                    nestedScrollEnabled={true}
+                  >
+                    {categories.filter(category => category.user_id === userId).length === 0 ? (
+                      <View style={{
+                        padding: 20,
+                        alignItems: 'center',
+                        backgroundColor: '#FFF8E1',
+                        borderRadius: 8,
+                        marginBottom: 12,
+                      }}>
+                        <Text style={{
+                          fontSize: 14,
+                          color: '#F57C00',
+                          textAlign: 'center',
+                          fontStyle: 'italic',
+                        }}>No custom categories yet. Add your first one!</Text>
+                      </View>
+                    ) : categories.filter(category => category.user_id === userId).map((category) => (
+                      <View key={category.id} style={{
+                        flexDirection: 'row',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        backgroundColor: '#FFF8E1',
+                        padding: 12,
+                        borderRadius: 8,
+                        marginBottom: 8,
+                        borderWidth: 1,
+                        borderColor: '#FFE082',
+                      }}>
+                        <Text style={{
+                          fontSize: 14,
+                          color: '#E65100',
+                          fontWeight: '500',
+                          flex: 1,
+                        }}>{category.name}</Text>
+                        <View style={{
+                          flexDirection: 'row',
+                          gap: 8,
+                        }}>
+                          <TouchableOpacity 
+                            style={{
+                              padding: 8,
+                              borderRadius: 6,
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              backgroundColor: '#FFC107',
+                            }}
+                            onPress={() => handleEditCategory(category)}
+                            activeOpacity={0.7}
+                          >
+                            <Ionicons name="pencil" size={14} color="#FFF" />
+                          </TouchableOpacity>
+                          <TouchableOpacity 
+                            style={{
+                              padding: 8,
+                              borderRadius: 6,
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              backgroundColor: '#FF5722',
+                            }}
+                            onPress={() => handleDeleteCategory(category)}
+                            activeOpacity={0.7}
+                          >
+                            <Ionicons name="trash" size={14} color="#FFF" />
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    ))}
+                  </ScrollView>
+                  
+                  <TouchableOpacity 
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      backgroundColor: '#FF9800',
+                      paddingVertical: 10,
+                      paddingHorizontal: 16,
+                      borderRadius: 8,
+                      marginTop: 8,
+                    }}
+                    onPress={handleAddCategory}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="add" size={16} color="#FFFFFF" />
+                    <Text style={{
+                      color: '#FFFFFF',
+                      fontWeight: '600',
+                      fontSize: 14,
+                      marginLeft: 6,
+                    }}>Add Category</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
 
                {/* Frequencies Section */}
                {activeManageTab === 'frequencies' && (
@@ -1439,72 +1850,80 @@ const IncomePage = ({ navigation }) => {
                      marginBottom: 12,
                      letterSpacing: 0.3,
                    }}>Frequencies</Text>
-                   {frequencies.filter(frequency => frequency.user_id === userId).length === 0 ? (
-                     <View style={{
-                       padding: 20,
-                       alignItems: 'center',
-                       backgroundColor: '#FFF8E1',
-                       borderRadius: 8,
-                       marginBottom: 12,
-                     }}>
-                       <Text style={{
-                         fontSize: 14,
-                         color: '#F57C00',
-                         textAlign: 'center',
-                         fontStyle: 'italic',
-                       }}>No custom frequencies yet. Add your first one!</Text>
-                     </View>
-                   ) : frequencies.filter(frequency => frequency.user_id === userId).map((frequency) => (
-                     <View key={frequency.id} style={{
-                       flexDirection: 'row',
-                       justifyContent: 'space-between',
-                       alignItems: 'center',
-                       backgroundColor: '#FFF8E1',
-                       padding: 12,
-                       borderRadius: 8,
-                       marginBottom: 8,
-                       borderWidth: 1,
-                       borderColor: '#FFE082',
-                     }}>
-                       <Text style={{
-                         fontSize: 14,
-                         color: '#E65100',
-                         fontWeight: '500',
-                         flex: 1,
-                       }}>{frequency.name} ({frequency.days} days)</Text>
+                   
+                   <ScrollView 
+                     style={{ maxHeight: 200, flex: 1 }}
+                     showsVerticalScrollIndicator={true}
+                     nestedScrollEnabled={true}
+                   >
+                     {frequencies.filter(frequency => frequency.user_id === userId).length === 0 ? (
                        <View style={{
-                         flexDirection: 'row',
-                         gap: 8,
+                         padding: 20,
+                         alignItems: 'center',
+                         backgroundColor: '#FFF8E1',
+                         borderRadius: 8,
+                         marginBottom: 12,
                        }}>
-                         <TouchableOpacity 
-                           style={{
-                             padding: 8,
-                             borderRadius: 6,
-                             alignItems: 'center',
-                             justifyContent: 'center',
-                             backgroundColor: '#FFC107',
-                           }}
-                           onPress={() => handleEditFrequency(frequency)}
-                           activeOpacity={0.7}
-                         >
-                           <Ionicons name="pencil" size={14} color="#FFF" />
-                         </TouchableOpacity>
-                         <TouchableOpacity 
-                           style={{
-                             padding: 8,
-                             borderRadius: 6,
-                             alignItems: 'center',
-                             justifyContent: 'center',
-                             backgroundColor: '#FF5722',
-                           }}
-                           onPress={() => handleDeleteFrequency(frequency)}
-                           activeOpacity={0.7}
-                         >
-                           <Ionicons name="trash" size={14} color="#FFF" />
-                         </TouchableOpacity>
+                         <Text style={{
+                           fontSize: 14,
+                           color: '#F57C00',
+                           textAlign: 'center',
+                           fontStyle: 'italic',
+                         }}>No custom frequencies yet. Add your first one!</Text>
                        </View>
-                     </View>
-                   ))}
+                     ) : frequencies.filter(frequency => frequency.user_id === userId).map((frequency) => (
+                       <View key={frequency.id} style={{
+                         flexDirection: 'row',
+                         justifyContent: 'space-between',
+                         alignItems: 'center',
+                         backgroundColor: '#FFF8E1',
+                         padding: 12,
+                         borderRadius: 8,
+                         marginBottom: 8,
+                         borderWidth: 1,
+                         borderColor: '#FFE082',
+                       }}>
+                         <Text style={{
+                           fontSize: 14,
+                           color: '#E65100',
+                           fontWeight: '500',
+                           flex: 1,
+                         }}>{frequency.name} ({frequency.days} days)</Text>
+                         <View style={{
+                           flexDirection: 'row',
+                           gap: 8,
+                         }}>
+                           <TouchableOpacity 
+                             style={{
+                               padding: 8,
+                               borderRadius: 6,
+                               alignItems: 'center',
+                               justifyContent: 'center',
+                               backgroundColor: '#FFC107',
+                             }}
+                             onPress={() => handleEditFrequency(frequency)}
+                             activeOpacity={0.7}
+                           >
+                             <Ionicons name="pencil" size={14} color="#FFF" />
+                           </TouchableOpacity>
+                           <TouchableOpacity 
+                             style={{
+                               padding: 8,
+                               borderRadius: 6,
+                               alignItems: 'center',
+                               justifyContent: 'center',
+                               backgroundColor: '#FF5722',
+                             }}
+                             onPress={() => handleDeleteFrequency(frequency)}
+                             activeOpacity={0.7}
+                           >
+                             <Ionicons name="trash" size={14} color="#FFF" />
+                           </TouchableOpacity>
+                         </View>
+                       </View>
+                     ))}
+                   </ScrollView>
+                   
                    <TouchableOpacity 
                      style={{
                        flexDirection: 'row',
@@ -1557,6 +1976,269 @@ const IncomePage = ({ navigation }) => {
              </View>
            </TouchableOpacity>
          </TouchableOpacity>
+       )}
+
+       {/* Category Modal */}
+       {showCategoryModal && (
+         <View
+           style={{
+             position: 'absolute',
+             top: 0,
+             left: 0,
+             right: 0,
+             bottom: 0,
+             backgroundColor: 'rgba(0, 0, 0, 0.5)',
+             justifyContent: 'center',
+             alignItems: 'center',
+             zIndex: 1000,
+           }}
+         >
+           <TouchableOpacity
+             style={{
+               position: 'absolute',
+               top: 0,
+               left: 0,
+               right: 0,
+               bottom: 0,
+             }}
+             onPress={() => setShowCategoryModal(false)}
+             activeOpacity={1}
+           />
+           <View
+             style={{
+               width: '90%',
+               maxWidth: 350,
+               backgroundColor: '#FFFFFF',
+               borderRadius: 12,
+               padding: 20,
+               alignSelf: 'center',
+             }}
+           >
+             <Text style={{
+               fontSize: 18,
+               fontWeight: '700',
+               color: '#FF9800',
+               marginBottom: 16,
+               textAlign: 'center',
+             }}>
+               {categoryModalMode === 'add' ? 'Add Category' : 'Edit Category'}
+             </Text>
+
+             <Text style={{
+               fontSize: 14,
+               fontWeight: '600',
+               color: '#E65100',
+               marginBottom: 4,
+             }}>Category Name</Text>
+             <TextInput
+               style={{
+                 borderWidth: 1,
+                 borderColor: '#FFE082',
+                 borderRadius: 8,
+                 padding: 12,
+                 marginBottom: 16,
+                 backgroundColor: '#FFFFFF',
+                 fontSize: 16,
+                 color: '#000000',
+                 minHeight: 44,
+               }}
+               placeholder="Enter category name"
+               placeholderTextColor="#B0BEC5"
+               value={categoryFormData.name}
+               onChangeText={(text) => setCategoryFormData({ ...categoryFormData, name: text })}
+               autoFocus={true}
+             />
+
+             <View style={{
+               flexDirection: 'row',
+               justifyContent: 'space-between',
+               gap: 12,
+             }}>
+               <TouchableOpacity
+                 style={{
+                   flex: 1,
+                   backgroundColor: '#E0E0E0',
+                   padding: 16,
+                   borderRadius: 8,
+                   alignItems: 'center',
+                   minHeight: 48,
+                   justifyContent: 'center',
+                 }}
+                 onPress={() => setShowCategoryModal(false)}
+                 activeOpacity={0.7}
+               >
+                 <Text style={{
+                   color: '#616161',
+                   fontWeight: '600',
+                   fontSize: 16,
+                 }}>Cancel</Text>
+               </TouchableOpacity>
+               <TouchableOpacity
+                 style={{
+                   flex: 1,
+                   backgroundColor: '#FF9800',
+                   padding: 16,
+                   borderRadius: 8,
+                   alignItems: 'center',
+                   minHeight: 48,
+                   justifyContent: 'center',
+                 }}
+                 onPress={handleSaveCategory}
+                 activeOpacity={0.7}
+               >
+                 <Text style={{
+                   color: '#FFFFFF',
+                   fontWeight: '600',
+                   fontSize: 16,
+                 }}>{categoryModalMode === 'add' ? 'Add' : 'Update'}</Text>
+               </TouchableOpacity>
+             </View>
+           </View>
+         </View>
+       )}
+
+       {/* Frequency Modal */}
+       {showFrequencyModal && (
+         <View
+           style={{
+             position: 'absolute',
+             top: 0,
+             left: 0,
+             right: 0,
+             bottom: 0,
+             backgroundColor: 'rgba(0, 0, 0, 0.5)',
+             justifyContent: 'center',
+             alignItems: 'center',
+             zIndex: 1000,
+           }}
+         >
+           <TouchableOpacity
+             style={{
+               position: 'absolute',
+               top: 0,
+               left: 0,
+               right: 0,
+               bottom: 0,
+             }}
+             onPress={() => setShowFrequencyModal(false)}
+             activeOpacity={1}
+           />
+           <View
+             style={{
+               width: '90%',
+               maxWidth: 350,
+               backgroundColor: '#FFFFFF',
+               borderRadius: 12,
+               padding: 20,
+               alignSelf: 'center',
+             }}
+           >
+             <Text style={{
+               fontSize: 18,
+               fontWeight: '700',
+               color: '#FF9800',
+               marginBottom: 16,
+               textAlign: 'center',
+             }}>
+               {frequencyModalMode === 'add' ? 'Add Frequency' : 'Edit Frequency'}
+             </Text>
+
+             <Text style={{
+               fontSize: 14,
+               fontWeight: '600',
+               color: '#E65100',
+               marginBottom: 4,
+             }}>Frequency Name</Text>
+             <TextInput
+               style={{
+                 borderWidth: 1,
+                 borderColor: '#FFE082',
+                 borderRadius: 8,
+                 padding: 12,
+                 marginBottom: 12,
+                 backgroundColor: '#FFFFFF',
+                 fontSize: 16,
+                 color: '#000000',
+                 minHeight: 44,
+               }}
+               placeholder="e.g., Bi-weekly, Quarterly"
+               placeholderTextColor="#B0BEC5"
+               value={frequencyFormData.name}
+               onChangeText={(text) => setFrequencyFormData({ ...frequencyFormData, name: text })}
+               autoFocus={true}
+             />
+
+             <Text style={{
+               fontSize: 14,
+               fontWeight: '600',
+               color: '#E65100',
+               marginBottom: 4,
+             }}>Days</Text>
+             <TextInput
+               style={{
+                 borderWidth: 1,
+                 borderColor: '#FFE082',
+                 borderRadius: 8,
+                 padding: 12,
+                 marginBottom: 16,
+                 backgroundColor: '#FFFFFF',
+                 fontSize: 16,
+                 color: '#000000',
+                 minHeight: 44,
+               }}
+               placeholder="Enter number of days"
+               placeholderTextColor="#B0BEC5"
+               keyboardType="numeric"
+               value={frequencyFormData.days}
+               onChangeText={(text) => setFrequencyFormData({ ...frequencyFormData, days: text })}
+             />
+
+             <View style={{
+               flexDirection: 'row',
+               justifyContent: 'space-between',
+               gap: 12,
+             }}>
+               <TouchableOpacity
+                 style={{
+                   flex: 1,
+                   backgroundColor: '#E0E0E0',
+                   padding: 16,
+                   borderRadius: 8,
+                   alignItems: 'center',
+                   minHeight: 48,
+                   justifyContent: 'center',
+                 }}
+                 onPress={() => setShowFrequencyModal(false)}
+                 activeOpacity={0.7}
+               >
+                 <Text style={{
+                   color: '#616161',
+                   fontWeight: '600',
+                   fontSize: 16,
+                 }}>Cancel</Text>
+               </TouchableOpacity>
+               <TouchableOpacity
+                 style={{
+                   flex: 1,
+                   backgroundColor: '#FF9800',
+                   padding: 16,
+                   borderRadius: 8,
+                   alignItems: 'center',
+                   minHeight: 48,
+                   justifyContent: 'center',
+                 }}
+                 onPress={handleSaveFrequency}
+                 activeOpacity={0.7}
+               >
+                 <Text style={{
+                   color: '#FFFFFF',
+                   fontWeight: '600',
+                   fontSize: 16,
+                 }}>{frequencyModalMode === 'add' ? 'Add' : 'Update'}</Text>
+               </TouchableOpacity>
+             </View>
+           </View>
+         </View>
        )}
      </View>
    );
