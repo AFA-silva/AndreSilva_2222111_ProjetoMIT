@@ -11,6 +11,7 @@ import Header from '../../Utility/Header';
 import { formatCurrency, getCurrentCurrency, addCurrencyChangeListener, removeCurrencyChangeListener, shouldConvertCurrencyValues } from '../../Utility/FetchCountries';
 import { convertValueToCurrentCurrency } from '../../Utility/CurrencyConverter';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import StatisticsUpdater from '../../Utility/StatisticsUpdater';
 
 const ExpensesPage = ({ navigation }) => {
   const [expenses, setExpenses] = useState([]);
@@ -368,15 +369,19 @@ const ExpensesPage = ({ navigation }) => {
   };
 
   const handleAddExpense = () => {
-    setSelectedExpense(null);
-    setFormData({
-      name: '',
-      amount: '',
-      category_id: '',
-      frequency_id: '',
-      priority: 3,
-    });
-    setModalVisible(true);
+    try {
+      setSelectedExpense(null);
+      setFormData({
+        name: '',
+        amount: '',
+        category_id: '',
+        frequency_id: '',
+        priority: 3,
+      });
+      setModalVisible(true);
+    } catch (error) {
+      console.error('Error in handleAddExpense:', error);
+    }
   };
 
   const handleEditExpense = (expense) => {
@@ -423,6 +428,12 @@ const ExpensesPage = ({ navigation }) => {
 
       if (error) throw error;
 
+      // Update statistics only when adding new expense (not editing)
+      if (!selectedExpense) {
+        await StatisticsUpdater.incrementExpenses(userId);
+        console.log('Statistics updated: expenses count incremented');
+      }
+
       setAlertMessage(selectedExpense ? 'Expense updated successfully!' : 'Expense added successfully!');
       setAlertType('success');
       setShowAlert(true);
@@ -455,6 +466,10 @@ const ExpensesPage = ({ navigation }) => {
         .eq('id', expenseToDelete.id);
 
       if (error) throw error;
+
+      // Update statistics when deleting expense
+      await StatisticsUpdater.decrementExpenses(userId);
+      console.log('Statistics updated: expenses count decremented');
 
       setAlertMessage('Expense deleted successfully!');
       setAlertType('success');
@@ -512,44 +527,17 @@ const ExpensesPage = ({ navigation }) => {
     return formatCurrency(amount);
   };
 
-  const renderExpenseItem = ({ item }) => {
+  const renderExpenseItem = (item, index) => {
     if (item.isAddButton) {
       return (
         <TouchableOpacity
-          style={[styles.expenseItem, { 
-            justifyContent: 'center', 
-            alignItems: 'center', 
-            borderStyle: 'dashed', 
-            borderColor: '#F44336', 
-            borderWidth: 2, 
-            backgroundColor: '#FFFFFF', // Fixed to white background
-            shadowColor: '#F44336',
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.2,
-            shadowRadius: 6,
-            elevation: 5,
-            transform: [{scale: 0.98}],
-          }]}
+          key="add-button"
+          style={[styles.addButton, { backgroundColor: '#F44336' }]}
           onPress={handleAddExpense}
-          activeOpacity={0.8}
+          activeOpacity={0.7}
         >
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-            <View style={{
-              backgroundColor: '#F44336',
-              borderRadius: 20,
-              padding: 8,
-              marginRight: 10,
-              shadowColor: '#D32F2F',
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.3,
-              shadowRadius: 3,
-              elevation: 3,
-            }}>
-              <Ionicons name="add" size={20} color="#FFFFFF" />
-            </View>
-            <Text style={[styles.addButtonText, { color: '#D32F2F', fontSize: 18, fontWeight: '700' }]}>Add Expense</Text>
-          </View>
-          <Text style={{ color: '#F44336', fontSize: 12, fontStyle: 'italic' }}>Tap to create new expense entry</Text>
+          <Ionicons name="add" size={20} color="#FFFFFF" />
+          <Text style={styles.addButtonText}>Add Expense</Text>
         </TouchableOpacity>
       );
     }
@@ -557,33 +545,19 @@ const ExpensesPage = ({ navigation }) => {
     if (item.isManageButton) {
       return (
         <TouchableOpacity
-          style={styles.manageItem}
+          key="manage-button"
+          style={[styles.addButton, { backgroundColor: '#FF9800' }]}
           onPress={() => setManageModalVisible(true)}
-          activeOpacity={0.8}
+          activeOpacity={0.7}
         >
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-            <View style={{
-              backgroundColor: '#F44336',
-              borderRadius: 20,
-              padding: 8,
-              marginRight: 10,
-              shadowColor: '#D32F2F',
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.3,
-              shadowRadius: 3,
-              elevation: 3,
-            }}>
-              <Ionicons name="settings" size={20} color="#FFFFFF" />
-            </View>
-            <Text style={[styles.manageButtonText, { color: '#D32F2F', fontSize: 18, fontWeight: '700' }]}>Manage Categories</Text>
-          </View>
-          <Text style={{ color: '#F44336', fontSize: 12, fontStyle: 'italic' }}>Configure categories and frequencies</Text>
+          <Ionicons name="settings" size={20} color="#FFFFFF" />
+          <Text style={styles.addButtonText}>Manage Categories</Text>
         </TouchableOpacity>
       );
     }
 
     return (
-      <View style={styles.expenseItem}>
+      <View key={item.id || `expense-${index}`} style={styles.expenseItem}>
         <View style={styles.expenseRow}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <View style={[styles.priorityIndicator, getPriorityColor(item.priority)]} />
@@ -836,245 +810,682 @@ const ExpensesPage = ({ navigation }) => {
             </TouchableOpacity>
           )}
           
-          <FlatList
-            data={expensesWithButtons}
-            keyExtractor={(item, idx) => {
-              if (item.id) return item.id.toString();
-              if (item.isAddButton) return 'add-btn';
-              if (item.isManageButton) return 'manage-btn';
-              return `item-${idx}`;
-            }}
-            renderItem={renderExpenseItem}
-            style={styles.expenseList}
-          />
+          <ScrollView 
+            showsVerticalScrollIndicator={false} 
+            style={{ flex: 1 }}
+            keyboardShouldPersistTaps="handled"
+            nestedScrollEnabled={true}
+          >
+            {expensesWithButtons.map((item, index) => renderExpenseItem(item, index))}
+          </ScrollView>
         </>
+        )}
+
+      {/* Add/Edit Modal - Fixed */}
+      {modalVisible && (
+        <View
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: 1000,
+          }}
+        >
+          <TouchableOpacity
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+            }}
+            onPress={() => setModalVisible(false)}
+            activeOpacity={1}
+          />
+          <View
+            style={{
+              width: '90%',
+              maxWidth: 350,
+              backgroundColor: '#FFFFFF',
+              borderRadius: 12,
+              padding: 20,
+              maxHeight: '80%',
+              alignSelf: 'center',
+            }}
+          >
+            <ScrollView 
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
+              <Text style={{
+                fontSize: 18,
+                fontWeight: '700',
+                color: '#F44336',
+                marginBottom: 16,
+                textAlign: 'center',
+              }}>
+                {selectedExpense ? 'Edit Expense' : 'Add Expense'}
+              </Text>
+
+              <Text style={{
+                fontSize: 14,
+                fontWeight: '600',
+                color: '#C62828',
+                marginBottom: 4,
+              }}>Expense Name</Text>
+              <TextInput
+                style={{
+                  borderWidth: 1,
+                  borderColor: '#FFCDD2',
+                  borderRadius: 8,
+                  padding: 12,
+                  marginBottom: 12,
+                  backgroundColor: '#FFFFFF',
+                  fontSize: 16,
+                  color: '#C62828',
+                  minHeight: 44,
+                }}
+                placeholder="Enter expense name"
+                placeholderTextColor="#B0BEC5"
+                value={formData.name}
+                onChangeText={(text) => setFormData({ ...formData, name: text })}
+              />
+
+              <Text style={{
+                fontSize: 14,
+                fontWeight: '600',
+                color: '#C62828',
+                marginBottom: 4,
+              }}>Amount</Text>
+              <TextInput
+                style={{
+                  borderWidth: 1,
+                  borderColor: '#FFCDD2',
+                  borderRadius: 8,
+                  padding: 12,
+                  marginBottom: 12,
+                  backgroundColor: '#FFFFFF',
+                  fontSize: 16,
+                  color: '#C62828',
+                  minHeight: 44,
+                }}
+                placeholder="Enter amount"
+                placeholderTextColor="#B0BEC5"
+                keyboardType="numeric"
+                value={formData.amount}
+                onChangeText={(text) => setFormData({ ...formData, amount: text })}
+              />
+
+              <Text style={{
+                fontSize: 14,
+                fontWeight: '600',
+                color: '#C62828',
+                marginBottom: 4,
+              }}>Category</Text>
+              <View style={{
+                borderWidth: 1,
+                borderColor: '#FFCDD2',
+                borderRadius: 8,
+                marginBottom: 12,
+                backgroundColor: '#FFFFFF',
+                minHeight: 44,
+              }}>
+                <Picker
+                  selectedValue={formData.category_id}
+                  onValueChange={(value) => setFormData({ ...formData, category_id: value })}
+                >
+                  <Picker.Item label="Select Category" value="" />
+                  {categories.map((category) => (
+                    <Picker.Item
+                      key={category.id}
+                      label={category.name}
+                      value={category.id}
+                    />
+                  ))}
+                </Picker>
+              </View>
+
+              <Text style={{
+                fontSize: 14,
+                fontWeight: '600',
+                color: '#C62828',
+                marginBottom: 4,
+              }}>Frequency</Text>
+              <View style={{
+                borderWidth: 1,
+                borderColor: '#FFCDD2',
+                borderRadius: 8,
+                marginBottom: 12,
+                backgroundColor: '#FFFFFF',
+                minHeight: 44,
+              }}>
+                <Picker
+                  selectedValue={formData.frequency_id}
+                  onValueChange={(value) => setFormData({ ...formData, frequency_id: value })}
+                >
+                  <Picker.Item label="Select Frequency" value="" />
+                  {frequencies.map((frequency) => (
+                    <Picker.Item
+                      key={frequency.id}
+                      label={frequency.name}
+                      value={frequency.id}
+                    />
+                  ))}
+                </Picker>
+              </View>
+
+              <Text style={{
+                fontSize: 14,
+                fontWeight: '600',
+                color: '#C62828',
+                marginBottom: 4,
+              }}>Priority</Text>
+              <View style={{
+                borderWidth: 1,
+                borderColor: '#FFCDD2',
+                borderRadius: 8,
+                marginBottom: 16,
+                backgroundColor: '#FFFFFF',
+                minHeight: 44,
+              }}>
+                <Picker
+                  selectedValue={formData.priority}
+                  onValueChange={(value) => setFormData({ ...formData, priority: value })}
+                >
+                  <Picker.Item label="Minimum" value={1} />
+                  <Picker.Item label="Low" value={2} />
+                  <Picker.Item label="Medium" value={3} />
+                  <Picker.Item label="High" value={4} />
+                  <Picker.Item label="Maximum" value={5} />
+                </Picker>
+              </View>
+
+              <View style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                gap: 12,
+              }}>
+                <TouchableOpacity
+                  style={{
+                    flex: 1,
+                    backgroundColor: '#E0E0E0',
+                    padding: 16,
+                    borderRadius: 8,
+                    alignItems: 'center',
+                    minHeight: 48,
+                    justifyContent: 'center',
+                  }}
+                  onPress={() => setModalVisible(false)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={{
+                    color: '#616161',
+                    fontWeight: '600',
+                    fontSize: 16,
+                  }}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={{
+                    flex: 1,
+                    backgroundColor: '#F44336',
+                    padding: 16,
+                    borderRadius: 8,
+                    alignItems: 'center',
+                    minHeight: 48,
+                    justifyContent: 'center',
+                  }}
+                  onPress={handleSaveExpense}
+                  activeOpacity={0.7}
+                >
+                  <Text style={{
+                    color: '#FFFFFF',
+                    fontWeight: '600',
+                    fontSize: 16,
+                  }}>Save</Text>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
       )}
 
-      {/* Add/Edit Modal */}
-      <Modal visible={modalVisible} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
-            <Text style={styles.modalHeader}>
-              {selectedExpense ? 'Edit Expense' : 'Add Expense'}
-            </Text>
-
-            <Text style={styles.inputLabel}>Expense Name</Text>
-            <TextInput
-              style={styles.modalInput}
-              placeholder="Enter expense name"
-              placeholderTextColor="#B0BEC5"
-              value={formData.name}
-              onChangeText={(text) => setFormData({ ...formData, name: text })}
-            />
-
-            <Text style={styles.inputLabel}>Amount</Text>
-            <TextInput
-              style={styles.modalInput}
-              placeholder="Enter amount"
-              placeholderTextColor="#B0BEC5"
-              keyboardType="numeric"
-              value={formData.amount}
-              onChangeText={(text) => setFormData({ ...formData, amount: text })}
-            />
-
-            <Text style={styles.inputLabel}>Category</Text>
-            <Picker
-              selectedValue={formData.category_id}
-              style={styles.picker}
-              onValueChange={(value) => setFormData({ ...formData, category_id: value })}
-            >
-              <Picker.Item label="Select Category" value="" />
-              {categories.map((category) => (
-                <Picker.Item
-                  key={category.id}
-                  label={category.name}
-                  value={category.id}
-                />
-              ))}
-            </Picker>
-
-            <Text style={styles.inputLabel}>Frequency</Text>
-            <Picker
-              selectedValue={formData.frequency_id}
-              style={styles.picker}
-              onValueChange={(value) => setFormData({ ...formData, frequency_id: value })}
-            >
-              <Picker.Item label="Select Frequency" value="" />
-              {frequencies.map((frequency) => (
-                <Picker.Item
-                  key={frequency.id}
-                  label={frequency.name}
-                  value={frequency.id}
-                />
-              ))}
-            </Picker>
-
-            <Text style={styles.inputLabel}>Priority</Text>
-            <Picker
-              selectedValue={formData.priority}
-              style={styles.picker}
-              onValueChange={(value) => setFormData({ ...formData, priority: value })}
-            >
-              <Picker.Item label="Minimum" value={1} />
-              <Picker.Item label="Low" value={2} />
-              <Picker.Item label="Medium" value={3} />
-              <Picker.Item label="High" value={4} />
-              <Picker.Item label="Maximum" value={5} />
-            </Picker>
-
-            <View style={styles.modalButtonsContainer}>
-              <TouchableOpacity
-                style={styles.closeButton}
-                onPress={() => setModalVisible(false)}
-              >
-                <Ionicons name="close-circle" size={20} color="#616161" />
-                <Text style={styles.closeButtonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.saveButton}
-                onPress={handleSaveExpense}
-              >
-                <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
-                <Text style={styles.saveButtonText}>Save Expense</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Delete Confirmation Modal */}
-      <Modal visible={deleteModalVisible} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContainer, { maxWidth: 400 }]}>
-            <View style={styles.deleteModalHeader}>
+      {/* Delete Confirmation Modal - Fixed */}
+      {deleteModalVisible && (
+        <TouchableOpacity
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: 1000,
+          }}
+          activeOpacity={1}
+          onPress={() => setDeleteModalVisible(false)}
+        >
+          <TouchableOpacity
+            style={{
+              width: '90%',
+              maxWidth: 350,
+              backgroundColor: '#FFFFFF',
+              borderRadius: 12,
+              padding: 20,
+              alignSelf: 'center',
+            }}
+            activeOpacity={1}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: 16,
+              gap: 12,
+            }}>
               <Ionicons name="warning" size={32} color="#FF6B6B" />
-              <Text style={styles.deleteModalTitle}>Delete Expense</Text>
+              <Text style={{
+                fontSize: 20,
+                fontWeight: '700',
+                color: '#F44336',
+                letterSpacing: 0.5,
+              }}>Delete Expense</Text>
             </View>
-            <Text style={styles.deleteModalText}>
+            <Text style={{
+              fontSize: 16,
+              color: '#C62828',
+              textAlign: 'center',
+              marginBottom: 8,
+              letterSpacing: 0.3,
+            }}>
               Are you sure you want to delete "{expenseToDelete?.name}"?
             </Text>
-            <Text style={styles.deleteModalSubtext}>
+            <Text style={{
+              fontSize: 14,
+              color: '#E57373',
+              textAlign: 'center',
+              marginBottom: 20,
+              letterSpacing: 0.2,
+            }}>
               This action cannot be undone.
             </Text>
-            <View style={styles.modalButtonsContainer}>
+            <View style={{
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              gap: 12,
+            }}>
               <TouchableOpacity
-                style={[styles.deleteButton, { flex: 1, marginRight: 8 }]}
+                style={{
+                  flex: 1,
+                  backgroundColor: '#F44336',
+                  padding: 16,
+                  borderRadius: 8,
+                  alignItems: 'center',
+                  minHeight: 48,
+                  justifyContent: 'center',
+                  flexDirection: 'row',
+                }}
                 onPress={handleDeleteExpense}
+                activeOpacity={0.7}
               >
                 <Ionicons name="trash" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
-                <Text style={styles.deleteButtonText}>Delete</Text>
+                <Text style={{
+                  color: '#FFFFFF',
+                  fontWeight: '600',
+                  fontSize: 16,
+                  letterSpacing: 0.5,
+                }}>Delete</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.cancelButton, { flex: 1 }]}
+                style={{
+                  flex: 1,
+                  backgroundColor: '#FFCDD2',
+                  padding: 16,
+                  borderRadius: 8,
+                  alignItems: 'center',
+                  minHeight: 48,
+                  justifyContent: 'center',
+                  flexDirection: 'row',
+                }}
                 onPress={() => setDeleteModalVisible(false)}
+                activeOpacity={0.7}
               >
-                <Ionicons name="close" size={20} color="#666666" style={{ marginRight: 8 }} />
-                <Text style={styles.cancelButtonText}>Cancel</Text>
+                <Ionicons name="close" size={20} color="#C62828" style={{ marginRight: 8 }} />
+                <Text style={{
+                  color: '#C62828',
+                  fontWeight: '600',
+                  fontSize: 16,
+                  letterSpacing: 0.5,
+                }}>Cancel</Text>
               </TouchableOpacity>
             </View>
-          </View>
-        </View>
-      </Modal>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      )}
 
-      {/* Management Modal with Tabs */}
-      <Modal visible={isManageModalVisible} transparent animationType="slide">
-        <View style={styles.manageModalOverlay}>
-          <View style={styles.manageModalContainer}>
-            <Text style={styles.manageModalHeader}>Manage Settings</Text>
+      {/* Management Modal with Tabs - Fixed */}
+      {isManageModalVisible && (
+        <TouchableOpacity
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: 1000,
+          }}
+          activeOpacity={1}
+          onPress={() => setManageModalVisible(false)}
+        >
+          <TouchableOpacity
+            style={{
+              width: '90%',
+              maxWidth: 400,
+              backgroundColor: '#FFFFFF',
+              borderRadius: 12,
+              padding: 20,
+              maxHeight: '80%',
+              alignSelf: 'center',
+            }}
+            activeOpacity={1}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <Text style={{
+              fontSize: 18,
+              fontWeight: '700',
+              color: '#F44336',
+              marginBottom: 16,
+              textAlign: 'center',
+              letterSpacing: 0.5,
+            }}>Manage Settings</Text>
             
             {/* Tab Selection */}
-            <View style={styles.manageTabContainer}>
+            <View style={{
+              flexDirection: 'row',
+              backgroundColor: '#FFEBEE',
+              borderRadius: 8,
+              padding: 4,
+              marginBottom: 16,
+              borderWidth: 1,
+              borderColor: '#FFCDD2',
+            }}>
               <TouchableOpacity 
-                style={[styles.manageTab, activeManageTab === 'categories' && styles.manageTabActive]}
+                style={[
+                  {
+                    flex: 1,
+                    paddingVertical: 10,
+                    paddingHorizontal: 16,
+                    borderRadius: 6,
+                    alignItems: 'center',
+                  },
+                  activeManageTab === 'categories' && {
+                    backgroundColor: '#F44336',
+                  }
+                ]}
                 onPress={() => setActiveManageTab('categories')}
+                activeOpacity={0.7}
               >
-                <Text style={[styles.manageTabText, activeManageTab === 'categories' && styles.manageTabTextActive]}>
+                <Text style={[
+                  {
+                    fontSize: 14,
+                    fontWeight: '600',
+                    color: '#D32F2F',
+                  },
+                  activeManageTab === 'categories' && {
+                    color: '#FFFFFF',
+                    fontWeight: '700',
+                  }
+                ]}>
                   Categories
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity 
-                style={[styles.manageTab, activeManageTab === 'frequencies' && styles.manageTabActive]}
+                style={[
+                  {
+                    flex: 1,
+                    paddingVertical: 10,
+                    paddingHorizontal: 16,
+                    borderRadius: 6,
+                    alignItems: 'center',
+                  },
+                  activeManageTab === 'frequencies' && {
+                    backgroundColor: '#F44336',
+                  }
+                ]}
                 onPress={() => setActiveManageTab('frequencies')}
+                activeOpacity={0.7}
               >
-                <Text style={[styles.manageTabText, activeManageTab === 'frequencies' && styles.manageTabTextActive]}>
+                <Text style={[
+                  {
+                    fontSize: 14,
+                    fontWeight: '600',
+                    color: '#D32F2F',
+                  },
+                  activeManageTab === 'frequencies' && {
+                    color: '#FFFFFF',
+                    fontWeight: '700',
+                  }
+                ]}>
                   Frequencies
                 </Text>
               </TouchableOpacity>
             </View>
             
-            <ScrollView style={styles.manageScrollView} showsVerticalScrollIndicator={false}>
+            <ScrollView 
+              style={{ maxHeight: 200 }} 
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
               {/* Categories Section */}
               {activeManageTab === 'categories' && (
-                <View style={styles.manageSection}>
-                  <Text style={styles.manageSectionTitle}>Expense Categories</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={{
+                    fontSize: 16,
+                    fontWeight: '600',
+                    color: '#C62828',
+                    marginBottom: 12,
+                    letterSpacing: 0.3,
+                  }}>Expense Categories</Text>
                   {categories.map((category) => (
-                    <View key={category.id} style={styles.manageItemContainer}>
-                      <Text style={styles.manageItemText}>{category.name}</Text>
-                      <View style={styles.manageItemActions}>
+                    <View key={category.id} style={{
+                      flexDirection: 'row',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      backgroundColor: '#FFEBEE',
+                      padding: 12,
+                      borderRadius: 8,
+                      marginBottom: 8,
+                      borderWidth: 1,
+                      borderColor: '#FFCDD2',
+                    }}>
+                      <Text style={{
+                        fontSize: 14,
+                        color: '#D32F2F',
+                        fontWeight: '500',
+                        flex: 1,
+                      }}>{category.name}</Text>
+                      <View style={{
+                        flexDirection: 'row',
+                        gap: 8,
+                      }}>
                         <TouchableOpacity 
-                          style={[styles.manageActionButton, styles.manageEditButton]}
+                          style={{
+                            padding: 8,
+                            borderRadius: 6,
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            backgroundColor: '#FF9800',
+                          }}
                           onPress={() => handleEditCategory(category)}
+                          activeOpacity={0.7}
                         >
                           <Ionicons name="pencil" size={14} color="#FFF" />
                         </TouchableOpacity>
                         <TouchableOpacity 
-                          style={[styles.manageActionButton, styles.manageDeleteButton]}
+                          style={{
+                            padding: 8,
+                            borderRadius: 6,
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            backgroundColor: '#F44336',
+                          }}
                           onPress={() => handleDeleteCategory(category)}
+                          activeOpacity={0.7}
                         >
                           <Ionicons name="trash" size={14} color="#FFF" />
                         </TouchableOpacity>
                       </View>
                     </View>
                   ))}
-                  <TouchableOpacity style={styles.addItemButton} onPress={handleAddCategory}>
+                  <TouchableOpacity 
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      backgroundColor: '#F44336',
+                      paddingVertical: 10,
+                      paddingHorizontal: 16,
+                      borderRadius: 8,
+                      marginTop: 8,
+                    }}
+                    onPress={handleAddCategory}
+                    activeOpacity={0.7}
+                  >
                     <Ionicons name="add" size={16} color="#FFFFFF" />
-                    <Text style={styles.addItemButtonText}>Add Category</Text>
+                    <Text style={{
+                      color: '#FFFFFF',
+                      fontWeight: '600',
+                      fontSize: 14,
+                      marginLeft: 6,
+                    }}>Add Category</Text>
                   </TouchableOpacity>
                 </View>
               )}
 
               {/* Frequencies Section */}
               {activeManageTab === 'frequencies' && (
-                <View style={styles.manageSection}>
-                  <Text style={styles.manageSectionTitle}>Frequencies</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={{
+                    fontSize: 16,
+                    fontWeight: '600',
+                    color: '#C62828',
+                    marginBottom: 12,
+                    letterSpacing: 0.3,
+                  }}>Frequencies</Text>
                   {frequencies.map((frequency) => (
-                    <View key={frequency.id} style={styles.manageItemContainer}>
-                      <Text style={styles.manageItemText}>{frequency.name} ({frequency.days} days)</Text>
-                      <View style={styles.manageItemActions}>
+                    <View key={frequency.id} style={{
+                      flexDirection: 'row',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      backgroundColor: '#FFEBEE',
+                      padding: 12,
+                      borderRadius: 8,
+                      marginBottom: 8,
+                      borderWidth: 1,
+                      borderColor: '#FFCDD2',
+                    }}>
+                      <Text style={{
+                        fontSize: 14,
+                        color: '#D32F2F',
+                        fontWeight: '500',
+                        flex: 1,
+                      }}>{frequency.name} ({frequency.days} days)</Text>
+                      <View style={{
+                        flexDirection: 'row',
+                        gap: 8,
+                      }}>
                         <TouchableOpacity 
-                          style={[styles.manageActionButton, styles.manageEditButton]}
+                          style={{
+                            padding: 8,
+                            borderRadius: 6,
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            backgroundColor: '#FF9800',
+                          }}
                           onPress={() => handleEditFrequency(frequency)}
+                          activeOpacity={0.7}
                         >
                           <Ionicons name="pencil" size={14} color="#FFF" />
                         </TouchableOpacity>
                         <TouchableOpacity 
-                          style={[styles.manageActionButton, styles.manageDeleteButton]}
+                          style={{
+                            padding: 8,
+                            borderRadius: 6,
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            backgroundColor: '#F44336',
+                          }}
                           onPress={() => handleDeleteFrequency(frequency)}
+                          activeOpacity={0.7}
                         >
                           <Ionicons name="trash" size={14} color="#FFF" />
                         </TouchableOpacity>
                       </View>
                     </View>
                   ))}
-                  <TouchableOpacity style={styles.addItemButton} onPress={handleAddFrequency}>
+                  <TouchableOpacity 
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      backgroundColor: '#F44336',
+                      paddingVertical: 10,
+                      paddingHorizontal: 16,
+                      borderRadius: 8,
+                      marginTop: 8,
+                    }}
+                    onPress={handleAddFrequency}
+                    activeOpacity={0.7}
+                  >
                     <Ionicons name="add" size={16} color="#FFFFFF" />
-                    <Text style={styles.addItemButtonText}>Add Frequency</Text>
+                    <Text style={{
+                      color: '#FFFFFF',
+                      fontWeight: '600',
+                      fontSize: 14,
+                      marginLeft: 6,
+                    }}>Add Frequency</Text>
                   </TouchableOpacity>
                 </View>
               )}
             </ScrollView>
             
-            <View style={styles.manageModalButtons}>
+            <View style={{
+              flexDirection: 'row',
+              justifyContent: 'center',
+              marginTop: 16,
+            }}>
               <TouchableOpacity
-                style={styles.manageCloseButton}
+                style={{
+                  backgroundColor: '#F44336',
+                  paddingVertical: 12,
+                  paddingHorizontal: 24,
+                  borderRadius: 8,
+                  minHeight: 44,
+                  justifyContent: 'center',
+                }}
                 onPress={() => setManageModalVisible(false)}
+                activeOpacity={0.7}
               >
-                <Text style={styles.manageCloseButtonText}>Close</Text>
+                <Text style={{
+                  color: '#FFFFFF',
+                  fontWeight: '600',
+                  fontSize: 14,
+                }}>Close</Text>
               </TouchableOpacity>
             </View>
-          </View>
-        </View>
-      </Modal>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      )}
     </View>
   );
 };

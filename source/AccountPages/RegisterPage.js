@@ -24,6 +24,10 @@ const RegisterPage = ({ navigation }) => {
   const [filteredCountries, setFilteredCountries] = useState([]); // Defines filtered countries
   const [isLoading, setIsLoading] = useState(false); // Disables the register button if an operation is in progress
 
+  // Password visibility states
+  const [showPassword, setShowPassword] = useState(false); // Controls password visibility
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false); // Controls confirm password visibility
+
   // Alert Components
   const [alertMessage, setAlertMessage] = useState(''); // Defines the message to be shown
   const [alertType, setAlertType] = useState(''); // Defines the type of alert
@@ -183,20 +187,43 @@ const RegisterPage = ({ navigation }) => {
       <TextInput style={styles.input} placeholder="✉️ Email" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
 
       {/* Password Input */}
-      <TextInput
-        style={styles.input}
-        placeholder="🔒 Password"
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="🔒 Confirm Password"
-        value={confirmPassword}
-        onChangeText={setConfirmPassword}
-        secureTextEntry
-      />
+      <View style={styles.passwordContainer}>
+        <TextInput
+          style={styles.passwordInput}
+          placeholder="🔒 Password"
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry={!showPassword}
+        />
+        <TouchableOpacity 
+          style={styles.eyeButton} 
+          onPress={() => setShowPassword(!showPassword)}
+        >
+          <Image 
+            source={showPassword ? require('../../assets/eye-open.png') : require('../../assets/eye-closed.png')} 
+            style={styles.eyeIcon}
+          />
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.passwordContainer}>
+        <TextInput
+          style={styles.passwordInput}
+          placeholder="🔒 Confirm Password"
+          value={confirmPassword}
+          onChangeText={setConfirmPassword}
+          secureTextEntry={!showConfirmPassword}
+        />
+        <TouchableOpacity 
+          style={styles.eyeButton} 
+          onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+        >
+          <Image 
+            source={showConfirmPassword ? require('../../assets/eye-open.png') : require('../../assets/eye-closed.png')} 
+            style={styles.eyeIcon}
+          />
+        </TouchableOpacity>
+      </View>
 
       {/* Country Picker */}
       <TouchableOpacity style={styles.input} onPress={() => setModalVisible(true)}>

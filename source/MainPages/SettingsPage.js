@@ -60,32 +60,6 @@ const SettingsPage = ({ navigation }) => {
           </View>
         </TouchableOpacity>
 
-        <Text style={styles.sectionHeader}>Preferences</Text>
-
-        {/* Notifications Section */}
-        <TouchableOpacity 
-          style={styles.menuItem}
-          onPress={() => navigation.navigate('NotificationsPage')}
-        >
-          <View style={styles.menuRow}>
-            <View style={{
-              width: 42,
-              height: 42,
-              borderRadius: 12,
-              backgroundColor: 'rgba(255, 152, 0, 0.1)',
-              justifyContent: 'center',
-              alignItems: 'center',
-            }}>
-              <Ionicons name="notifications-outline" size={24} color="#FF9800" />
-            </View>
-            <View style={styles.menuTextContainer}>
-              <Text style={styles.menuItemTitle}>Notifications</Text>
-              <Text style={styles.menuItemSubtitle}>Configure your notification preferences</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={22} color="#CBD5E0" />
-          </View>
-        </TouchableOpacity>
-
         <Text style={styles.sectionHeader}>Support</Text>
 
         {/* Help and Support Section */}

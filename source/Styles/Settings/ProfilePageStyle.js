@@ -190,54 +190,78 @@ const styles = StyleSheet.create({
   // Info cards
   infoCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 16,
-    borderLeftWidth: 4,
-    borderLeftColor: '#FF9800',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 2,
+    borderColor: '#F1F5F9',
     ...(Platform.OS === 'web' ? {
-      boxShadow: '0px 3px 8px rgba(26, 54, 93, 0.1)'
+      boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.06)'
     } : {
-      shadowColor: '#1A365D',
-      shadowOffset: { width: 0, height: 3 },
-      shadowOpacity: 0.1,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.06,
+      shadowRadius: 4,
+      elevation: 2,
+    }),
+  },
+  infoCardEditable: {
+    borderColor: '#FF9800',
+    borderWidth: 2,
+    ...(Platform.OS === 'web' ? {
+      boxShadow: '0px 4px 8px rgba(255, 152, 0, 0.15)'
+    } : {
+      shadowColor: '#FF9800',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.15,
       shadowRadius: 8,
       elevation: 4,
     }),
   },
+  infoCardReadOnly: {
+    backgroundColor: '#F8FAFC',
+    borderColor: '#E2E8F0',
+  },
   infoCardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 10,
   },
   infoIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 32,
+    height: 32,
+    borderRadius: 8,
     backgroundColor: 'rgba(255, 152, 0, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: 10,
   },
   infoLabel: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
     color: '#2D3748',
     flex: 1,
   },
   infoInput: {
-    backgroundColor: '#F7F9FC',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    fontSize: 16,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 15,
     color: '#2D3748',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: 'transparent',
+    marginTop: 2,
   },
   infoInputDisabled: {
-    opacity: 0.6,
-    backgroundColor: '#F0F0F0',
+    backgroundColor: '#F1F5F9',
+    color: '#64748B',
+    opacity: 0.8,
+  },
+  infoInputEditable: {
+    backgroundColor: '#FFFBF5',
+    borderColor: '#FF9800',
+    borderWidth: 1,
   },
   infoHint: {
     fontSize: 12,
@@ -246,18 +270,24 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
   infoSelector: {
-    backgroundColor: '#F7F9FC',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 16,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: 'transparent',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    marginTop: 2,
+  },
+  infoSelectorEditable: {
+    backgroundColor: '#FFFBF5',
+    borderColor: '#FF9800',
+    borderWidth: 1,
   },
   infoSelectorText: {
-    fontSize: 16,
+    fontSize: 15,
     color: '#2D3748',
     flex: 1,
   },
@@ -266,21 +296,39 @@ const styles = StyleSheet.create({
     color: '#718096',
     fontWeight: '500',
   },
+  statisticValue: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#FF9800',
+    marginTop: 2,
+    letterSpacing: -0.5,
+  },
   
   // Action buttons
-  actionButtonsContainer: {
-    gap: 16,
-  },
-  actionButton: {
+  editButton: {
     backgroundColor: '#FF9800',
-    borderRadius: 16,
+    borderRadius: 14,
     overflow: 'hidden',
     ...(Platform.OS === 'web' ? {
-      boxShadow: '0px 4px 12px rgba(255, 152, 0, 0.3)'
+      boxShadow: '0px 4px 12px rgba(255, 152, 0, 0.25)'
     } : {
       shadowColor: '#FF9800',
       shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.3,
+      shadowOpacity: 0.25,
+      shadowRadius: 12,
+      elevation: 6,
+    }),
+  },
+  saveButton: {
+    backgroundColor: '#10B981',
+    borderRadius: 14,
+    overflow: 'hidden',
+    ...(Platform.OS === 'web' ? {
+      boxShadow: '0px 4px 12px rgba(16, 185, 129, 0.25)'
+    } : {
+      shadowColor: '#10B981',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.25,
       shadowRadius: 12,
       elevation: 6,
     }),
@@ -304,16 +352,16 @@ const styles = StyleSheet.create({
   actionButtonContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 20,
+    padding: 16,
   },
   actionIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 40,
+    height: 40,
+    borderRadius: 10,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
+    marginRight: 12,
   },
   secondaryActionIcon: {
     width: 48,
@@ -328,10 +376,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   actionText: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '700',
     color: '#FFFFFF',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   secondaryActionText: {
     fontSize: 18,
@@ -340,9 +388,9 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   actionSubtext: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.8)',
-    lineHeight: 18,
+    fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.85)',
+    lineHeight: 16,
   },
   
   // Modal styles

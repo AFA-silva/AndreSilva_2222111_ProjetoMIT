@@ -28,6 +28,31 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     marginBottom: 15,
   },
+  passwordContainer: {
+    width: '80%',
+    height: 50,
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 8,
+    backgroundColor: '#fff',
+    marginBottom: 15,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+  },
+  passwordInput: {
+    flex: 1,
+    height: '100%',
+    fontSize: 16,
+  },
+  eyeButton: {
+    padding: 5,
+  },
+  eyeIcon: {
+    width: 20,
+    height: 20,
+    tintColor: '#666',
+  },
   button: {
     backgroundColor: '#f4c542',
     padding: 15,

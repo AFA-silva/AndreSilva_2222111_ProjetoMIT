@@ -12,7 +12,6 @@ import IncomePage from './MainPages/Manage/IncomePage';
 import GoalsPage from './MainPages/Manage/GoalsPage';
 import CurrencyMarketPage from './MainPages/Manage/CurrencyMarketPage';
 import CalendarPage from './MainPages/CalendarPage';
-import NotificationsPage from './MainPages/Settings/NotificationsPage';
 
 const Stack = createStackNavigator();
 
@@ -38,7 +37,6 @@ const MainPagesNavigator = () => {
         <Stack.Screen name="SupportPage" component={SupportPage} /> 
         <Stack.Screen name="SecurityPage" component={SecurityPage} />
         <Stack.Screen name="CalendarPage" component={CalendarPage} />
-        <Stack.Screen name="NotificationsPage" component={NotificationsPage} />
       </Stack.Navigator>
 
       {/* Carrega a barra de navegação fora do Stack.Navigator*/}

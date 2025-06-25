@@ -22,6 +22,8 @@ import Header from '../../Utility/Header';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Picker } from '@react-native-picker/picker';
 import { fetchCountries } from '../../Utility/FetchCountries';
+import { useFocusEffect } from '@react-navigation/native';
+import StatisticsUpdater from '../../Utility/StatisticsUpdater';
 
 const ProfilePage = ({ navigation }) => {
   // User data states
@@ -31,6 +33,14 @@ const ProfilePage = ({ navigation }) => {
     phone: '',
     region: '',
     birthdate: '',
+  });
+
+  // Statistics states
+  const [statistics, setStatistics] = useState({
+    account_age: 0,
+    goals_created: 0,
+    expenses_created: 0,
+    income_created: 0,
   });
   
   // UI states
@@ -131,6 +141,15 @@ const ProfilePage = ({ navigation }) => {
     ]).start();
   }, []);
 
+  // Refresh statistics when page is focused
+  useFocusEffect(
+    React.useCallback(() => {
+      if (userId) {
+        refreshStatistics();
+      }
+    }, [userId])
+  );
+
   // Load countries data
   const loadCountries = async () => {
     try {
@@ -139,6 +158,19 @@ const ProfilePage = ({ navigation }) => {
       setFilteredCountries(countriesData);
     } catch (error) {
       console.error('Error loading countries:', error);
+    }
+  };
+
+  // Refresh statistics from database
+  const refreshStatistics = async () => {
+    try {
+      const stats = await StatisticsUpdater.getUserStatistics(userId);
+      if (stats) {
+        setStatistics(stats);
+        console.log('Statistics refreshed:', stats);
+      }
+    } catch (error) {
+      console.error('Error refreshing statistics:', error);
     }
   };
 
@@ -168,7 +200,7 @@ const ProfilePage = ({ navigation }) => {
     } catch (error) {
       console.error('Error getting current user:', error);
       setError(error.message);
-      setAlertMessage('Não foi possível carregar os dados do perfil');
+      setAlertMessage('Could not load profile data');
       setAlertType('error');
       setShowAlert(true);
     } finally {
@@ -191,10 +223,16 @@ const ProfilePage = ({ navigation }) => {
       // Get profile data
       const { data: profileData, error: profileError } = await supabase
         .from('user_profile')
-        .select('birthdate, image')
+        .select('birthdate, image, account_age, goals_created, expenses_created, income_created')
         .eq('user_id', userId)
         .single();
       
+      // Load statistics using StatisticsUpdater
+      const stats = await StatisticsUpdater.getUserStatistics(userId);
+      if (stats) {
+        setStatistics(stats);
+      }
+
       // If no profile exists, create default
       if (profileError && profileError.code === 'PGRST116') {
         const { error: insertError } = await supabase
@@ -234,7 +272,7 @@ const ProfilePage = ({ navigation }) => {
       if (Platform.OS !== 'web') {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (status !== 'granted') {
-          setAlertMessage('Permissão para acessar galeria é necessária!');
+          setAlertMessage('Permission to access gallery is required!');
           setAlertType('error');
           setShowAlert(true);
           return;
@@ -258,13 +296,13 @@ const ProfilePage = ({ navigation }) => {
           setProfileImage(result.assets[0].uri);
         }
         
-        setAlertMessage('Foto de perfil atualizada!');
+        setAlertMessage('Profile photo updated!');
         setAlertType('success');
         setShowAlert(true);
       }
     } catch (error) {
       console.error('Error picking image:', error);
-      setAlertMessage('Falha ao selecionar imagem. Tente novamente.');
+      setAlertMessage('Failed to select image. Please try again.');
       setAlertType('error');
       setShowAlert(true);
     }
@@ -314,14 +352,14 @@ const ProfilePage = ({ navigation }) => {
 
   const validateForm = () => {
     if (!isFieldNotEmpty(formData.name)) {
-      setAlertMessage('Nome não pode estar vazio');
+      setAlertMessage('Name cannot be empty');
       setAlertType('error');
       setShowAlert(true);
       return false;
     }
     
     if (!isEmailValid(formData.email)) {
-      setAlertMessage('Email inválido');
+      setAlertMessage('Invalid email');
       setAlertType('error');
       setShowAlert(true);
       return false;
@@ -329,7 +367,7 @@ const ProfilePage = ({ navigation }) => {
     
     // Phone validation if provided
     if (formData.phone && !isPhoneValid(formData.phone)) {
-      setAlertMessage('Telefone deve ter 9 dígitos');
+      setAlertMessage('Phone must have 9 digits');
       setAlertType('error');
       setShowAlert(true);
       return false;
@@ -337,7 +375,7 @@ const ProfilePage = ({ navigation }) => {
     
     // Birthdate validation
     if (formData.birthdate && !dateUtils.isValidFormat(formData.birthdate)) {
-      setAlertMessage('Data de nascimento deve estar no formato DD/MM/AAAA');
+      setAlertMessage('Date of birth must be in DD/MM/YYYY format');
       setAlertType('error');
       setShowAlert(true);
       return false;
@@ -375,14 +413,14 @@ const ProfilePage = ({ navigation }) => {
       
       if (profileError) throw profileError;
       
-      setAlertMessage('Perfil atualizado com sucesso!');
+      setAlertMessage('Profile updated successfully!');
       setAlertType('success');
       setShowAlert(true);
       setIsEditing(false);
       
     } catch (error) {
       console.error('Error saving profile:', error);
-      setAlertMessage(`Erro: ${error.message || 'Falha ao salvar alterações'}`);
+      setAlertMessage(`Error: ${error.message || 'Failed to save changes'}`);
       setAlertType('error');
       setShowAlert(true);
     } finally {
@@ -400,7 +438,7 @@ const ProfilePage = ({ navigation }) => {
       navigation.navigate('Login');
     } catch (error) {
       console.error('Error signing out:', error);
-      setAlertMessage('Falha ao sair. Tente novamente.');
+      setAlertMessage('Failed to sign out. Please try again.');
       setAlertType('error');
       setShowAlert(true);
     }
@@ -411,7 +449,7 @@ const ProfilePage = ({ navigation }) => {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#FF9800" />
-        <Text style={styles.loadingText}>Carregando perfil...</Text>
+        <Text style={styles.loadingText}>Loading profile...</Text>
       </View>
     );
   }
@@ -421,17 +459,43 @@ const ProfilePage = ({ navigation }) => {
     return (
       <View style={styles.errorContainer}>
         <Ionicons name="alert-circle-outline" size={60} color="#F44336" />
-        <Text style={styles.errorTitle}>Erro ao carregar o perfil</Text>
+        <Text style={styles.errorTitle}>Error loading profile</Text>
         <Text style={styles.errorText}>{error}</Text>
         <TouchableOpacity 
           style={styles.retryButton}
           onPress={getCurrentUser}
         >
-          <Text style={styles.retryButtonText}>Tentar novamente</Text>
+          <Text style={styles.retryButtonText}>Try again</Text>
         </TouchableOpacity>
       </View>
     );
   }
+
+  // Update statistics function
+  const updateStatistics = async (type, increment = 1) => {
+    try {
+      if (!userId) return;
+
+      const { data, error } = await supabase
+        .from('user_profile')
+        .update({
+          [`${type}_created`]: statistics[`${type}_created`] + increment
+        })
+        .eq('user_id', userId)
+        .select();
+
+      if (error) throw error;
+
+      // Update local state
+      setStatistics(prev => ({
+        ...prev,
+        [`${type}_created`]: prev[`${type}_created`] + increment
+      }));
+
+    } catch (error) {
+      console.error('Error updating statistics:', error);
+    }
+  };
 
   // Get user initials for avatar
   const getUserInitials = () => {
@@ -453,7 +517,7 @@ const ProfilePage = ({ navigation }) => {
 
   return (
     <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
-      <Header title="Perfil" />
+      <Header title="Profile" />
       
       {showAlert && (
         <Alert
@@ -486,8 +550,8 @@ const ProfilePage = ({ navigation }) => {
           </View>
           
           <View style={styles.userInfoSection}>
-            <Text style={styles.userName}>{formData.name || 'Seu Nome'}</Text>
-            <Text style={styles.userEmail}>{formData.email || 'email@exemplo.com'}</Text>
+            <Text style={styles.userName}>{formData.name || 'Your Name'}</Text>
+            <Text style={styles.userEmail}>{formData.email || 'email@example.com'}</Text>
           </View>
         </Animated.View>
 
@@ -496,32 +560,48 @@ const ProfilePage = ({ navigation }) => {
           
           {/* Personal Information Section */}
           <View style={styles.infoSection}>
-            <Text style={styles.sectionTitle}>Informações Pessoais</Text>
+            <Text style={styles.sectionTitle}>Personal Information</Text>
             
             {/* Name Field */}
-            <View style={styles.infoCard}>
+            <View style={[
+              styles.infoCard, 
+              isEditing ? styles.infoCardEditable : styles.infoCardReadOnly
+            ]}>
               <View style={styles.infoCardHeader}>
                 <View style={styles.infoIcon}>
-                  <Ionicons name="person" size={20} color="#FF9800" />
+                  <Ionicons name="person" size={18} color="#FF9800" />
                 </View>
-                <Text style={styles.infoLabel}>Nome Completo</Text>
+                <Text style={styles.infoLabel}>Full Name</Text>
+                {isEditing && (
+                  <View style={{ backgroundColor: '#FEF3C7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                    <Text style={{ fontSize: 10, color: '#D97706', fontWeight: '600' }}>EDITABLE</Text>
+                  </View>
+                )}
               </View>
               <TextInput
-                style={styles.infoInput}
-                placeholder="Digite seu nome"
+                style={[
+                  styles.infoInput, 
+                  !isEditing && styles.infoInputDisabled,
+                  isEditing && styles.infoInputEditable
+                ]}
+                placeholder="Enter your name"
                 value={formData.name}
                 onChangeText={(text) => handleInputChange('name', text)}
                 placeholderTextColor="#A0AEC0"
+                editable={isEditing}
               />
             </View>
 
             {/* Email Field - Read Only */}
-            <View style={styles.infoCard}>
+            <View style={[styles.infoCard, styles.infoCardReadOnly]}>
               <View style={styles.infoCardHeader}>
                 <View style={styles.infoIcon}>
-                  <Ionicons name="mail" size={20} color="#FF9800" />
+                  <Ionicons name="mail" size={18} color="#94A3B8" />
                 </View>
                 <Text style={styles.infoLabel}>Email</Text>
+                <View style={{ backgroundColor: '#F1F5F9', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                  <Text style={{ fontSize: 10, color: '#64748B', fontWeight: '600' }}>READ ONLY</Text>
+                </View>
               </View>
               <TextInput
                 style={[styles.infoInput, styles.infoInputDisabled]}
@@ -529,53 +609,99 @@ const ProfilePage = ({ navigation }) => {
                 editable={false}
                 placeholderTextColor="#A0AEC0"
               />
-              <Text style={styles.infoHint}>Email não pode ser alterado</Text>
+              <Text style={styles.infoHint}>Email cannot be changed</Text>
             </View>
 
             {/* Phone Field */}
-            <View style={styles.infoCard}>
+            <View style={[
+              styles.infoCard, 
+              isEditing ? styles.infoCardEditable : styles.infoCardReadOnly
+            ]}>
               <View style={styles.infoCardHeader}>
                 <View style={styles.infoIcon}>
-                  <Ionicons name="call" size={20} color="#FF9800" />
+                  <Ionicons name="call" size={18} color={isEditing ? "#FF9800" : "#94A3B8"} />
                 </View>
-                <Text style={styles.infoLabel}>Telefone</Text>
+                <Text style={styles.infoLabel}>Phone</Text>
+                {isEditing ? (
+                  <View style={{ backgroundColor: '#FEF3C7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                    <Text style={{ fontSize: 10, color: '#D97706', fontWeight: '600' }}>EDITABLE</Text>
+                  </View>
+                ) : (
+                  <View style={{ backgroundColor: '#F1F5F9', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                    <Text style={{ fontSize: 10, color: '#64748B', fontWeight: '600' }}>LOCKED</Text>
+                  </View>
+                )}
               </View>
               <TextInput
-                style={styles.infoInput}
-                placeholder="Digite seu telefone (9 dígitos)"
+                style={[
+                  styles.infoInput, 
+                  !isEditing && styles.infoInputDisabled,
+                  isEditing && styles.infoInputEditable
+                ]}
+                placeholder="Enter your phone (9 digits)"
                 value={formData.phone}
                 onChangeText={(text) => handleInputChange('phone', text)}
                 placeholderTextColor="#A0AEC0"
                 keyboardType="phone-pad"
+                editable={isEditing}
               />
             </View>
 
             {/* Region Field */}
-            <View style={styles.infoCard}>
+            <View style={[
+              styles.infoCard, 
+              isEditing ? styles.infoCardEditable : styles.infoCardReadOnly
+            ]}>
               <View style={styles.infoCardHeader}>
                 <View style={styles.infoIcon}>
-                  <Ionicons name="location" size={20} color="#FF9800" />
+                  <Ionicons name="location" size={18} color={isEditing ? "#FF9800" : "#94A3B8"} />
                 </View>
-                <Text style={styles.infoLabel}>País/Região</Text>
+                <Text style={styles.infoLabel}>Country/Region</Text>
+                {isEditing ? (
+                  <View style={{ backgroundColor: '#FEF3C7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                    <Text style={{ fontSize: 10, color: '#D97706', fontWeight: '600' }}>EDITABLE</Text>
+                  </View>
+                ) : (
+                  <View style={{ backgroundColor: '#F1F5F9', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                    <Text style={{ fontSize: 10, color: '#64748B', fontWeight: '600' }}>LOCKED</Text>
+                  </View>
+                )}
               </View>
               <TouchableOpacity 
-                style={styles.infoSelector}
-                onPress={openRegionPicker}
+                style={[
+                  styles.infoSelector, 
+                  !isEditing && styles.infoInputDisabled,
+                  isEditing && styles.infoSelectorEditable
+                ]}
+                onPress={isEditing ? openRegionPicker : null}
+                disabled={!isEditing}
               >
                 <Text style={[styles.infoSelectorText, formData.region ? {} : {color: '#A0AEC0'}]}>
-                  {formData.region || 'Selecione seu país'}
+                  {formData.region || 'Select your country'}
                 </Text>
-                <Ionicons name="chevron-down" size={20} color="#A0AEC0" />
+                <Ionicons name="chevron-down" size={16} color={isEditing ? "#FF9800" : "#94A3B8"} />
               </TouchableOpacity>
             </View>
 
             {/* Birthdate Field */}
-            <View style={styles.infoCard}>
+            <View style={[
+              styles.infoCard, 
+              isEditing ? styles.infoCardEditable : styles.infoCardReadOnly
+            ]}>
               <View style={styles.infoCardHeader}>
                 <View style={styles.infoIcon}>
-                  <Ionicons name="calendar" size={20} color="#FF9800" />
+                  <Ionicons name="calendar" size={18} color={isEditing ? "#FF9800" : "#94A3B8"} />
                 </View>
-                <Text style={styles.infoLabel}>Data de Nascimento</Text>
+                <Text style={styles.infoLabel}>Date of Birth</Text>
+                {isEditing ? (
+                  <View style={{ backgroundColor: '#FEF3C7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                    <Text style={{ fontSize: 10, color: '#D97706', fontWeight: '600' }}>EDITABLE</Text>
+                  </View>
+                ) : (
+                  <View style={{ backgroundColor: '#F1F5F9', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                    <Text style={{ fontSize: 10, color: '#64748B', fontWeight: '600' }}>LOCKED</Text>
+                  </View>
+                )}
               </View>
               {Platform.OS === 'web' ? (
                 <input
@@ -611,78 +737,111 @@ const ProfilePage = ({ navigation }) => {
                 />
               ) : (
                 <TouchableOpacity 
-                  style={styles.infoSelector}
-                  onPress={() => setShowDatePicker(true)}
+                  style={[
+                    styles.infoSelector, 
+                    !isEditing && styles.infoInputDisabled,
+                    isEditing && styles.infoSelectorEditable
+                  ]}
+                  onPress={isEditing ? () => setShowDatePicker(true) : null}
+                  disabled={!isEditing}
                 >
                   <Text style={[styles.infoSelectorText, formData.birthdate ? {} : {color: '#A0AEC0'}]}>
-                    {formData.birthdate || 'Selecione sua data de nascimento'}
+                    {formData.birthdate || 'Select your date of birth'}
                   </Text>
-                  <Ionicons name="chevron-down" size={20} color="#A0AEC0" />
+                  <Ionicons name="chevron-down" size={16} color={isEditing ? "#FF9800" : "#94A3B8"} />
                 </TouchableOpacity>
               )}
             </View>
           </View>
 
-          {/* Quick Actions */}
-          <View style={styles.actionsSection}>
-            <Text style={styles.sectionTitle}>Ações</Text>
+          {/* Statistics Section */}
+          <View style={styles.infoSection}>
+            <Text style={styles.sectionTitle}>Profile Statistics</Text>
             
-            <View style={styles.actionButtonsContainer}>
-              <TouchableOpacity 
-                style={styles.actionButton}
-                onPress={handleSave}
-                disabled={isSaving}
-              >
-                <View style={styles.actionButtonContent}>
-                  <View style={styles.actionIcon}>
-                    {isSaving ? (
-                      <ActivityIndicator color="#FFFFFF" size="small" />
-                    ) : (
-                      <Ionicons name="save" size={24} color="#FFFFFF" />
-                    )}
-                  </View>
-                  <View style={styles.actionTextContainer}>
-                    <Text style={styles.actionText}>
-                      {isSaving ? 'Salvando...' : 'Salvar Alterações'}
-                    </Text>
-                    <Text style={styles.actionSubtext}>
-                      Atualizar informações do perfil
-                    </Text>
-                  </View>
+            {/* Account Age */}
+            <View style={[styles.infoCard, { borderColor: '#E0E7FF', backgroundColor: '#FAFBFF' }]}>
+              <View style={styles.infoCardHeader}>
+                <View style={[styles.infoIcon, { backgroundColor: 'rgba(99, 102, 241, 0.1)' }]}>
+                  <Ionicons name="time" size={18} color="#6366F1" />
                 </View>
-              </TouchableOpacity>
-
-              <TouchableOpacity 
-                style={styles.secondaryActionButton}
-                onPress={() => navigation.navigate('CurrencyMarketPage')}
-              >
-                <View style={styles.actionButtonContent}>
-                  <View style={styles.secondaryActionIcon}>
-                    <Ionicons name="globe" size={24} color="#FF9800" />
-                  </View>
-                  <View style={styles.actionTextContainer}>
-                    <Text style={styles.secondaryActionText}>Gerenciar Moedas</Text>
-                    <Text style={styles.actionSubtext}>
-                      Configurar moedas preferidas
-                    </Text>
-                  </View>
-                </View>
-              </TouchableOpacity>
+                <Text style={styles.infoLabel}>Account Age</Text>
+              </View>
+              <Text style={[styles.statisticValue, { color: '#6366F1' }]}>{statistics.account_age} days</Text>
             </View>
+
+            {/* Goals Created */}
+            <View style={[styles.infoCard, { borderColor: '#FEF3C7', backgroundColor: '#FFFBEB' }]}>
+              <View style={styles.infoCardHeader}>
+                <View style={[styles.infoIcon, { backgroundColor: 'rgba(245, 158, 11, 0.1)' }]}>
+                  <Ionicons name="trophy" size={18} color="#F59E0B" />
+                </View>
+                <Text style={styles.infoLabel}>Goals Created</Text>
+              </View>
+              <Text style={[styles.statisticValue, { color: '#F59E0B' }]}>{statistics.goals_created}</Text>
+            </View>
+
+            {/* Income Created */}
+            <View style={[styles.infoCard, { borderColor: '#D1FAE5', backgroundColor: '#F0FDF4' }]}>
+              <View style={styles.infoCardHeader}>
+                <View style={[styles.infoIcon, { backgroundColor: 'rgba(34, 197, 94, 0.1)' }]}>
+                  <Ionicons name="trending-up" size={18} color="#22C55E" />
+                </View>
+                <Text style={styles.infoLabel}>Income Records</Text>
+              </View>
+              <Text style={[styles.statisticValue, { color: '#22C55E' }]}>{statistics.income_created}</Text>
+            </View>
+
+            {/* Expenses Created */}
+            <View style={[styles.infoCard, { borderColor: '#FED7D7', backgroundColor: '#FEF5F5' }]}>
+              <View style={styles.infoCardHeader}>
+                <View style={[styles.infoIcon, { backgroundColor: 'rgba(239, 68, 68, 0.1)' }]}>
+                  <Ionicons name="trending-down" size={18} color="#EF4444" />
+                </View>
+                <Text style={styles.infoLabel}>Expense Records</Text>
+              </View>
+              <Text style={[styles.statisticValue, { color: '#EF4444' }]}>{statistics.expenses_created}</Text>
+            </View>
+          </View>
+
+          {/* Edit/Save Button */}
+          <View style={styles.actionsSection}>
+            <TouchableOpacity 
+              style={isEditing ? styles.saveButton : styles.editButton}
+              onPress={isEditing ? handleSave : () => setIsEditing(true)}
+              disabled={isSaving}
+            >
+              <View style={styles.actionButtonContent}>
+                <View style={styles.actionIcon}>
+                  {isSaving ? (
+                    <ActivityIndicator color="#FFFFFF" size="small" />
+                  ) : (
+                    <Ionicons name={isEditing ? "save" : "create"} size={24} color="#FFFFFF" />
+                  )}
+                </View>
+                <View style={styles.actionTextContainer}>
+                  <Text style={styles.actionText}>
+                    {isSaving ? 'Saving...' : isEditing ? 'Save Changes' : 'Edit Profile'}
+                  </Text>
+                  <Text style={styles.actionSubtext}>
+                    {isEditing ? 'Update profile information' : 'Modify your profile details'}
+                  </Text>
+                </View>
+              </View>
+            </TouchableOpacity>
           </View>
 
           {/* App Info */}
           <View style={styles.appInfoSection}>
-            <Text style={styles.sectionTitle}>Informações do App</Text>
+            <Text style={styles.sectionTitle}>App Information</Text>
             
             <View style={styles.infoCard}>
               <View style={styles.infoCardHeader}>
                 <View style={styles.infoIcon}>
                   <Ionicons name="information-circle" size={20} color="#FF9800" />
                 </View>
-                <Text style={styles.infoLabel}>Versão do Aplicativo</Text>
+                <Text style={styles.infoLabel}>Application Version</Text>
               </View>
-              <Text style={styles.versionText}>1.0.0 - Projeto MIT</Text>
+              <Text style={styles.versionText}>1.0.0 - MIT Project</Text>
             </View>
           </View>
         </View>
@@ -694,7 +853,7 @@ const ProfilePage = ({ navigation }) => {
             onPress={() => setShowLogoutModal(true)}
           >
             <Ionicons name="log-out-outline" size={22} color="#FFFFFF" />
-            <Text style={styles.logoutText}>Sair da Conta</Text>
+            <Text style={styles.logoutText}>Sign Out</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -716,7 +875,7 @@ const ProfilePage = ({ navigation }) => {
           >
             <View style={styles.modalOverlay}>
               <View style={styles.modalContainer}>
-                <Text style={styles.modalTitle}>Selecionar Data</Text>
+                <Text style={styles.modalTitle}>Select Date</Text>
                 <DateTimePicker
                   value={formData.birthdate ? new Date(dateUtils.formatForDB(formData.birthdate)) : new Date()}
                   mode="date"
@@ -727,7 +886,7 @@ const ProfilePage = ({ navigation }) => {
                   style={[styles.modalButton, styles.modalButtonConfirm]}
                   onPress={() => setShowDatePicker(false)}
                 >
-                  <Text style={styles.modalButtonTextConfirm}>Confirmar</Text>
+                  <Text style={styles.modalButtonTextConfirm}>Confirm</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -745,7 +904,7 @@ const ProfilePage = ({ navigation }) => {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Selecionar País</Text>
+              <Text style={styles.modalTitle}>Select Country</Text>
               <TouchableOpacity 
                 style={styles.modalCloseButton}
                 onPress={() => setShowRegionPicker(false)}
@@ -759,7 +918,7 @@ const ProfilePage = ({ navigation }) => {
               <Ionicons name="search" size={20} color="#A0AEC0" style={styles.searchIcon} />
               <TextInput
                 style={styles.searchInput}
-                placeholder="Buscar país..."
+                placeholder="Search country..."
                 placeholderTextColor="#A0AEC0"
                 value={searchQuery}
                 onChangeText={handleCountrySearch}
@@ -783,7 +942,7 @@ const ProfilePage = ({ navigation }) => {
                 onPress={clearRegionSelection}
               >
                 <Ionicons name="close-circle" size={20} color="#FF6B6B" style={styles.clearIcon} />
-                <Text style={styles.clearCountryText}>Limpar seleção</Text>
+                <Text style={styles.clearCountryText}>Clear selection</Text>
               </TouchableOpacity>
               
               <FlatList
@@ -808,9 +967,9 @@ const ProfilePage = ({ navigation }) => {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
-            <Text style={styles.modalTitle}>Sair da Conta</Text>
+            <Text style={styles.modalTitle}>Sign Out</Text>
             <Text style={styles.modalDescription}>
-              Tem certeza que deseja sair? Você precisará fazer login novamente.
+              Are you sure you want to sign out? You will need to log in again.
             </Text>
             
             <View style={styles.modalButtons}>
@@ -818,7 +977,7 @@ const ProfilePage = ({ navigation }) => {
                 style={[styles.modalButton, styles.modalButtonCancel]}
                 onPress={() => setShowLogoutModal(false)}
               >
-                <Text style={styles.modalButtonTextCancel}>Cancelar</Text>
+                <Text style={styles.modalButtonTextCancel}>Cancel</Text>
               </TouchableOpacity>
               
               <TouchableOpacity 
@@ -828,7 +987,7 @@ const ProfilePage = ({ navigation }) => {
                   handleLogout();
                 }}
               >
-                <Text style={styles.modalButtonTextConfirm}>Sair</Text>
+                <Text style={styles.modalButtonTextConfirm}>Sign Out</Text>
               </TouchableOpacity>
             </View>
           </View>

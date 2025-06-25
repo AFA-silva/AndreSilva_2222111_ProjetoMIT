@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'; // Import de componentes do React
-import { View, Text, TextInput, TouchableOpacity, Platform, Keyboard } from 'react-native'; // Import de componentes do react native
+import { View, Text, TextInput, TouchableOpacity, Platform, Keyboard, Image } from 'react-native'; // Import de componentes do react native
 import { useFocusEffect } from '@react-navigation/native';
 import styles from '../Styles/AccountPageStyles/LoginPageStyle'; // Import do estilo para a página de login
 import { supabase } from '../../Supabase'; // Import da Database
@@ -16,6 +16,9 @@ const LoginPage = ({ navigation }) => {
   // Cria as variáveis para o login (email e password)
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  
+  // Password visibility state
+  const [showPassword, setShowPassword] = useState(false); // Controls password visibility
   
   // Refs para os inputs
   const emailInputRef = useRef(null);
@@ -158,15 +161,28 @@ const LoginPage = ({ navigation }) => {
         accessibilityLabel="Email input field"
       />
 
-      <TextInput
-        ref={passwordInputRef}
-        style={styles.input}
-        placeholder="Password"
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-        accessibilityLabel="Password input field"
-      />
+      <View style={styles.passwordContainer}>
+        <TextInput
+          ref={passwordInputRef}
+          style={styles.passwordInput}
+          placeholder="Password"
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry={!showPassword}
+          accessibilityLabel="Password input field"
+        />
+        <TouchableOpacity 
+          style={styles.eyeButton} 
+          onPress={() => setShowPassword(!showPassword)}
+          accessibilityRole="button"
+          accessibilityLabel={showPassword ? "Hide password" : "Show password"}
+        >
+          <Image 
+            source={showPassword ? require('../../assets/eye-open.png') : require('../../assets/eye-closed.png')} 
+            style={styles.eyeIcon}
+          />
+        </TouchableOpacity>
+      </View>
 
       <TouchableOpacity 
         style={styles.button} 
