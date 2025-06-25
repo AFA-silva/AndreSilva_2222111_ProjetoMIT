@@ -40,6 +40,8 @@ const IncomePage = ({ navigation }) => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showManageModal, setShowManageModal] = useState(false);
+  const [activeManageTab, setActiveManageTab] = useState('categories');
 
   // Use filteredIncomes para a lista e se estiver vazia, use incomes
   const incomesToDisplay = filteredIncomes.length > 0 ? filteredIncomes : incomes;
@@ -169,7 +171,8 @@ const IncomePage = ({ navigation }) => {
   const fetchUserCategoriesAndFrequencies = async (userId) => {
     try {
       setIsLoading(true);
-      const { data: categories, error: categoriesError } = await supabase
+      // Fetch both user-owned and default categories for form dropdowns
+      const { data: allCategories, error: categoriesError } = await supabase
         .from('categories')
         .select('*')
         .or(`user_id.eq.${userId},user_id.is.null`)
@@ -179,10 +182,11 @@ const IncomePage = ({ navigation }) => {
         console.error('Error fetching categories:', categoriesError);
         setCategories([]);
       } else {
-        setCategories(categories || []);
+        setCategories(allCategories || []);
       }
 
-      const { data: frequencies, error: frequenciesError } = await supabase
+      // Fetch both user-owned and default frequencies for form dropdowns
+      const { data: allFrequencies, error: frequenciesError } = await supabase
         .from('frequencies')
         .select('*')
         .or(`user_id.eq.${userId},user_id.is.null`);
@@ -191,7 +195,7 @@ const IncomePage = ({ navigation }) => {
         console.error('Error fetching frequencies:', frequenciesError);
         setFrequencies([]);
       } else {
-        setFrequencies(frequencies || []);
+        setFrequencies(allFrequencies || []);
       }
     } catch (error) {
       console.error('Unexpected error fetching categories or frequencies:', error);
@@ -293,8 +297,46 @@ const IncomePage = ({ navigation }) => {
     setShowAddModal(false);
     setShowEditModal(false);
     setShowDeleteModal(false);
+    setShowManageModal(false);
     setSelectedIncome(null);
     setIncomeToDelete(null);
+  };
+
+  // Management functions
+  const handleAddCategory = () => {
+    setAlertMessage('Add category feature coming soon!');
+    setAlertType('info');
+    setShowAlert(true);
+  };
+
+  const handleEditCategory = (category) => {
+    setAlertMessage(`Edit category "${category.name}" feature coming soon!`);
+    setAlertType('info');
+    setShowAlert(true);
+  };
+
+  const handleDeleteCategory = (category) => {
+    setAlertMessage(`Delete category "${category.name}" feature coming soon!`);
+    setAlertType('info');
+    setShowAlert(true);
+  };
+
+  const handleAddFrequency = () => {
+    setAlertMessage('Add frequency feature coming soon!');
+    setAlertType('info');
+    setShowAlert(true);
+  };
+
+  const handleEditFrequency = (frequency) => {
+    setAlertMessage(`Edit frequency "${frequency.name}" feature coming soon!`);
+    setAlertType('info');
+    setShowAlert(true);
+  };
+
+  const handleDeleteFrequency = (frequency) => {
+    setAlertMessage(`Delete frequency "${frequency.name}" feature coming soon!`);
+    setAlertType('info');
+    setShowAlert(true);
   };
 
   const handleSaveIncome = async () => {
@@ -608,6 +650,21 @@ const IncomePage = ({ navigation }) => {
               <Text style={beautifulStyles.addButtonSubtext}>Track your income sources</Text>
             </View>
           </TouchableOpacity>
+
+          {/* Manage Button */}
+          <TouchableOpacity
+            style={[beautifulStyles.addButton, { backgroundColor: '#FFC107' }]}
+            onPress={() => setShowManageModal(true)}
+            activeOpacity={0.7}
+          >
+            <View style={[beautifulStyles.addButtonIcon, { backgroundColor: 'rgba(0,0,0,0.1)' }]}>
+              <Ionicons name="settings" size={24} color="#FFFFFF" />
+            </View>
+            <View>
+              <Text style={beautifulStyles.addButtonText}>Manage Extra</Text>
+              <Text style={beautifulStyles.addButtonSubtext}>Add or edit categories & frequencies</Text>
+            </View>
+          </TouchableOpacity>
           
           {/* Empty State */}
           {incomes.length === 0 && (
@@ -688,7 +745,7 @@ const IncomePage = ({ navigation }) => {
                   marginBottom: 12,
                   backgroundColor: '#FFFFFF',
                   fontSize: 16,
-                  color: '#E65100',
+                  color: '#000000',
                   minHeight: 44,
                 }}
                 placeholder="Enter income name"
@@ -712,7 +769,7 @@ const IncomePage = ({ navigation }) => {
                   marginBottom: 12,
                   backgroundColor: '#FFFFFF',
                   fontSize: 16,
-                  color: '#E65100',
+                  color: '#000000',
                   minHeight: 44,
                 }}
                 placeholder="Enter amount"
@@ -895,7 +952,7 @@ const IncomePage = ({ navigation }) => {
                   marginBottom: 12,
                   backgroundColor: '#FFFFFF',
                   fontSize: 16,
-                  color: '#E65100',
+                  color: '#000000',
                   minHeight: 44,
                 }}
                 placeholder="Enter income name"
@@ -919,7 +976,7 @@ const IncomePage = ({ navigation }) => {
                   marginBottom: 12,
                   backgroundColor: '#FFFFFF',
                   fontSize: 16,
-                  color: '#E65100',
+                  color: '#000000',
                   minHeight: 44,
                 }}
                 placeholder="Enter amount"
@@ -1082,7 +1139,7 @@ const IncomePage = ({ navigation }) => {
             </View>
             <Text style={{
               fontSize: 16,
-              color: '#E65100',
+              color: '#000000',
               textAlign: 'center',
               marginBottom: 8,
               letterSpacing: 0.3,
@@ -1091,7 +1148,7 @@ const IncomePage = ({ navigation }) => {
             </Text>
             <Text style={{
               fontSize: 14,
-              color: '#F57C00',
+              color: '#E65100',
               textAlign: 'center',
               marginBottom: 20,
               letterSpacing: 0.2,
@@ -1148,12 +1205,362 @@ const IncomePage = ({ navigation }) => {
                 }}>Cancel</Text>
               </TouchableOpacity>
             </View>
-          </TouchableOpacity>
-        </TouchableOpacity>
-      )}
-    </View>
-  );
-};
+                     </TouchableOpacity>
+         </TouchableOpacity>
+       )}
+
+       {/* Management Modal with Tabs - Copied from ExpensesPage */}
+       {showManageModal && (
+         <TouchableOpacity
+           style={{
+             position: 'absolute',
+             top: 0,
+             left: 0,
+             right: 0,
+             bottom: 0,
+             backgroundColor: 'rgba(0, 0, 0, 0.7)',
+             justifyContent: 'center',
+             alignItems: 'center',
+             zIndex: 1000,
+           }}
+           activeOpacity={1}
+           onPress={() => setShowManageModal(false)}
+         >
+           <TouchableOpacity
+             style={{
+               width: '90%',
+               maxWidth: 400,
+               backgroundColor: '#FFFFFF',
+               borderRadius: 12,
+               padding: 20,
+               maxHeight: '85%',
+               alignSelf: 'center',
+               flex: 1,
+               marginVertical: 40,
+             }}
+             activeOpacity={1}
+             onPress={(e) => e.stopPropagation()}
+           >
+             <Text style={{
+               fontSize: 18,
+               fontWeight: '700',
+               color: '#FF9800',
+               marginBottom: 16,
+               textAlign: 'center',
+               letterSpacing: 0.5,
+             }}>Manage Extra</Text>
+             
+             {/* Tab Selection */}
+             <View style={{
+               flexDirection: 'row',
+               backgroundColor: '#FFF8E1',
+               borderRadius: 8,
+               padding: 4,
+               marginBottom: 16,
+               borderWidth: 1,
+               borderColor: '#FFE082',
+             }}>
+               <TouchableOpacity 
+                 style={[
+                   {
+                     flex: 1,
+                     paddingVertical: 10,
+                     paddingHorizontal: 16,
+                     borderRadius: 6,
+                     alignItems: 'center',
+                   },
+                   activeManageTab === 'categories' && {
+                     backgroundColor: '#FF9800',
+                   }
+                 ]}
+                 onPress={() => setActiveManageTab('categories')}
+                 activeOpacity={0.7}
+               >
+                 <Text style={[
+                   {
+                     fontSize: 14,
+                     fontWeight: '600',
+                     color: '#E65100',
+                   },
+                   activeManageTab === 'categories' && {
+                     color: '#FFFFFF',
+                     fontWeight: '700',
+                   }
+                 ]}>
+                   Categories
+                 </Text>
+               </TouchableOpacity>
+               <TouchableOpacity 
+                 style={[
+                   {
+                     flex: 1,
+                     paddingVertical: 10,
+                     paddingHorizontal: 16,
+                     borderRadius: 6,
+                     alignItems: 'center',
+                   },
+                   activeManageTab === 'frequencies' && {
+                     backgroundColor: '#FF9800',
+                   }
+                 ]}
+                 onPress={() => setActiveManageTab('frequencies')}
+                 activeOpacity={0.7}
+               >
+                 <Text style={[
+                   {
+                     fontSize: 14,
+                     fontWeight: '600',
+                     color: '#E65100',
+                   },
+                   activeManageTab === 'frequencies' && {
+                     color: '#FFFFFF',
+                     fontWeight: '700',
+                   }
+                 ]}>
+                   Frequencies
+                 </Text>
+               </TouchableOpacity>
+             </View>
+             
+             <ScrollView 
+               style={{ maxHeight: 300, flex: 1 }} 
+               showsVerticalScrollIndicator={true}
+               keyboardShouldPersistTaps="handled"
+               nestedScrollEnabled={true}
+             >
+               {/* Categories Section */}
+               {activeManageTab === 'categories' && (
+                 <View style={{ flex: 1 }}>
+                   <Text style={{
+                     fontSize: 16,
+                     fontWeight: '600',
+                     color: '#E65100',
+                     marginBottom: 12,
+                     letterSpacing: 0.3,
+                   }}>Income Categories</Text>
+                   {categories.filter(category => category.user_id === userId).length === 0 ? (
+                     <View style={{
+                       padding: 20,
+                       alignItems: 'center',
+                       backgroundColor: '#FFF8E1',
+                       borderRadius: 8,
+                       marginBottom: 12,
+                     }}>
+                       <Text style={{
+                         fontSize: 14,
+                         color: '#F57C00',
+                         textAlign: 'center',
+                         fontStyle: 'italic',
+                       }}>No custom categories yet. Add your first one!</Text>
+                     </View>
+                   ) : categories.filter(category => category.user_id === userId).map((category) => (
+                     <View key={category.id} style={{
+                       flexDirection: 'row',
+                       justifyContent: 'space-between',
+                       alignItems: 'center',
+                       backgroundColor: '#FFF8E1',
+                       padding: 12,
+                       borderRadius: 8,
+                       marginBottom: 8,
+                       borderWidth: 1,
+                       borderColor: '#FFE082',
+                     }}>
+                       <Text style={{
+                         fontSize: 14,
+                         color: '#E65100',
+                         fontWeight: '500',
+                         flex: 1,
+                       }}>{category.name}</Text>
+                       <View style={{
+                         flexDirection: 'row',
+                         gap: 8,
+                       }}>
+                         <TouchableOpacity 
+                           style={{
+                             padding: 8,
+                             borderRadius: 6,
+                             alignItems: 'center',
+                             justifyContent: 'center',
+                             backgroundColor: '#FFC107',
+                           }}
+                           onPress={() => handleEditCategory(category)}
+                           activeOpacity={0.7}
+                         >
+                           <Ionicons name="pencil" size={14} color="#FFF" />
+                         </TouchableOpacity>
+                         <TouchableOpacity 
+                           style={{
+                             padding: 8,
+                             borderRadius: 6,
+                             alignItems: 'center',
+                             justifyContent: 'center',
+                             backgroundColor: '#FF5722',
+                           }}
+                           onPress={() => handleDeleteCategory(category)}
+                           activeOpacity={0.7}
+                         >
+                           <Ionicons name="trash" size={14} color="#FFF" />
+                         </TouchableOpacity>
+                       </View>
+                     </View>
+                   ))}
+                   <TouchableOpacity 
+                     style={{
+                       flexDirection: 'row',
+                       alignItems: 'center',
+                       justifyContent: 'center',
+                       backgroundColor: '#FF9800',
+                       paddingVertical: 10,
+                       paddingHorizontal: 16,
+                       borderRadius: 8,
+                       marginTop: 8,
+                     }}
+                     onPress={handleAddCategory}
+                     activeOpacity={0.7}
+                   >
+                     <Ionicons name="add" size={16} color="#FFFFFF" />
+                     <Text style={{
+                       color: '#FFFFFF',
+                       fontWeight: '600',
+                       fontSize: 14,
+                       marginLeft: 6,
+                     }}>Add Category</Text>
+                   </TouchableOpacity>
+                 </View>
+               )}
+
+               {/* Frequencies Section */}
+               {activeManageTab === 'frequencies' && (
+                 <View style={{ flex: 1 }}>
+                   <Text style={{
+                     fontSize: 16,
+                     fontWeight: '600',
+                     color: '#E65100',
+                     marginBottom: 12,
+                     letterSpacing: 0.3,
+                   }}>Frequencies</Text>
+                   {frequencies.filter(frequency => frequency.user_id === userId).length === 0 ? (
+                     <View style={{
+                       padding: 20,
+                       alignItems: 'center',
+                       backgroundColor: '#FFF8E1',
+                       borderRadius: 8,
+                       marginBottom: 12,
+                     }}>
+                       <Text style={{
+                         fontSize: 14,
+                         color: '#F57C00',
+                         textAlign: 'center',
+                         fontStyle: 'italic',
+                       }}>No custom frequencies yet. Add your first one!</Text>
+                     </View>
+                   ) : frequencies.filter(frequency => frequency.user_id === userId).map((frequency) => (
+                     <View key={frequency.id} style={{
+                       flexDirection: 'row',
+                       justifyContent: 'space-between',
+                       alignItems: 'center',
+                       backgroundColor: '#FFF8E1',
+                       padding: 12,
+                       borderRadius: 8,
+                       marginBottom: 8,
+                       borderWidth: 1,
+                       borderColor: '#FFE082',
+                     }}>
+                       <Text style={{
+                         fontSize: 14,
+                         color: '#E65100',
+                         fontWeight: '500',
+                         flex: 1,
+                       }}>{frequency.name} ({frequency.days} days)</Text>
+                       <View style={{
+                         flexDirection: 'row',
+                         gap: 8,
+                       }}>
+                         <TouchableOpacity 
+                           style={{
+                             padding: 8,
+                             borderRadius: 6,
+                             alignItems: 'center',
+                             justifyContent: 'center',
+                             backgroundColor: '#FFC107',
+                           }}
+                           onPress={() => handleEditFrequency(frequency)}
+                           activeOpacity={0.7}
+                         >
+                           <Ionicons name="pencil" size={14} color="#FFF" />
+                         </TouchableOpacity>
+                         <TouchableOpacity 
+                           style={{
+                             padding: 8,
+                             borderRadius: 6,
+                             alignItems: 'center',
+                             justifyContent: 'center',
+                             backgroundColor: '#FF5722',
+                           }}
+                           onPress={() => handleDeleteFrequency(frequency)}
+                           activeOpacity={0.7}
+                         >
+                           <Ionicons name="trash" size={14} color="#FFF" />
+                         </TouchableOpacity>
+                       </View>
+                     </View>
+                   ))}
+                   <TouchableOpacity 
+                     style={{
+                       flexDirection: 'row',
+                       alignItems: 'center',
+                       justifyContent: 'center',
+                       backgroundColor: '#FF9800',
+                       paddingVertical: 10,
+                       paddingHorizontal: 16,
+                       borderRadius: 8,
+                       marginTop: 8,
+                     }}
+                     onPress={handleAddFrequency}
+                     activeOpacity={0.7}
+                   >
+                     <Ionicons name="add" size={16} color="#FFFFFF" />
+                     <Text style={{
+                       color: '#FFFFFF',
+                       fontWeight: '600',
+                       fontSize: 14,
+                       marginLeft: 6,
+                     }}>Add Frequency</Text>
+                   </TouchableOpacity>
+                 </View>
+               )}
+             </ScrollView>
+             
+             <View style={{
+               flexDirection: 'row',
+               justifyContent: 'center',
+               marginTop: 16,
+             }}>
+               <TouchableOpacity
+                 style={{
+                   backgroundColor: '#FF9800',
+                   paddingVertical: 12,
+                   paddingHorizontal: 24,
+                   borderRadius: 8,
+                   minHeight: 44,
+                   justifyContent: 'center',
+                 }}
+                 onPress={() => setShowManageModal(false)}
+                 activeOpacity={0.7}
+               >
+                 <Text style={{
+                   color: '#FFFFFF',
+                   fontWeight: '600',
+                   fontSize: 14,
+                 }}>Close</Text>
+               </TouchableOpacity>
+             </View>
+           </TouchableOpacity>
+         </TouchableOpacity>
+       )}
+     </View>
+   );
+ };
 
 
 
