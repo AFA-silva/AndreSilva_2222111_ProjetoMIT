@@ -24,6 +24,7 @@ import { Picker } from '@react-native-picker/picker';
 import { fetchCountries } from '../../Utility/FetchCountries';
 import { useFocusEffect } from '@react-navigation/native';
 import StatisticsUpdater from '../../Utility/StatisticsUpdater';
+import SkeletonLoading, { CardSkeleton, TextRowSkeleton, AvatarSkeleton } from '../../Utility/SkeletonLoading';
 
 const ProfilePage = ({ navigation }) => {
   // User data states
@@ -110,6 +111,53 @@ const ProfilePage = ({ navigation }) => {
       return true;
     }
   };
+
+  // Profile skeleton component
+  const ProfileSkeleton = () => (
+    <View style={styles.container}>
+      <ScrollView showsVerticalScrollIndicator={false}>
+        {/* Header Skeleton */}
+        <View style={styles.headerContainer}>
+          <View style={styles.avatarSection}>
+            <AvatarSkeleton size={90} />
+          </View>
+          <View style={styles.userInfoSection}>
+            <TextRowSkeleton lines={1} style={{ width: '60%', marginBottom: 8 }} />
+            <TextRowSkeleton lines={1} style={{ width: '80%' }} />
+          </View>
+        </View>
+
+        {/* Content Skeleton */}
+        <View style={styles.contentContainer}>
+          {/* Personal Information Section */}
+          <View style={styles.infoSection}>
+            <TextRowSkeleton lines={1} style={{ width: '50%', marginBottom: 15 }} />
+            
+            {/* Info Cards */}
+            <CardSkeleton height={90} style={{ marginBottom: 15 }} />
+            <CardSkeleton height={90} style={{ marginBottom: 15 }} />
+            <CardSkeleton height={90} style={{ marginBottom: 15 }} />
+            <CardSkeleton height={90} style={{ marginBottom: 15 }} />
+          </View>
+
+          {/* Statistics Section */}
+          <View style={styles.infoSection}>
+            <TextRowSkeleton lines={1} style={{ width: '40%', marginBottom: 15 }} />
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }}>
+              <CardSkeleton height={80} style={{ width: '48%', marginBottom: 15 }} />
+              <CardSkeleton height={80} style={{ width: '48%', marginBottom: 15 }} />
+              <CardSkeleton height={80} style={{ width: '48%', marginBottom: 15 }} />
+              <CardSkeleton height={80} style={{ width: '48%', marginBottom: 15 }} />
+            </View>
+          </View>
+
+          {/* Action Buttons */}
+          <CardSkeleton height={50} style={{ marginBottom: 15 }} />
+          <CardSkeleton height={50} style={{ marginBottom: 15 }} />
+        </View>
+      </ScrollView>
+    </View>
+  );
 
   // Country search function
   const handleCountrySearch = (query) => {
@@ -446,9 +494,9 @@ const ProfilePage = ({ navigation }) => {
   // Loading state
   if (isLoading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#FF9800" />
-        <Text style={styles.loadingText}>Loading profile...</Text>
+      <View style={styles.container}>
+        <Header title="Profile" />
+        <ProfileSkeleton />
       </View>
     );
   }
