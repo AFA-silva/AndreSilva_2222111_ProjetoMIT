@@ -26,6 +26,25 @@ import { useFocusEffect } from '@react-navigation/native';
 
 import SkeletonLoading, { CardSkeleton, TextRowSkeleton, AvatarSkeleton } from '../../Utility/SkeletonLoading';
 
+// Custom Header component for ProfilePage without rounded corners
+const ProfileHeader = ({ title }) => {
+  return (
+    <View style={styles.customHeaderWrapper}>
+      <View style={styles.customHeaderContainer}>
+        {/* Decorative floating circles */}
+        <View style={styles.decorativeCircle1} />
+        <View style={styles.decorativeCircle2} />
+        <View style={styles.decorativeCircle3} />
+        
+        <View style={styles.customTitleContainer}>
+          <Text style={styles.customHeaderTitle}>{title}</Text>
+          <View style={styles.customTitleUnderline} />
+        </View>
+      </View>
+    </View>
+  );
+};
+
 const ProfilePage = ({ navigation }) => {
   // User data states
   const [formData, setFormData] = useState({
@@ -522,7 +541,7 @@ const ProfilePage = ({ navigation }) => {
   if (isLoading) {
     return (
       <View style={styles.container}>
-        <Header title="Profile" />
+        <ProfileHeader title="Profile" />
         <ProfileSkeleton />
       </View>
     );
@@ -591,7 +610,7 @@ const ProfilePage = ({ navigation }) => {
 
   return (
     <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
-      <Header title="Profile" />
+      <ProfileHeader title="Profile" />
       
       {showAlert && (
         <Alert
@@ -601,336 +620,343 @@ const ProfilePage = ({ navigation }) => {
         />
       )}
       
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Header Section with Profile */}
-        <Animated.View style={[styles.headerContainer, { transform: [{ scale: scaleAnim }] }]}>
-          <View style={styles.avatarSection}>
-            <View style={styles.avatarContainer}>
-              {profileImage ? (
-                <Image source={{ uri: profileImage }} style={styles.avatarImage} />
-              ) : (
-                <View style={styles.avatarPlaceholder}>
-                  <Text style={styles.avatarInitials}>{getUserInitials()}</Text>
-                </View>
-              )}
-              
-              <TouchableOpacity 
-                style={styles.editAvatarButton}
-                onPress={pickImage}
-              >
-                <Ionicons name="camera" size={20} color="#FFFFFF" />
-              </TouchableOpacity>
+      {isLoading ? (
+        <ProfileSkeleton />
+      ) : (
+        <ScrollView showsVerticalScrollIndicator={false}>
+          {/* Header Section with Profile */}
+          <Animated.View style={[styles.headerContainer, { transform: [{ scale: scaleAnim }] }]}>
+            <View style={styles.avatarSection}>
+              <View style={styles.avatarContainer}>
+                {profileImage ? (
+                  <Image source={{ uri: profileImage }} style={styles.avatarImage} />
+                ) : (
+                  <View style={styles.avatarPlaceholder}>
+                    <Text style={styles.avatarInitials}>{getUserInitials()}</Text>
+                  </View>
+                )}
+                
+                <TouchableOpacity 
+                  style={styles.editAvatarButton}
+                  onPress={pickImage}
+                >
+                  <Ionicons name="camera" size={14} color="#FFFFFF" />
+                </TouchableOpacity>
+              </View>
             </View>
-          </View>
-          
-          <View style={styles.userInfoSection}>
-            <Text style={styles.userName}>{formData.name || 'Your Name'}</Text>
-            <Text style={styles.userEmail}>{formData.email || 'email@example.com'}</Text>
-          </View>
-        </Animated.View>
-
-        {/* Profile Information Cards */}
-        <View style={styles.contentContainer}>
-          
-          {/* Personal Information Section */}
-          <View style={styles.infoSection}>
-            <Text style={styles.sectionTitle}>Personal Information</Text>
             
-            {/* Name Field */}
-            <View style={[
-              styles.infoCard, 
-              isEditing ? styles.infoCardEditable : styles.infoCardReadOnly
-            ]}>
-              <View style={styles.infoCardHeader}>
-                <View style={styles.infoIcon}>
-                  <Ionicons name="person" size={18} color="#FF9800" />
-                </View>
-                <Text style={styles.infoLabel}>Full Name</Text>
-                {isEditing && (
-                  <View style={{ backgroundColor: '#FEF3C7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
-                    <Text style={{ fontSize: 10, color: '#D97706', fontWeight: '600' }}>EDITABLE</Text>
-                  </View>
-                )}
-              </View>
-              <TextInput
-                style={[
-                  styles.infoInput, 
-                  !isEditing && styles.infoInputDisabled,
-                  isEditing && styles.infoInputEditable
-                ]}
-                placeholder="Enter your name"
-                value={formData.name}
-                onChangeText={(text) => handleInputChange('name', text)}
-                placeholderTextColor="#A0AEC0"
-                editable={isEditing}
-              />
+            <View style={styles.userInfoSection}>
+              <Text style={styles.userName}>{formData.name || 'Your Name'}</Text>
+              <Text style={styles.userEmail}>{formData.email || 'email@example.com'}</Text>
             </View>
+          </Animated.View>
 
-            {/* Email Field - Read Only */}
-            <View style={[styles.infoCard, styles.infoCardReadOnly]}>
-              <View style={styles.infoCardHeader}>
-                <View style={styles.infoIcon}>
-                  <Ionicons name="mail" size={18} color="#94A3B8" />
+          {/* Profile Information Cards */}
+          <View style={styles.contentContainer}>
+            
+            {/* Personal Information Section */}
+            <View style={styles.infoSection}>
+              <Text style={styles.sectionTitle}>👤 Personal Information</Text>
+              
+              {/* Name Field */}
+              <View style={[
+                styles.infoCard, 
+                isEditing ? styles.infoCardEditable : styles.infoCardReadOnly
+              ]}>
+                <View style={styles.infoCardHeader}>
+                  <View style={[styles.infoIcon, isEditing && styles.infoIconEditing]}>
+                    <Ionicons name="person" size={20} color="#FFFFFF" />
+                  </View>
+                  <Text style={styles.infoLabel}>Full Name</Text>
+                  {isEditing && (
+                    <View style={{ backgroundColor: '#FEF3C7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                      <Text style={{ fontSize: 10, color: '#D97706', fontWeight: '600' }}>EDITABLE</Text>
+                    </View>
+                  )}
                 </View>
-                <Text style={styles.infoLabel}>Email</Text>
-                <View style={{ backgroundColor: '#F1F5F9', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
-                  <Text style={{ fontSize: 10, color: '#64748B', fontWeight: '600' }}>READ ONLY</Text>
-                </View>
-              </View>
-              <TextInput
-                style={[styles.infoInput, styles.infoInputDisabled]}
-                value={formData.email}
-                editable={false}
-                placeholderTextColor="#A0AEC0"
-              />
-              <Text style={styles.infoHint}>Email cannot be changed</Text>
-            </View>
-
-            {/* Phone Field */}
-            <View style={[
-              styles.infoCard, 
-              isEditing ? styles.infoCardEditable : styles.infoCardReadOnly
-            ]}>
-              <View style={styles.infoCardHeader}>
-                <View style={styles.infoIcon}>
-                  <Ionicons name="call" size={18} color={isEditing ? "#FF9800" : "#94A3B8"} />
-                </View>
-                <Text style={styles.infoLabel}>Phone</Text>
-                {isEditing ? (
-                  <View style={{ backgroundColor: '#FEF3C7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
-                    <Text style={{ fontSize: 10, color: '#D97706', fontWeight: '600' }}>EDITABLE</Text>
-                  </View>
-                ) : (
-                  <View style={{ backgroundColor: '#F1F5F9', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
-                    <Text style={{ fontSize: 10, color: '#64748B', fontWeight: '600' }}>LOCKED</Text>
-                  </View>
-                )}
-              </View>
-              <TextInput
-                style={[
-                  styles.infoInput, 
-                  !isEditing && styles.infoInputDisabled,
-                  isEditing && styles.infoInputEditable
-                ]}
-                placeholder="Enter your phone (9 digits)"
-                value={formData.phone}
-                onChangeText={(text) => handleInputChange('phone', text)}
-                placeholderTextColor="#A0AEC0"
-                keyboardType="phone-pad"
-                editable={isEditing}
-              />
-            </View>
-
-            {/* Region Field */}
-            <View style={[
-              styles.infoCard, 
-              isEditing ? styles.infoCardEditable : styles.infoCardReadOnly
-            ]}>
-              <View style={styles.infoCardHeader}>
-                <View style={styles.infoIcon}>
-                  <Ionicons name="location" size={18} color={isEditing ? "#FF9800" : "#94A3B8"} />
-                </View>
-                <Text style={styles.infoLabel}>Country/Region</Text>
-                {isEditing ? (
-                  <View style={{ backgroundColor: '#FEF3C7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
-                    <Text style={{ fontSize: 10, color: '#D97706', fontWeight: '600' }}>EDITABLE</Text>
-                  </View>
-                ) : (
-                  <View style={{ backgroundColor: '#F1F5F9', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
-                    <Text style={{ fontSize: 10, color: '#64748B', fontWeight: '600' }}>LOCKED</Text>
-                  </View>
-                )}
-              </View>
-              <TouchableOpacity 
-                style={[
-                  styles.infoSelector, 
-                  !isEditing && styles.infoInputDisabled,
-                  isEditing && styles.infoSelectorEditable
-                ]}
-                onPress={isEditing ? openRegionPicker : null}
-                disabled={!isEditing}
-              >
-                <Text style={[styles.infoSelectorText, formData.region ? {} : {color: '#A0AEC0'}]}>
-                  {formData.region || 'Select your country'}
-                </Text>
-                <Ionicons name="chevron-down" size={16} color={isEditing ? "#FF9800" : "#94A3B8"} />
-              </TouchableOpacity>
-            </View>
-
-            {/* Birthdate Field */}
-            <View style={[
-              styles.infoCard, 
-              isEditing ? styles.infoCardEditable : styles.infoCardReadOnly
-            ]}>
-              <View style={styles.infoCardHeader}>
-                <View style={styles.infoIcon}>
-                  <Ionicons name="calendar" size={18} color={isEditing ? "#FF9800" : "#94A3B8"} />
-                </View>
-                <Text style={styles.infoLabel}>Date of Birth</Text>
-                {isEditing ? (
-                  <View style={{ backgroundColor: '#FEF3C7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
-                    <Text style={{ fontSize: 10, color: '#D97706', fontWeight: '600' }}>EDITABLE</Text>
-                  </View>
-                ) : (
-                  <View style={{ backgroundColor: '#F1F5F9', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
-                    <Text style={{ fontSize: 10, color: '#64748B', fontWeight: '600' }}>LOCKED</Text>
-                  </View>
-                )}
-              </View>
-              {Platform.OS === 'web' ? (
-                <input
-                  type="date"
-                  style={{
-                    backgroundColor: '#F7F9FC',
-                    borderRadius: 12,
-                    paddingLeft: 16,
-                    paddingRight: 16,
-                    paddingTop: 16,
-                    paddingBottom: 16,
-                    fontSize: 16,
-                    color: '#2D3748',
-                    border: '1px solid #E2E8F0',
-                    outline: 'none',
-                    width: '100%',
-                    fontFamily: 'inherit',
-                  }}
-                  value={formData.birthdate ? dateUtils.formatForDB(formData.birthdate) : ''}
-                  onChange={e => {
-                    if (e.target.value) {
-                      setFormData(prev => ({
-                        ...prev,
-                        birthdate: dateUtils.formatToDisplay(new Date(e.target.value))
-                      }));
-                    } else {
-                      setFormData(prev => ({
-                        ...prev,
-                        birthdate: ''
-                      }));
-                    }
-                  }}
+                <TextInput
+                  style={[
+                    styles.infoInput, 
+                    !isEditing && styles.infoInputDisabled,
+                    isEditing && styles.infoInputEditable
+                  ]}
+                  placeholder="Enter your name"
+                  value={formData.name}
+                  onChangeText={(text) => handleInputChange('name', text)}
+                  placeholderTextColor="#A0AEC0"
+                  editable={isEditing}
                 />
-              ) : (
+              </View>
+
+              {/* Email Field - Read Only */}
+              <View style={[styles.infoCard, styles.infoCardReadOnly]}>
+                <View style={styles.infoCardHeader}>
+                  <View style={[styles.infoIcon, styles.infoIconReadOnly]}>
+                    <Ionicons name="mail" size={20} color="#FFFFFF" />
+                  </View>
+                  <Text style={styles.infoLabel}>Email</Text>
+                  <View style={{ backgroundColor: '#F1F5F9', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                    <Text style={{ fontSize: 10, color: '#64748B', fontWeight: '600' }}>READ ONLY</Text>
+                  </View>
+                </View>
+                <TextInput
+                  style={[styles.infoInput, styles.infoInputDisabled]}
+                  value={formData.email}
+                  editable={false}
+                  placeholderTextColor="#A0AEC0"
+                />
+                <Text style={styles.infoHint}>Email cannot be changed</Text>
+              </View>
+
+              {/* Phone Field */}
+              <View style={[
+                styles.infoCard, 
+                isEditing ? styles.infoCardEditable : styles.infoCardReadOnly
+              ]}>
+                <View style={styles.infoCardHeader}>
+                  <View style={[styles.infoIcon, isEditing && styles.infoIconEditing]}>
+                    <Ionicons name="call" size={20} color="#FFFFFF" />
+                  </View>
+                  <Text style={styles.infoLabel}>Phone</Text>
+                  {isEditing ? (
+                    <View style={{ backgroundColor: '#FEF3C7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                      <Text style={{ fontSize: 10, color: '#D97706', fontWeight: '600' }}>EDITABLE</Text>
+                    </View>
+                  ) : (
+                    <View style={{ backgroundColor: '#F1F5F9', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                      <Text style={{ fontSize: 10, color: '#64748B', fontWeight: '600' }}>LOCKED</Text>
+                    </View>
+                  )}
+                </View>
+                <TextInput
+                  style={[
+                    styles.infoInput, 
+                    !isEditing && styles.infoInputDisabled,
+                    isEditing && styles.infoInputEditable
+                  ]}
+                  placeholder="Enter your phone (9 digits)"
+                  value={formData.phone}
+                  onChangeText={(text) => handleInputChange('phone', text)}
+                  placeholderTextColor="#A0AEC0"
+                  keyboardType="phone-pad"
+                  editable={isEditing}
+                />
+              </View>
+
+              {/* Region Field */}
+              <View style={[
+                styles.infoCard, 
+                isEditing ? styles.infoCardEditable : styles.infoCardReadOnly
+              ]}>
+                <View style={styles.infoCardHeader}>
+                  <View style={[styles.infoIcon, isEditing && styles.infoIconEditing]}>
+                    <Ionicons name="location" size={20} color="#FFFFFF" />
+                  </View>
+                  <Text style={styles.infoLabel}>Country/Region</Text>
+                  {isEditing ? (
+                    <View style={{ backgroundColor: '#FEF3C7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                      <Text style={{ fontSize: 10, color: '#D97706', fontWeight: '600' }}>EDITABLE</Text>
+                    </View>
+                  ) : (
+                    <View style={{ backgroundColor: '#F1F5F9', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                      <Text style={{ fontSize: 10, color: '#64748B', fontWeight: '600' }}>LOCKED</Text>
+                    </View>
+                  )}
+                </View>
                 <TouchableOpacity 
                   style={[
                     styles.infoSelector, 
                     !isEditing && styles.infoInputDisabled,
                     isEditing && styles.infoSelectorEditable
                   ]}
-                  onPress={isEditing ? () => setShowDatePicker(true) : null}
+                  onPress={isEditing ? openRegionPicker : null}
                   disabled={!isEditing}
                 >
-                  <Text style={[styles.infoSelectorText, formData.birthdate ? {} : {color: '#A0AEC0'}]}>
-                    {formData.birthdate || 'Select your date of birth'}
+                  <Text style={[styles.infoSelectorText, formData.region ? {} : {color: '#A0AEC0'}]}>
+                    {formData.region || 'Select your country'}
                   </Text>
                   <Ionicons name="chevron-down" size={16} color={isEditing ? "#FF9800" : "#94A3B8"} />
                 </TouchableOpacity>
-              )}
-            </View>
-          </View>
-
-          {/* Statistics Section */}
-          <View style={styles.infoSection}>
-            <Text style={styles.sectionTitle}>Profile Statistics</Text>
-            
-            {/* Account Age */}
-            <View style={[styles.infoCard, { borderColor: '#E0E7FF', backgroundColor: '#FAFBFF' }]}>
-              <View style={styles.infoCardHeader}>
-                <View style={[styles.infoIcon, { backgroundColor: 'rgba(99, 102, 241, 0.1)' }]}>
-                  <Ionicons name="time" size={18} color="#6366F1" />
-                </View>
-                <Text style={styles.infoLabel}>Account Age</Text>
               </View>
-              <Text style={[styles.statisticValue, { color: '#6366F1' }]}>{statistics.account_age} days</Text>
-            </View>
 
-            {/* Goals Created */}
-            <View style={[styles.infoCard, { borderColor: '#FEF3C7', backgroundColor: '#FFFBEB' }]}>
-              <View style={styles.infoCardHeader}>
-                <View style={[styles.infoIcon, { backgroundColor: 'rgba(245, 158, 11, 0.1)' }]}>
-                  <Ionicons name="trophy" size={18} color="#F59E0B" />
-                </View>
-                <Text style={styles.infoLabel}>Goals Created</Text>
-              </View>
-              <Text style={[styles.statisticValue, { color: '#F59E0B' }]}>{statistics.goals_created}</Text>
-            </View>
-
-            {/* Income Created */}
-            <View style={[styles.infoCard, { borderColor: '#D1FAE5', backgroundColor: '#F0FDF4' }]}>
-              <View style={styles.infoCardHeader}>
-                <View style={[styles.infoIcon, { backgroundColor: 'rgba(34, 197, 94, 0.1)' }]}>
-                  <Ionicons name="trending-up" size={18} color="#22C55E" />
-                </View>
-                <Text style={styles.infoLabel}>Income Records</Text>
-              </View>
-              <Text style={[styles.statisticValue, { color: '#22C55E' }]}>{statistics.income_created}</Text>
-            </View>
-
-            {/* Expenses Created */}
-            <View style={[styles.infoCard, { borderColor: '#FED7D7', backgroundColor: '#FEF5F5' }]}>
-              <View style={styles.infoCardHeader}>
-                <View style={[styles.infoIcon, { backgroundColor: 'rgba(239, 68, 68, 0.1)' }]}>
-                  <Ionicons name="trending-down" size={18} color="#EF4444" />
-                </View>
-                <Text style={styles.infoLabel}>Expense Records</Text>
-              </View>
-              <Text style={[styles.statisticValue, { color: '#EF4444' }]}>{statistics.expenses_created}</Text>
-            </View>
-          </View>
-
-          {/* Edit/Save Button */}
-          <View style={styles.actionsSection}>
-            <TouchableOpacity 
-              style={isEditing ? styles.saveButton : styles.editButton}
-              onPress={isEditing ? handleSave : () => setIsEditing(true)}
-              disabled={isSaving}
-            >
-              <View style={styles.actionButtonContent}>
-                <View style={styles.actionIcon}>
-                  {isSaving ? (
-                    <ActivityIndicator color="#FFFFFF" size="small" />
+              {/* Birthdate Field */}
+              <View style={[
+                styles.infoCard, 
+                isEditing ? styles.infoCardEditable : styles.infoCardReadOnly
+              ]}>
+                <View style={styles.infoCardHeader}>
+                  <View style={[styles.infoIcon, isEditing && styles.infoIconEditing]}>
+                    <Ionicons name="calendar" size={20} color="#FFFFFF" />
+                  </View>
+                  <Text style={styles.infoLabel}>Date of Birth</Text>
+                  {isEditing ? (
+                    <View style={{ backgroundColor: '#FEF3C7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                      <Text style={{ fontSize: 10, color: '#D97706', fontWeight: '600' }}>EDITABLE</Text>
+                    </View>
                   ) : (
-                    <Ionicons name={isEditing ? "save" : "create"} size={24} color="#FFFFFF" />
+                    <View style={{ backgroundColor: '#F1F5F9', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                      <Text style={{ fontSize: 10, color: '#64748B', fontWeight: '600' }}>LOCKED</Text>
+                    </View>
                   )}
                 </View>
-                <View style={styles.actionTextContainer}>
-                  <Text style={styles.actionText}>
-                    {isSaving ? 'Saving...' : isEditing ? 'Save Changes' : 'Edit Profile'}
-                  </Text>
-                  <Text style={styles.actionSubtext}>
-                    {isEditing ? 'Update profile information' : 'Modify your profile details'}
-                  </Text>
-                </View>
+                {Platform.OS === 'web' ? (
+                  <input
+                    type="date"
+                    style={{
+                      backgroundColor: '#F7F9FC',
+                      borderRadius: 12,
+                      paddingLeft: 16,
+                      paddingRight: 16,
+                      paddingTop: 16,
+                      paddingBottom: 16,
+                      fontSize: 16,
+                      color: '#2D3748',
+                      border: '1px solid #E2E8F0',
+                      outline: 'none',
+                      width: '100%',
+                      fontFamily: 'inherit',
+                    }}
+                    value={formData.birthdate ? dateUtils.formatForDB(formData.birthdate) : ''}
+                    onChange={e => {
+                      if (e.target.value) {
+                        setFormData(prev => ({
+                          ...prev,
+                          birthdate: dateUtils.formatToDisplay(new Date(e.target.value))
+                        }));
+                      } else {
+                        setFormData(prev => ({
+                          ...prev,
+                          birthdate: ''
+                        }));
+                      }
+                    }}
+                  />
+                ) : (
+                  <TouchableOpacity 
+                    style={[
+                      styles.infoSelector, 
+                      !isEditing && styles.infoInputDisabled,
+                      isEditing && styles.infoSelectorEditable
+                    ]}
+                    onPress={isEditing ? () => setShowDatePicker(true) : null}
+                    disabled={!isEditing}
+                  >
+                    <Text style={[styles.infoSelectorText, formData.birthdate ? {} : {color: '#A0AEC0'}]}>
+                      {formData.birthdate || 'Select your date of birth'}
+                    </Text>
+                    <Ionicons name="chevron-down" size={16} color={isEditing ? "#FF9800" : "#94A3B8"} />
+                  </TouchableOpacity>
+                )}
               </View>
-            </TouchableOpacity>
-          </View>
+            </View>
 
-          {/* App Info */}
-          <View style={styles.appInfoSection}>
-            <Text style={styles.sectionTitle}>App Information</Text>
-            
-            <View style={styles.infoCard}>
-              <View style={styles.infoCardHeader}>
-                <View style={styles.infoIcon}>
-                  <Ionicons name="information-circle" size={20} color="#FF9800" />
+            {/* Statistics Section - Redesigned as colorful cards */}
+            <View style={styles.infoSection}>
+              <Text style={styles.sectionTitle}>📊 Your Activity</Text>
+              
+              {/* Statistics Cards Row */}
+              <View style={styles.statisticsContainer}>
+                {/* Goals Created */}
+                <View style={styles.statisticCard}>
+                  <View style={styles.statisticIconContainer}>
+                    <Ionicons name="trophy" size={24} color="#FFFFFF" />
+                  </View>
+                  <Text style={styles.statisticLabel}>Goals</Text>
+                  <Text style={styles.statisticValue}>{statistics.goals_created}</Text>
                 </View>
-                <Text style={styles.infoLabel}>Application Version</Text>
+
+                {/* Income Records */}
+                <View style={styles.statisticCard}>
+                  <View style={styles.statisticIconContainer}>
+                    <Ionicons name="trending-up" size={24} color="#FFFFFF" />
+                  </View>
+                  <Text style={styles.statisticLabel}>Income</Text>
+                  <Text style={styles.statisticValue}>{statistics.income_created}</Text>
+                </View>
+
+                {/* Expense Records */}
+                <View style={styles.statisticCard}>
+                  <View style={styles.statisticIconContainer}>
+                    <Ionicons name="trending-down" size={24} color="#FFFFFF" />
+                  </View>
+                  <Text style={styles.statisticLabel}>Expenses</Text>
+                  <Text style={styles.statisticValue}>{statistics.expenses_created}</Text>
+                </View>
               </View>
-              <Text style={styles.versionText}>1.0.0 - MIT Project</Text>
+
+              {/* Account Age Card */}
+              <View style={[styles.infoCard, { backgroundColor: '#FFFBF5', borderColor: '#FFE082' }]}>
+                <View style={styles.infoCardHeader}>
+                  <View style={styles.infoIcon}>
+                    <Ionicons name="time" size={20} color="#FFFFFF" />
+                  </View>
+                  <Text style={styles.infoLabel}>Account Age</Text>
+                </View>
+                <Text style={[styles.statisticValue, { fontSize: 28, marginTop: 8 }]}>{statistics.account_age} days</Text>
+                <Text style={[styles.infoHint, { color: '#F57C00', fontStyle: 'normal', marginTop: 4 }]}>
+                  🎉 Keep tracking your finances!
+                </Text>
+              </View>
+            </View>
+
+            {/* Edit/Save Button */}
+            <View style={styles.actionsSection}>
+              <TouchableOpacity 
+                style={isEditing ? styles.saveButton : styles.editButton}
+                onPress={isEditing ? handleSave : () => setIsEditing(true)}
+                disabled={isSaving}
+              >
+                <View style={styles.actionButtonContent}>
+                  <View style={styles.actionIcon}>
+                    {isSaving ? (
+                      <ActivityIndicator color="#FFFFFF" size="small" />
+                    ) : (
+                      <Ionicons name={isEditing ? "save" : "create"} size={24} color="#FFFFFF" />
+                    )}
+                  </View>
+                  <View style={styles.actionTextContainer}>
+                    <Text style={styles.actionText}>
+                      {isSaving ? 'Saving...' : isEditing ? 'Save Changes' : 'Edit Profile'}
+                    </Text>
+                    <Text style={styles.actionSubtext}>
+                      {isEditing ? 'Update profile information' : 'Modify your profile details'}
+                    </Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            </View>
+
+            {/* App Info */}
+            <View style={styles.appInfoSection}>
+              <Text style={styles.sectionTitle}>ℹ️ App Information</Text>
+              
+              <View style={[styles.infoCard, { backgroundColor: '#FFFBF5', borderColor: '#FFE082' }]}>
+                <View style={styles.infoCardHeader}>
+                  <View style={styles.infoIcon}>
+                    <Ionicons name="information-circle" size={20} color="#FFFFFF" />
+                  </View>
+                  <Text style={styles.infoLabel}>Application Version</Text>
+                </View>
+                <Text style={[styles.versionText, { fontSize: 18, fontWeight: '700' }]}>1.0.0 - MIT Project</Text>
+                <Text style={[styles.infoHint, { color: '#F57C00', fontStyle: 'normal', marginTop: 4 }]}>
+                  💻 Built with React Native
+                </Text>
+              </View>
             </View>
           </View>
-        </View>
 
-        {/* Logout */}
-        <View style={styles.logoutSection}>
-          <TouchableOpacity 
-            style={styles.logoutButton}
-            onPress={() => setShowLogoutModal(true)}
-          >
-            <Ionicons name="log-out-outline" size={22} color="#FFFFFF" />
-            <Text style={styles.logoutText}>Sign Out</Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
+          {/* Logout */}
+          <View style={styles.logoutSection}>
+            <TouchableOpacity 
+              style={styles.logoutButton}
+              onPress={() => setShowLogoutModal(true)}
+            >
+              <Ionicons name="log-out-outline" size={22} color="#FFFFFF" />
+              <Text style={styles.logoutText}>Sign Out</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      )}
 
       {/* Date Picker Modal for Mobile */}
       {showDatePicker && Platform.OS !== 'web' && (

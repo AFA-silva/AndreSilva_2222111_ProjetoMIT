@@ -9,6 +9,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { formatCurrency, calculateGoalProgress, calculateGoalStatus, calculateAllocationValue } from './GoalsCalc';
 import Header from '../../Utility/Header';
 import { LinearGradient } from 'expo-linear-gradient';
+import { incrementGoalsCreated } from '../../Utility/StatisticsService';
 
 
 // Funções auxiliares
@@ -649,10 +650,6 @@ const GoalsPage = ({ navigation }) => {
 
       if (error) throw error;
 
-      // Update statistics when deleting goal
-              // Statistics update removed - StatisticsUpdater deleted
-      console.log('Statistics updated: goals count decremented');
-
       setAlertMessage('Goal deleted successfully');
       setAlertType('success');
       setShowAlert(true);
@@ -759,7 +756,7 @@ const GoalsPage = ({ navigation }) => {
 
       // Update statistics only when adding new goal (not editing)
       if (!goalState.editingGoal) {
-        // Statistics update removed - StatisticsUpdater deleted
+        await incrementGoalsCreated(userId);
         console.log('Statistics updated: goals count incremented');
       }
 

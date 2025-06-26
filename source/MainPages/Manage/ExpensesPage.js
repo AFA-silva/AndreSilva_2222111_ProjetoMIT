@@ -11,6 +11,7 @@ import Header from '../../Utility/Header';
 import { formatCurrency, getCurrentCurrency, addCurrencyChangeListener, removeCurrencyChangeListener, shouldConvertCurrencyValues } from '../../Utility/FetchCountries';
 import { convertValueToCurrentCurrency } from '../../Utility/CurrencyConverter';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { incrementExpensesCreated } from '../../Utility/StatisticsService';
 
 
 const ExpensesPage = ({ navigation }) => {
@@ -439,7 +440,7 @@ const ExpensesPage = ({ navigation }) => {
 
       // Update statistics only when adding new expense (not editing)
       if (!selectedExpense) {
-        // Statistics update removed - StatisticsUpdater deleted
+        await incrementExpensesCreated(userId);
         console.log('Statistics updated: expenses count incremented');
       }
 
@@ -475,10 +476,6 @@ const ExpensesPage = ({ navigation }) => {
         .eq('id', expenseToDelete.id);
 
       if (error) throw error;
-
-      // Update statistics when deleting expense
-              // Statistics update removed - StatisticsUpdater deleted
-      console.log('Statistics updated: expenses count decremented');
 
       setAlertMessage('Expense deleted successfully!');
       setAlertType('success');

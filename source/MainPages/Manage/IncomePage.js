@@ -11,6 +11,7 @@ import Header from '../../Utility/Header';
 import { formatCurrency, getCurrentCurrency, addCurrencyChangeListener, removeCurrencyChangeListener, shouldConvertCurrencyValues } from '../../Utility/FetchCountries';
 import { convertValueToCurrentCurrency } from '../../Utility/CurrencyConverter';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { incrementIncomeCreated } from '../../Utility/StatisticsService';
 
 const IncomePage = ({ navigation }) => {
   const [incomes, setIncomes] = useState([]);
@@ -792,10 +793,16 @@ const IncomePage = ({ navigation }) => {
         return;
       }
 
-              // Exibe mensagem de sucesso em um alerta
-        setAlertMessage(selectedIncome ? 'Income updated successfully!' : 'Income added successfully!');
-        setAlertType('success');
-        setShowAlert(true);
+      // Update statistics only when adding new income (not editing)
+      if (!selectedIncome) {
+        await incrementIncomeCreated(userId);
+        console.log('Statistics updated: income count incremented');
+      }
+
+      // Exibe mensagem de sucesso em um alerta
+      setAlertMessage(selectedIncome ? 'Income updated successfully!' : 'Income added successfully!');
+      setAlertType('success');
+      setShowAlert(true);
 
       fetchUserIncomes(userId); // Atualiza lista após salvar
       
