@@ -745,11 +745,25 @@ const GoalsPage = ({ navigation }) => {
         status: statusValue
       };
 
-      let error;
+      let error, insertedGoal;
       if (goalState.editingGoal) {
         ({ error } = await supabase.from('goals').update(payload).eq('id', goalState.editingGoal.id));
       } else {
-        ({ error } = await supabase.from('goals').insert([payload]));
+        const insertResult = await supabase.from('goals').insert([payload]).select();
+        error = insertResult.error;
+        insertedGoal = insertResult.data && insertResult.data[0];
+        // Automatically add to calendar if successfully created
+        if (!error && insertedGoal) {
+          await supabase.from('calendar_events').insert([
+            {
+              user_id: userId,
+              type: 'goal',
+              date: payload.deadline, // Use the deadline as the calendar event date
+              event_id: insertedGoal.id,
+              is_recurring: false
+            }
+          ]);
+        }
       }
 
       if (error) throw error;

@@ -863,20 +863,20 @@ const CalendarPage = () => {
 
   const handleDeleteEvent = async (eventId) => {
     console.log("🗑️ Starting delete process for event ID:", eventId);
-    
     try {
       // Encontrar o evento nos eventos selecionados
       const eventToBeDeleted = selectedEvents.find(event => event.id === eventId) || 
                            filteredEvents.find(event => event.id === eventId);
-      
       if (!eventToBeDeleted) {
         console.error('Could not find event with ID:', eventId);
         showError('Could not find the event to delete');
         return;
       }
-      
-      console.log("Evento encontrado para deleção:", eventToBeDeleted);
-      
+      // Block deletion for goals
+      if (eventToBeDeleted.type === 'goal') {
+        showError('Goals must be removed directly on the Goals page.');
+        return;
+      }
       // Definir o tipo de exclusão com base no evento ser recorrente ou não
       setEventToDelete(eventToBeDeleted);
       setIsRecurringDelete(eventToBeDeleted.is_recurring);
