@@ -3,8 +3,7 @@ import { StyleSheet, Platform } from 'react-native';
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
-    overflow: 'hidden', // Ensure proper clipping
+    backgroundColor: 'transparent', // Remove background color
   },
   // Loading Screen
   loadingContainer: {
@@ -62,23 +61,22 @@ const styles = StyleSheet.create({
   // Header - Enhanced with gradient and visual effects
   headerContainer: {
     backgroundColor: '#FF9800', // Fallback color
-    paddingTop: Platform.OS === 'ios' ? 40 : 20, // Reduced padding
-    paddingBottom: 80, // Significantly reduced height
+    paddingTop: Platform.OS === 'ios' ? 25 : 10, // Further reduced padding
+    paddingBottom: 35, // Much more reduced height
     paddingHorizontal: 24,
     alignItems: 'center',
     position: 'relative',
-    overflow: 'hidden',
-    // Enhanced curved bottom shape - increased radius
-    borderBottomLeftRadius: 50, // Increased for more visible curves
-    borderBottomRightRadius: 50, // Increased for more visible curves
+    // Subtle curved bottom shape like Header.js component
+    borderBottomLeftRadius: 20, // Subtle rounded corners like Header.js
+    borderBottomRightRadius: 20, // Subtle rounded corners like Header.js
     marginTop: 0,
-    marginBottom: -40, // Reduced overlap
+    marginBottom: 20, // Positive margin to show rounded corners
     // Gradient-like effect for mobile
     ...(Platform.OS === 'web' ? {
       background: 'linear-gradient(135deg, #FF9800 0%, #FF7043 50%, #FF5722 100%)',
       boxShadow: '0px 12px 32px rgba(255, 152, 0, 0.4)',
-      borderBottomLeftRadius: '50px', // Ensure web compatibility
-      borderBottomRightRadius: '50px', // Ensure web compatibility
+      borderBottomLeftRadius: '20px', // Subtle rounded for web
+      borderBottomRightRadius: '20px', // Subtle rounded for web
     } : {
       shadowColor: '#FF5722',
       shadowOffset: { width: 0, height: 12 },
@@ -184,8 +182,8 @@ const styles = StyleSheet.create({
   // Content sections
   contentContainer: {
     flex: 1,
-    backgroundColor: '#FFFFFF', // White background
-    paddingTop: 50, // Reduced space for smaller avatar
+    backgroundColor: 'transparent', // Remove white background
+    paddingTop: 0, // No padding since we have margin on header now
     paddingHorizontal: 20,
     paddingBottom: 20,
   },
@@ -256,6 +254,14 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#FF9800',
     letterSpacing: -0.5,
+    marginBottom: 2,
+  },
+  statisticSubLabel: {
+    fontSize: 10,
+    color: '#F57C00',
+    fontWeight: '500',
+    textAlign: 'center',
+    opacity: 0.8,
   },
   
   // Info cards with more color
@@ -472,57 +478,75 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   
-  // Modal styles with project colors
+  // Country picker styles
+  countryPickerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  flagIcon: {
+    width: 20,
+    height: 20,
+    marginRight: 10,
+  },
+  modalItem: {
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  modalText: {
+    fontSize: 16,
+    color: '#333',
+  },
+  searchContainer: {
+    width: '100%',
+    marginBottom: 15,
+  },
+  searchInput: {
+    width: '100%',
+    height: 40,
+    borderWidth: 2,
+    borderColor: '#999',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    backgroundColor: '#fff',
+    fontSize: 16,
+    color: '#000',
+    ...(Platform.OS === 'web' ? {
+      boxShadow: '0px 1px 3px rgba(0, 0, 0, 0.1)'
+    } : {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.1,
+      shadowRadius: 3,
+      elevation: 2,
+    }),
+  },
+  
+  // Modal styles - Simple like RegisterPage
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   modalContainer: {
     width: '90%',
-    maxWidth: 400,
-    maxHeight: '80%',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 24,
-    padding: 0,
-    overflow: 'hidden',
-    borderWidth: 3,
-    borderColor: '#FFE082',
+    maxHeight: '70%',
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    padding: 20,
     ...(Platform.OS === 'web' ? {
-      boxShadow: '0px 20px 40px rgba(255, 152, 0, 0.2)'
+      boxShadow: '0px 2px 5px rgba(0, 0, 0, 0.3)'
     } : {
-      shadowColor: '#FF9800',
-      shadowOffset: { width: 0, height: 20 },
-      shadowOpacity: 0.2,
-      shadowRadius: 40,
-      elevation: 20,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.3,
+      shadowRadius: 5,
+      elevation: 5,
     }),
   },
-  modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 24,
-    paddingBottom: 16,
-    borderBottomWidth: 2,
-    borderBottomColor: '#FFE082',
-    backgroundColor: '#FFF8E1',
-  },
-  modalTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#E65100',
-    flex: 1,
-  },
-  modalCloseButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#FF9800',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+
   modalDescription: {
     fontSize: 16,
     color: '#E65100',

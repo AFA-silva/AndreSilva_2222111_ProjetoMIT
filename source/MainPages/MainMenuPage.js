@@ -199,7 +199,7 @@ const MainMenuPage = ({ navigation }) => {
   }, [navigation]);
 
   // Main function to load all dashboard data
-  const loadDashboardData = async (isInitialLoad = false) => {
+  const loadDashboardData = async (isInitialLoad = false, retryCount = 0) => {
     // Check if cache is still valid
     const now = Date.now();
     if (!isInitialLoad && now - lastLoadTime < CACHE_DURATION && !loading) {
@@ -219,13 +219,28 @@ const MainMenuPage = ({ navigation }) => {
     const loadStartTime = Date.now();
     logManager.log('Dashboard', `${isInitialLoad ? 'Initial loading' : 'Updating'} dashboard data`, true);
     
-    // Reduce safety timeout to 5 seconds
-    const safetyTimeout = setTimeout(() => {
-      logManager.log('Dashboard', 'Timeout reached (5s), forcing reset', true);
-      setLoading(false);
-      setError('Timeout reached');
-      operationsInProgress.delete('loadDashboard');
-    }, 5000);
+    // Set safety timeout to 10 seconds for better user experience
+    const safetyTimeout = setTimeout(async () => {
+      logManager.log('Dashboard', 'Timeout reached (10s)', true);
+      
+      // If this is the first timeout and we haven't retried yet, try once more
+      if (retryCount === 0) {
+        logManager.log('Dashboard', 'Attempting automatic retry (1/1)', true);
+        operationsInProgress.delete('loadDashboard');
+        setLoading(false);
+        
+        // Wait a brief moment then retry
+        setTimeout(() => {
+          loadDashboardData(isInitialLoad, 1);
+        }, 1000);
+      } else {
+        // If we've already retried, show the error
+        logManager.log('Dashboard', 'Max retries reached, showing error', true);
+        setLoading(false);
+        setError('Connection timeout. Please check your internet and try again.');
+        operationsInProgress.delete('loadDashboard');
+      }
+    }, 10000);
     
     try {
       // 1. Verify authentication using the MainQueries function - use Promise.all for parallel loading
@@ -532,7 +547,8 @@ const MainMenuPage = ({ navigation }) => {
   
   // Function to manually update data
   const refreshDashboard = () => {
-    loadDashboardData();
+    setRefreshKey(prevKey => prevKey + 1);
+    loadDashboardData(false, 0); // Reset retry count on manual refresh
   };
 
   // Modify modal visibility handling

@@ -76,15 +76,19 @@ const ProfilePage = ({ navigation }) => {
   const [countries, setCountries] = useState([]);
   const [filteredCountries, setFilteredCountries] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [modalVisible, setModalVisible] = useState(false);
   
   // Alert state
   const [alertMessage, setAlertMessage] = useState('');
   const [alertType, setAlertType] = useState('');
   const [showAlert, setShowAlert] = useState(false);
   
-  // Animation values
+  // Animation values - Mobile focused animations
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const scaleAnim = useRef(new Animated.Value(0.95)).current;
+  const scaleAnim = useRef(new Animated.Value(0.8)).current;
+  const headerSlideAnim = useRef(new Animated.Value(-50)).current;
+  const avatarBounceAnim = useRef(new Animated.Value(0)).current;
+  const contentSlideAnim = useRef(new Animated.Value(30)).current;
 
   // Date utility functions
   const dateUtils = {
@@ -141,8 +145,8 @@ const ProfilePage = ({ navigation }) => {
             <AvatarSkeleton size={90} />
           </View>
           <View style={styles.userInfoSection}>
-            <TextRowSkeleton lines={1} style={{ width: '60%', marginBottom: 8 }} />
-            <TextRowSkeleton lines={1} style={{ width: '80%' }} />
+            <TextRowSkeleton lines={1} style={{ width: '60%', marginBottom: 8, height: 28 }} />
+            <TextRowSkeleton lines={1} style={{ width: '80%', height: 16 }} />
           </View>
         </View>
 
@@ -150,36 +154,47 @@ const ProfilePage = ({ navigation }) => {
         <View style={styles.contentContainer}>
           {/* Personal Information Section */}
           <View style={styles.infoSection}>
-            <TextRowSkeleton lines={1} style={{ width: '50%', marginBottom: 15 }} />
+            <TextRowSkeleton lines={1} style={{ width: '50%', marginBottom: 20, height: 22 }} />
             
-            {/* Info Cards */}
-            <CardSkeleton height={90} style={{ marginBottom: 15 }} />
-            <CardSkeleton height={90} style={{ marginBottom: 15 }} />
-            <CardSkeleton height={90} style={{ marginBottom: 15 }} />
-            <CardSkeleton height={90} style={{ marginBottom: 15 }} />
+            {/* Info Cards - Match actual card heights */}
+            <CardSkeleton height={100} style={{ marginBottom: 12, borderRadius: 16 }} />
+            <CardSkeleton height={100} style={{ marginBottom: 12, borderRadius: 16 }} />
+            <CardSkeleton height={100} style={{ marginBottom: 12, borderRadius: 16 }} />
+            <CardSkeleton height={100} style={{ marginBottom: 12, borderRadius: 16 }} />
+            <CardSkeleton height={100} style={{ marginBottom: 12, borderRadius: 16 }} />
           </View>
 
           {/* Statistics Section */}
           <View style={styles.infoSection}>
-            <TextRowSkeleton lines={1} style={{ width: '40%', marginBottom: 15 }} />
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }}>
-              <CardSkeleton height={80} style={{ width: '48%', marginBottom: 15 }} />
-              <CardSkeleton height={80} style={{ width: '48%', marginBottom: 15 }} />
-              <CardSkeleton height={80} style={{ width: '48%', marginBottom: 15 }} />
-              <CardSkeleton height={80} style={{ width: '48%', marginBottom: 15 }} />
+            <TextRowSkeleton lines={1} style={{ width: '40%', marginBottom: 20, height: 22 }} />
+            
+            {/* Statistics Cards Row */}
+            <View style={styles.statisticsContainer}>
+              <CardSkeleton height={120} style={{ flex: 1, marginHorizontal: 4, borderRadius: 16 }} />
+              <CardSkeleton height={120} style={{ flex: 1, marginHorizontal: 4, borderRadius: 16 }} />
+              <CardSkeleton height={120} style={{ flex: 1, marginHorizontal: 4, borderRadius: 16 }} />
             </View>
+            
+            {/* Account Age Card */}
+            <CardSkeleton height={120} style={{ marginBottom: 12, borderRadius: 16, marginTop: 12 }} />
           </View>
 
-          {/* Action Buttons */}
-          <CardSkeleton height={50} style={{ marginBottom: 15 }} />
-          <CardSkeleton height={50} style={{ marginBottom: 15 }} />
+          {/* Actions Section */}
+          <View style={styles.actionsSection}>
+            <CardSkeleton height={80} style={{ marginBottom: 12, borderRadius: 16 }} />
+          </View>
+        </View>
+
+        {/* Logout Section */}
+        <View style={styles.logoutSection}>
+          <CardSkeleton height={70} style={{ borderRadius: 16 }} />
         </View>
       </ScrollView>
     </View>
   );
 
   // Country search function
-  const handleCountrySearch = (query) => {
+  const handleSearch = (query) => {
     setSearchQuery(query);
     setFilteredCountries(
       countries.filter((country) =>
@@ -190,21 +205,60 @@ const ProfilePage = ({ navigation }) => {
 
   // Load user data when component mounts
   useEffect(() => {
+    // Load user data and countries
     getCurrentUser();
-    loadCountries();
     
-    // Start animations
-    Animated.parallel([
+    // Load countries data
+    const loadCountriesData = async () => {
+      try {
+        const countriesData = await fetchCountries();
+        setCountries(countriesData);
+        setFilteredCountries(countriesData);
+      } catch (error) {
+        console.error('Error loading countries:', error);
+      }
+    };
+    loadCountriesData();
+    
+    // Beautiful mobile entrance animations
+    Animated.sequence([
+      // Quick fade in
       Animated.timing(fadeAnim, {
         toValue: 1,
-        duration: 600,
-        useNativeDriver: Platform.OS !== 'web',
+        duration: 400,
+        useNativeDriver: true,
       }),
-      Animated.timing(scaleAnim, {
-        toValue: 1,
-        duration: 600,
-        useNativeDriver: Platform.OS !== 'web',
-      })
+      // Parallel spring animations
+      Animated.parallel([
+        // Header slides down with bounce
+        Animated.spring(headerSlideAnim, {
+          toValue: 0,
+          tension: 80,
+          friction: 6,
+          useNativeDriver: true,
+        }),
+        // Container scales up
+        Animated.spring(scaleAnim, {
+          toValue: 1,
+          tension: 100,
+          friction: 7,
+          useNativeDriver: true,
+        }),
+        // Avatar bounces in
+        Animated.spring(avatarBounceAnim, {
+          toValue: 1,
+          tension: 120,
+          friction: 4,
+          useNativeDriver: true,
+        }),
+      ]),
+      // Content slides up
+      Animated.spring(contentSlideAnim, {
+        toValue: 0,
+        tension: 90,
+        friction: 8,
+        useNativeDriver: true,
+      }),
     ]).start();
   }, []);
 
@@ -216,17 +270,6 @@ const ProfilePage = ({ navigation }) => {
       }
     }, [userId])
   );
-
-  // Load countries data
-  const loadCountries = async () => {
-    try {
-      const countriesData = await fetchCountries();
-      setCountries(countriesData);
-      setFilteredCountries(countriesData);
-    } catch (error) {
-      console.error('Error loading countries:', error);
-    }
-  };
 
   // Refresh statistics from database
   const refreshStatistics = async () => {
@@ -294,36 +337,33 @@ const ProfilePage = ({ navigation }) => {
   // Fetch user data
   const fetchUserData = async (userId) => {
     try {
-      // Get user data
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('name, email, phone, region')
-        .eq('id', userId)
-        .single();
+      // Get user data and profile data in parallel for faster loading
+      const [
+        { data: userData, error: userError },
+        { data: profileData, error: profileError }
+      ] = await Promise.all([
+        supabase
+          .from('users')
+          .select('name, email, phone, region')
+          .eq('id', userId)
+          .single(),
+        supabase
+          .from('user_profile')
+          .select('birthdate, image, account_age, goals_created, expenses_created, income_created')
+          .eq('user_id', userId)
+          .single()
+      ]);
       
       if (userError) throw userError;
       
-      // Get profile data
-      const { data: profileData, error: profileError } = await supabase
-        .from('user_profile')
-        .select('birthdate, image, account_age, goals_created, expenses_created, income_created')
-        .eq('user_id', userId)
-        .single();
-      
-          // Load statistics directly from user_profile
-    const { data: statsData, error: statsError } = await supabase
-      .from('user_profile')
-      .select('account_age, goals_created, expenses_created, income_created')
-      .eq('user_id', userId)
-      .single();
-
-    const stats = statsError ? null : {
-      account_age: statsData.account_age || 0,
-      goals_created: statsData.goals_created || 0,
-      expenses_created: statsData.expenses_created || 0,
-      income_created: statsData.income_created || 0,
-    };
-      if (stats) {
+      // Set statistics from profile data
+      if (profileData && !profileError) {
+        const stats = {
+          account_age: profileData.account_age || 0,
+          goals_created: profileData.goals_created || 0,
+          expenses_created: profileData.expenses_created || 0,
+          income_created: profileData.income_created || 0,
+        };
         setStatistics(stats);
       }
 
@@ -363,14 +403,12 @@ const ProfilePage = ({ navigation }) => {
   // Function to select profile image
   const pickImage = async () => {
     try {
-      if (Platform.OS !== 'web') {
-        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-        if (status !== 'granted') {
-          setAlertMessage('Permission to access gallery is required!');
-          setAlertType('error');
-          setShowAlert(true);
-          return;
-        }
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        setAlertMessage('Permission to access gallery is required!');
+        setAlertType('error');
+        setShowAlert(true);
+        return;
       }
       
       let result = await ImagePicker.launchImageLibraryAsync({
@@ -382,9 +420,7 @@ const ProfilePage = ({ navigation }) => {
       });
       
       if (!result.canceled && result.assets && result.assets.length > 0) {
-        if (Platform.OS === 'web') {
-          setProfileImage(result.assets[0].uri);
-        } else if (result.assets[0].base64) {
+        if (result.assets[0].base64) {
           setProfileImage(`data:image/jpeg;base64,${result.assets[0].base64}`);
         } else {
           setProfileImage(result.assets[0].uri);
@@ -427,20 +463,20 @@ const ProfilePage = ({ navigation }) => {
   const openRegionPicker = () => {
     setSearchQuery('');
     setFilteredCountries(countries);
-    setShowRegionPicker(true);
+    setModalVisible(true);
   };
 
   // Handle country selection
   const selectCountry = (country) => {
-    setFormData({...formData, region: country.name});
-    setShowRegionPicker(false);
+    setFormData({...formData, region: country.code});
+    setModalVisible(false);
     setSearchQuery('');
   };
 
   // Handle clear region selection
   const clearRegionSelection = () => {
     setFormData({...formData, region: ''});
-    setShowRegionPicker(false);
+    setModalVisible(false);
     setSearchQuery('');
   };
 
@@ -564,32 +600,6 @@ const ProfilePage = ({ navigation }) => {
     );
   }
 
-  // Update statistics function
-  const updateStatistics = async (type, increment = 1) => {
-    try {
-      if (!userId) return;
-
-      const { data, error } = await supabase
-        .from('user_profile')
-        .update({
-          [`${type}_created`]: statistics[`${type}_created`] + increment
-        })
-        .eq('user_id', userId)
-        .select();
-
-      if (error) throw error;
-
-      // Update local state
-      setStatistics(prev => ({
-        ...prev,
-        [`${type}_created`]: prev[`${type}_created`] + increment
-      }));
-
-    } catch (error) {
-      console.error('Error updating statistics:', error);
-    }
-  };
-
   // Get user initials for avatar
   const getUserInitials = () => {
     if (formData.name) {
@@ -597,16 +607,6 @@ const ProfilePage = ({ navigation }) => {
     }
     return '?';
   };
-
-  // Render country item for FlatList
-  const renderCountryItem = ({ item }) => (
-    <TouchableOpacity 
-      style={styles.countryItem}
-      onPress={() => selectCountry(item)}
-    >
-      <Text style={styles.countryText}>{item.name}</Text>
-    </TouchableOpacity>
-  );
 
   return (
     <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
@@ -624,9 +624,30 @@ const ProfilePage = ({ navigation }) => {
         <ProfileSkeleton />
       ) : (
         <ScrollView showsVerticalScrollIndicator={false}>
-          {/* Header Section with Profile */}
-          <Animated.View style={[styles.headerContainer, { transform: [{ scale: scaleAnim }] }]}>
-            <View style={styles.avatarSection}>
+          {/* Header Section with Profile - Animated */}
+          <Animated.View style={[
+            styles.headerContainer, 
+            { 
+              transform: [
+                { scale: scaleAnim },
+                { translateY: headerSlideAnim }
+              ]
+            }
+          ]}>
+            <Animated.View style={[
+              styles.avatarSection,
+              {
+                transform: [
+                  { scale: avatarBounceAnim },
+                  { 
+                    rotate: avatarBounceAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: ['45deg', '0deg']
+                    })
+                  }
+                ]
+              }
+            ]}>
               <View style={styles.avatarContainer}>
                 {profileImage ? (
                   <Image source={{ uri: profileImage }} style={styles.avatarImage} />
@@ -643,16 +664,38 @@ const ProfilePage = ({ navigation }) => {
                   <Ionicons name="camera" size={14} color="#FFFFFF" />
                 </TouchableOpacity>
               </View>
-            </View>
+            </Animated.View>
             
-            <View style={styles.userInfoSection}>
+            <Animated.View style={[
+              styles.userInfoSection,
+              {
+                opacity: avatarBounceAnim,
+                transform: [{
+                  translateY: avatarBounceAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [20, 0]
+                  })
+                }]
+              }
+            ]}>
               <Text style={styles.userName}>{formData.name || 'Your Name'}</Text>
               <Text style={styles.userEmail}>{formData.email || 'email@example.com'}</Text>
-            </View>
+            </Animated.View>
           </Animated.View>
 
-          {/* Profile Information Cards */}
-          <View style={styles.contentContainer}>
+          {/* Profile Information Cards - Animated */}
+          <Animated.View style={[
+            styles.contentContainer,
+            {
+              opacity: contentSlideAnim.interpolate({
+                inputRange: [0, 30],
+                outputRange: [1, 0]
+              }),
+              transform: [{
+                translateY: contentSlideAnim
+              }]
+            }
+          ]}>
             
             {/* Personal Information Section */}
             <View style={styles.infoSection}>
@@ -772,9 +815,16 @@ const ProfilePage = ({ navigation }) => {
                   onPress={isEditing ? openRegionPicker : null}
                   disabled={!isEditing}
                 >
-                  <Text style={[styles.infoSelectorText, formData.region ? {} : {color: '#A0AEC0'}]}>
-                    {formData.region || 'Select your country'}
-                  </Text>
+                  <View style={styles.countryPickerRow}>
+                    {formData.region ? (
+                      <Image source={{ uri: `https://flagcdn.com/w40/${formData.region.toLowerCase()}.png` }} style={styles.flagIcon} />
+                    ) : (
+                      <Image source={require('../../../assets/flag-placeholder.png')} style={styles.flagIcon} />
+                    )}
+                    <Text style={[styles.infoSelectorText, formData.region ? {} : {color: '#A0AEC0'}]}>
+                      {formData.region ? countries.find((c) => c.code === formData.region)?.name || 'Select your country' : 'Select your country'}
+                    </Text>
+                  </View>
                   <Ionicons name="chevron-down" size={16} color={isEditing ? "#FF9800" : "#94A3B8"} />
                 </TouchableOpacity>
               </View>
@@ -799,54 +849,20 @@ const ProfilePage = ({ navigation }) => {
                     </View>
                   )}
                 </View>
-                {Platform.OS === 'web' ? (
-                  <input
-                    type="date"
-                    style={{
-                      backgroundColor: '#F7F9FC',
-                      borderRadius: 12,
-                      paddingLeft: 16,
-                      paddingRight: 16,
-                      paddingTop: 16,
-                      paddingBottom: 16,
-                      fontSize: 16,
-                      color: '#2D3748',
-                      border: '1px solid #E2E8F0',
-                      outline: 'none',
-                      width: '100%',
-                      fontFamily: 'inherit',
-                    }}
-                    value={formData.birthdate ? dateUtils.formatForDB(formData.birthdate) : ''}
-                    onChange={e => {
-                      if (e.target.value) {
-                        setFormData(prev => ({
-                          ...prev,
-                          birthdate: dateUtils.formatToDisplay(new Date(e.target.value))
-                        }));
-                      } else {
-                        setFormData(prev => ({
-                          ...prev,
-                          birthdate: ''
-                        }));
-                      }
-                    }}
-                  />
-                ) : (
-                  <TouchableOpacity 
-                    style={[
-                      styles.infoSelector, 
-                      !isEditing && styles.infoInputDisabled,
-                      isEditing && styles.infoSelectorEditable
-                    ]}
-                    onPress={isEditing ? () => setShowDatePicker(true) : null}
-                    disabled={!isEditing}
-                  >
-                    <Text style={[styles.infoSelectorText, formData.birthdate ? {} : {color: '#A0AEC0'}]}>
-                      {formData.birthdate || 'Select your date of birth'}
-                    </Text>
-                    <Ionicons name="chevron-down" size={16} color={isEditing ? "#FF9800" : "#94A3B8"} />
-                  </TouchableOpacity>
-                )}
+                <TouchableOpacity 
+                  style={[
+                    styles.infoSelector, 
+                    !isEditing && styles.infoInputDisabled,
+                    isEditing && styles.infoSelectorEditable
+                  ]}
+                  onPress={isEditing ? () => setShowDatePicker(true) : null}
+                  disabled={!isEditing}
+                >
+                  <Text style={[styles.infoSelectorText, formData.birthdate ? {} : {color: '#A0AEC0'}]}>
+                    {formData.birthdate || 'Select your date of birth'}
+                  </Text>
+                  <Ionicons name="chevron-down" size={16} color={isEditing ? "#FF9800" : "#94A3B8"} />
+                </TouchableOpacity>
               </View>
             </View>
 
@@ -861,8 +877,9 @@ const ProfilePage = ({ navigation }) => {
                   <View style={styles.statisticIconContainer}>
                     <Ionicons name="trophy" size={24} color="#FFFFFF" />
                   </View>
-                  <Text style={styles.statisticLabel}>Goals</Text>
+                  <Text style={styles.statisticLabel}>Goals Created</Text>
                   <Text style={styles.statisticValue}>{statistics.goals_created}</Text>
+                  <Text style={styles.statisticSubLabel}>Total</Text>
                 </View>
 
                 {/* Income Records */}
@@ -870,8 +887,9 @@ const ProfilePage = ({ navigation }) => {
                   <View style={styles.statisticIconContainer}>
                     <Ionicons name="trending-up" size={24} color="#FFFFFF" />
                   </View>
-                  <Text style={styles.statisticLabel}>Income</Text>
+                  <Text style={styles.statisticLabel}>Income Records</Text>
                   <Text style={styles.statisticValue}>{statistics.income_created}</Text>
+                  <Text style={styles.statisticSubLabel}>Total</Text>
                 </View>
 
                 {/* Expense Records */}
@@ -879,8 +897,9 @@ const ProfilePage = ({ navigation }) => {
                   <View style={styles.statisticIconContainer}>
                     <Ionicons name="trending-down" size={24} color="#FFFFFF" />
                   </View>
-                  <Text style={styles.statisticLabel}>Expenses</Text>
+                  <Text style={styles.statisticLabel}>Expense Records</Text>
                   <Text style={styles.statisticValue}>{statistics.expenses_created}</Text>
+                  <Text style={styles.statisticSubLabel}>Total</Text>
                 </View>
               </View>
 
@@ -925,25 +944,7 @@ const ProfilePage = ({ navigation }) => {
                 </View>
               </TouchableOpacity>
             </View>
-
-            {/* App Info */}
-            <View style={styles.appInfoSection}>
-              <Text style={styles.sectionTitle}>ℹ️ App Information</Text>
-              
-              <View style={[styles.infoCard, { backgroundColor: '#FFFBF5', borderColor: '#FFE082' }]}>
-                <View style={styles.infoCardHeader}>
-                  <View style={styles.infoIcon}>
-                    <Ionicons name="information-circle" size={20} color="#FFFFFF" />
-                  </View>
-                  <Text style={styles.infoLabel}>Application Version</Text>
-                </View>
-                <Text style={[styles.versionText, { fontSize: 18, fontWeight: '700' }]}>1.0.0 - MIT Project</Text>
-                <Text style={[styles.infoHint, { color: '#F57C00', fontStyle: 'normal', marginTop: 4 }]}>
-                  💻 Built with React Native
-                </Text>
-              </View>
-            </View>
-          </View>
+          </Animated.View>
 
           {/* Logout */}
           <View style={styles.logoutSection}>
@@ -959,7 +960,7 @@ const ProfilePage = ({ navigation }) => {
       )}
 
       {/* Date Picker Modal for Mobile */}
-      {showDatePicker && Platform.OS !== 'web' && (
+      {showDatePicker && (
         Platform.OS === 'android' ? (
           <DateTimePicker
             value={formData.birthdate ? new Date(dateUtils.formatForDB(formData.birthdate)) : new Date()}
@@ -994,66 +995,39 @@ const ProfilePage = ({ navigation }) => {
         )
       )}
 
-      {/* Region Picker Modal with Search */}
+      {/* Region Picker Modal - Exact same as RegisterPage */}
       <Modal
-        visible={showRegionPicker}
+        visible={modalVisible}
         transparent={true}
-        animationType="slide"
-        onRequestClose={() => setShowRegionPicker(false)}
+        animationType="fade"
+        onRequestClose={() => setModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select Country</Text>
-              <TouchableOpacity 
-                style={styles.modalCloseButton}
-                onPress={() => setShowRegionPicker(false)}
-              >
-                <Ionicons name="close" size={24} color="#718096" />
-              </TouchableOpacity>
+            <View style={styles.searchContainer}>
+              <TextInput
+                style={[styles.searchInput, { color: '#000' }]}
+                placeholder="Search for a country..."
+                placeholderTextColor="#999"
+                value={searchQuery}
+                onChangeText={handleSearch}
+              />
             </View>
             
-            {/* Search Input */}
-            <View style={styles.searchContainer}>
-              <Ionicons name="search" size={20} color="#A0AEC0" style={styles.searchIcon} />
-              <TextInput
-                style={styles.searchInput}
-                placeholder="Search country..."
-                placeholderTextColor="#A0AEC0"
-                value={searchQuery}
-                onChangeText={handleCountrySearch}
-                autoFocus={false}
-              />
-              {searchQuery.length > 0 && (
-                <TouchableOpacity 
-                  onPress={() => handleCountrySearch('')}
-                  style={styles.clearSearchButton}
+            <FlatList
+              data={filteredCountries}
+              keyExtractor={(item) => item.code}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.modalItem}
+                  onPress={() => {
+                    selectCountry(item);
+                  }}
                 >
-                  <Ionicons name="close-circle" size={20} color="#A0AEC0" />
+                  <Text style={styles.modalText}>{item.name}</Text>
                 </TouchableOpacity>
               )}
-            </View>
-            
-            {/* Countries List */}
-            <View style={styles.countriesContainer}>
-              {/* Clear selection option */}
-              <TouchableOpacity 
-                style={styles.clearCountryOption}
-                onPress={clearRegionSelection}
-              >
-                <Ionicons name="close-circle" size={20} color="#FF6B6B" style={styles.clearIcon} />
-                <Text style={styles.clearCountryText}>Clear selection</Text>
-              </TouchableOpacity>
-              
-              <FlatList
-                data={filteredCountries}
-                keyExtractor={(item) => item.code || item.name}
-                renderItem={renderCountryItem}
-                style={styles.countriesList}
-                showsVerticalScrollIndicator={false}
-                ItemSeparatorComponent={() => <View style={styles.countrySeparator} />}
-              />
-            </View>
+            />
           </View>
         </View>
       </Modal>
