@@ -16,6 +16,7 @@ import {
   getSession,
   fetchUserCurrencyPreference
 } from '../Utility/MainQueries';
+import { Platform, Dimensions } from 'react-native';
 
 // Centralized log system to avoid repetitions
 const logManager = {
@@ -97,6 +98,101 @@ const MainMenuPage = ({ navigation }) => {
     { key: 'goalStatus', type: 'goalStatus' }
   ];
 
+  // Device registration function
+  const registerDeviceAccess = async (userId) => {
+    try {
+      if (!userId) return;
+      
+      // Get device information
+      const { width, height } = Dimensions.get('window');
+      
+      // Better device name detection
+      let deviceName = 'Unknown Device';
+      let deviceModel = `${Platform.OS} ${Platform.Version}`;
+      
+      if (Platform.OS === 'android') {
+        // For Android, try to get more specific info
+        deviceName = 'Android Device';
+        deviceModel = `Android API ${Platform.Version}`;
+        
+        // You could extend this with expo-device library for more details
+        // For now, we'll use screen dimensions as part of identification
+        if (width >= 400 && height >= 800) {
+          deviceName = 'Android Phone';
+        } else if (width >= 600) {
+          deviceName = 'Android Tablet';
+        }
+      } else if (Platform.OS === 'ios') {
+        // For iOS, we can be more specific
+        if (width >= 400) {
+          deviceName = 'iPhone';
+        } else {
+          deviceName = 'iPad';
+        }
+        deviceModel = `iOS ${Platform.Version}`;
+      } else if (Platform.OS === 'web') {
+        deviceName = 'Web Browser';
+        deviceModel = 'Web Application';
+      }
+      
+      const deviceData = {
+        user_id: userId,
+        model: deviceModel,
+        name: deviceName,
+        ip_address: '192.168.1.1', // Better placeholder IP
+        location: 'Current Location', // Better placeholder
+        authorized: true,
+        last_access: new Date().toISOString()
+      };
+
+      // Create a more unique device identifier
+      const deviceFingerprint = `${Platform.OS}_${Platform.Version}_${Math.round(width)}x${Math.round(height)}`;
+      
+      // Check if this exact device configuration already exists for this user
+      const { data: existingDevice, error: checkError } = await supabase
+        .from('device_info')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('model', deviceModel)
+        .eq('name', deviceName)
+        .single();
+
+      if (checkError && checkError.code !== 'PGRST116') {
+        logManager.error('DeviceRegistration', 'Error checking existing device', checkError);
+        return;
+      }
+
+      if (existingDevice) {
+        // Device already exists - just update last access silently
+        await supabase
+          .from('device_info')
+          .update({ 
+            last_access: deviceData.last_access,
+            ip_address: deviceData.ip_address 
+          })
+          .eq('id', existingDevice.id);
+        
+        logManager.log('DeviceRegistration', 'Device access updated (returning user)');
+      } else {
+        // New device detected - first time access for this device configuration
+        const { error: insertError } = await supabase
+          .from('device_info')
+          .insert([deviceData]);
+          
+        if (insertError) {
+          logManager.error('DeviceRegistration', 'Error registering new device', insertError);
+        } else {
+          logManager.log('DeviceRegistration', `🎉 NEW DEVICE REGISTERED: ${deviceName} (${deviceModel})`, true);
+          
+          // Optional: You could show a welcome message for new devices
+          // showAlert(`Welcome! New device "${deviceName}" registered successfully.`, 'success');
+        }
+      }
+    } catch (error) {
+      logManager.error('DeviceRegistration', 'Unexpected error in device registration', error);
+    }
+  };
+
   // Effect to load data when component mounts and ensure the correct currency is used
   useEffect(() => {
     // Unique identifier for this component instance
@@ -153,6 +249,9 @@ const MainMenuPage = ({ navigation }) => {
             setUserCurrency(currencyInfo);
             logManager.log('Currency', `Currency loaded directly from database: ${currencyInfo.code}`, true);
           }
+          
+          // Register device access after loading user data
+          await registerDeviceAccess(session.user.id);
         }
       } catch (error) {
         logManager.error('Currency', 'Error loading user currency', error);

@@ -9,6 +9,7 @@ import {
   Animated,
   Platform
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import styles from '../../Styles/Settings/SecurityPageStyle';
 import { Ionicons } from '@expo/vector-icons';
 import Alert from '../../Utility/Alerts';
@@ -19,6 +20,9 @@ const SecurityPage = () => {
   // Modal states
   const [isPasswordModalVisible, setPasswordModalVisible] = useState(false);
   const [isEmailModalVisible, setEmailModalVisible] = useState(false);
+  const [showDeviceInfo, setShowDeviceInfo] = useState(false);
+  const [showDevicesModal, setShowDevicesModal] = useState(false);
+  const [devicesTabActive, setDevicesTabActive] = useState('authorized'); // 'authorized' or 'blocked'
   
   // Form states
   const [alerts, setAlerts] = useState([]);
@@ -30,40 +34,78 @@ const SecurityPage = () => {
   const [confirmNewEmail, setConfirmNewEmail] = useState('');
   const [userSession, setUserSession] = useState(null);
   
+  // Device info states
+  const [deviceInfo, setDeviceInfo] = useState({
+    platform: Platform.OS,
+    version: Platform.Version,
+    screenWidth: 0,
+    screenHeight: 0
+  });
+  const [userDevices, setUserDevices] = useState([]);
+  const [loadingDevices, setLoadingDevices] = useState(false);
+  
   // Input focus states
   const [focusedInput, setFocusedInput] = useState(null);
   
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const tipsSectionAnim = useRef(new Animated.Value(0)).current;
+  const headerSlideAnim = useRef(new Animated.Value(-50)).current;
   const securityStatusAnim = useRef(new Animated.Value(0)).current;
-  const buttonsAnim = useRef(new Animated.Value(0)).current;
+  const deviceSectionAnim = useRef(new Animated.Value(0)).current;
+  const actionButtonsAnim = useRef(new Animated.Value(0)).current;
+
+  // Load device information
+  useEffect(() => {
+    const loadDeviceInfo = async () => {
+      try {
+        const { width, height } = require('react-native').Dimensions.get('window');
+        setDeviceInfo(prev => ({
+          ...prev,
+          screenWidth: width,
+          screenHeight: height
+        }));
+      } catch (error) {
+        console.error('Error loading device info:', error);
+      }
+    };
+    
+    loadDeviceInfo();
+  }, []);
 
   // Animation on component mount
   useEffect(() => {
     const useNativeDriver = Platform.OS !== 'web';
     
-    Animated.stagger(200, [
+    Animated.sequence([
       Animated.timing(fadeAnim, {
         toValue: 1,
         duration: 600,
         useNativeDriver,
       }),
-      Animated.timing(securityStatusAnim, {
-        toValue: 1,
-        duration: 500,
-        useNativeDriver,
-      }),
-      Animated.timing(tipsSectionAnim, {
-        toValue: 1,
-        duration: 500,
-        useNativeDriver,
-      }),
-      Animated.timing(buttonsAnim, {
-        toValue: 1,
-        duration: 500,
-        useNativeDriver,
-      })
+      Animated.parallel([
+        Animated.timing(headerSlideAnim, {
+          toValue: 0,
+          duration: 400,
+          useNativeDriver,
+        }),
+        Animated.timing(securityStatusAnim, {
+          toValue: 1,
+          duration: 500,
+          useNativeDriver,
+        }),
+      ]),
+      Animated.stagger(150, [
+        Animated.timing(deviceSectionAnim, {
+          toValue: 1,
+          duration: 400,
+          useNativeDriver,
+        }),
+        Animated.timing(actionButtonsAnim, {
+          toValue: 1,
+          duration: 400,
+          useNativeDriver,
+        })
+      ])
     ]).start();
   }, []);
 
@@ -77,6 +119,8 @@ const SecurityPage = () => {
       if (data?.session) {
         setUserSession(data.session);
         setOldEmail(data.session.user.email);
+        // Register current device access
+        await registerDeviceAccess();
       } else {
         showAlert('No active session found. Please log in again.', 'error');
       }
@@ -130,6 +174,136 @@ const SecurityPage = () => {
 
   const removeAlert = (id) => {
     setAlerts(alerts.filter((alert) => alert.id !== id));
+  };
+
+  // Device management functions
+  const registerDeviceAccess = async () => {
+    try {
+      if (!userSession) return;
+      
+      // Better device name detection
+      let deviceName = 'Unknown Device';
+      let deviceModel = `${Platform.OS} ${Platform.Version}`;
+      
+      if (Platform.OS === 'android') {
+        deviceName = 'Android Phone';
+        deviceModel = `Android API ${Platform.Version}`;
+      } else if (Platform.OS === 'ios') {
+        deviceName = 'iPhone';
+        deviceModel = `iOS ${Platform.Version}`;
+      } else if (Platform.OS === 'web') {
+        deviceName = 'Web Browser';
+        deviceModel = 'Web Application';
+      }
+      
+      const deviceData = {
+        user_id: userSession.user.id,
+        model: deviceModel,
+        name: deviceName,
+        ip_address: '192.168.1.1', // Better placeholder IP
+        location: 'Current Location', // Better placeholder
+        authorized: true,
+        last_access: new Date().toISOString()
+      };
+
+      // Check if device already exists (should already be registered from MainPage)
+      const { data: existingDevice, error: checkError } = await supabase
+        .from('device_info')
+        .select('*')
+        .eq('user_id', userSession.user.id)
+        .eq('model', deviceModel)
+        .eq('name', deviceName)
+        .single();
+
+      if (checkError && checkError.code !== 'PGRST116') {
+        console.error('Error checking existing device:', checkError);
+        return;
+      }
+
+      if (existingDevice) {
+        // Update last access
+        await supabase
+          .from('device_info')
+          .update({ last_access: deviceData.last_access })
+          .eq('id', existingDevice.id);
+      } else {
+        // Insert new device
+        await supabase
+          .from('device_info')
+          .insert([deviceData]);
+      }
+    } catch (error) {
+      console.error('Error registering device access:', error);
+    }
+  };
+
+  const fetchUserDevices = async () => {
+    try {
+      if (!userSession) return;
+      
+      setLoadingDevices(true);
+      const { data, error } = await supabase
+        .from('device_info')
+        .select('*')
+        .eq('user_id', userSession.user.id)
+        .order('last_access', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching devices:', error);
+        showAlert('Failed to load device information', 'error');
+        return;
+      }
+
+      console.log('Fetched devices:', data);
+      setUserDevices(data || []);
+    } catch (error) {
+      console.error('Error fetching user devices:', error);
+      showAlert('An error occurred while loading devices', 'error');
+    } finally {
+      setLoadingDevices(false);
+    }
+  };
+
+  const toggleDeviceAuthorization = async (deviceId, currentStatus) => {
+    try {
+      const { error } = await supabase
+        .from('device_info')
+        .update({ authorized: !currentStatus })
+        .eq('id', deviceId);
+
+      if (error) {
+        console.error('Error updating device authorization:', error);
+        showAlert('Failed to update device authorization', 'error');
+        return;
+      }
+
+      showAlert(`Device ${!currentStatus ? 'authorized' : 'blocked'} successfully`, 'success');
+      await fetchUserDevices(); // Refresh list
+    } catch (error) {
+      console.error('Error toggling device authorization:', error);
+      showAlert('An error occurred while updating device', 'error');
+    }
+  };
+
+  const deleteDevice = async (deviceId) => {
+    try {
+      const { error } = await supabase
+        .from('device_info')
+        .delete()
+        .eq('id', deviceId);
+
+      if (error) {
+        console.error('Error deleting device:', error);
+        showAlert('Failed to delete device', 'error');
+        return;
+      }
+
+      showAlert('Device deleted successfully', 'success');
+      await fetchUserDevices(); // Refresh list
+    } catch (error) {
+      console.error('Error deleting device:', error);
+      showAlert('An error occurred while deleting device', 'error');
+    }
   };
 
   const handlePasswordChange = async () => {
@@ -231,139 +405,368 @@ const SecurityPage = () => {
         <View style={styles.decorationCircle} />
         <View style={styles.decorationDot} />
       
-        {/* Header section with icon */}
-        <Animated.View 
-          style={{ 
-            opacity: fadeAnim,
-            transform: [{ scale: fadeAnim }],
-            alignItems: 'center'
-          }}
-        >
-          <View style={styles.iconBackground}>
-            <Ionicons name="shield-outline" size={80} color="#F9A825" style={styles.icon} />
-          </View>
-          <Text style={styles.header}>Security Settings</Text>
-        </Animated.View>
-        
-        {/* Security Status Section */}
+        {/* Beautiful Modern Header */}
         <Animated.View 
           style={[
-            styles.securityStatusContainer,
+            { 
+              opacity: fadeAnim,
+              transform: [
+                { translateY: headerSlideAnim },
+                { scale: fadeAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0.95, 1]
+                })}
+              ]
+            }
+          ]}
+        >
+          <LinearGradient
+            colors={['#FF6B35', '#F79B35', '#FFD662']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.modernHeaderContainer}
+          >
+            {/* Floating decorative elements */}
+            <View style={styles.floatingCircle1} />
+            <View style={styles.floatingCircle2} />
+            <View style={styles.floatingCircle3} />
+            <View style={styles.geometricShape} />
+            
+            <View style={styles.headerContent}>
+              {/* Shield with glowing effect */}
+                             <View style={styles.shieldContainer}>
+                 <View style={styles.shieldGlow} />
+                 <View style={styles.shieldBackground}>
+                   <Ionicons name="shield-checkmark" size={44} color="#FF6B35" />
+                 </View>
+               </View>
+              
+                             <View style={styles.textSection}>
+                 <Text style={styles.modernTitle}>Security Center</Text>
+                 <View style={styles.modernUnderline} />
+               </View>
+            </View>
+          </LinearGradient>
+        </Animated.View>
+        
+        {/* Enhanced Security Status Cards */}
+        <Animated.View 
+          style={[
+            styles.securityCardsContainer,
             {
               opacity: securityStatusAnim,
               transform: [{ 
                 translateY: securityStatusAnim.interpolate({
                   inputRange: [0, 1],
-                  outputRange: [20, 0]
+                  outputRange: [30, 0]
                 }) 
               }]
             }
           ]}
         >
-          <Text style={styles.securityStatusTitle}>Account Security Status</Text>
-          <View style={styles.securityStatusRow}>
-            <Ionicons name="checkmark-circle" size={22} color="#00B894" />
-            <Text style={styles.securityStatusText}>
-              Email: <Text style={styles.securityStatusStrong}>Verified</Text>
+          <TouchableOpacity 
+            style={styles.securityCard}
+            onPress={() => setEmailModalVisible(true)}
+            activeOpacity={0.8}
+          >
+            <View style={styles.securityCardHeader}>
+              <View style={styles.securityIconContainer}>
+                <Ionicons name="mail-outline" size={24} color="#FF9800" />
+              </View>
+              <Text style={styles.securityCardTitle}>Email Security</Text>
+              <Ionicons name="chevron-forward" size={20} color="#FF9800" />
+            </View>
+            <View style={styles.statusIndicator}>
+              <Ionicons name="checkmark-circle" size={20} color="#00B894" />
+              <Text style={styles.statusText}>Current: {oldEmail}</Text>
+            </View>
+            <Text style={styles.securityCardDescription}>
+              Tap to change your email address
             </Text>
-          </View>
-          <View style={styles.securityStatusRow}>
-            <Ionicons name="shield-checkmark" size={22} color="#F9A825" />
-            <Text style={styles.securityStatusText}>
-              Password: Last changed {userSession ? new Date(userSession.created_at).toLocaleDateString() : 'N/A'}
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.securityCard}
+            onPress={() => setPasswordModalVisible(true)}
+            activeOpacity={0.8}
+          >
+            <View style={styles.securityCardHeader}>
+              <View style={styles.securityIconContainer}>
+                <Ionicons name="key-outline" size={24} color="#FF9800" />
+              </View>
+              <Text style={styles.securityCardTitle}>Password Security</Text>
+              <Ionicons name="chevron-forward" size={20} color="#FF9800" />
+            </View>
+            <View style={styles.statusIndicator}>
+              <Ionicons name="shield-checkmark" size={20} color="#00B894" />
+              <Text style={styles.statusText}>Strong password configured</Text>
+            </View>
+            <Text style={styles.securityCardDescription}>
+              Tap to update your password
             </Text>
-          </View>
-          <Text style={styles.securityAdvice}>
-            We recommend changing your password regularly and using unique passwords for different accounts.
-          </Text>
+          </TouchableOpacity>
         </Animated.View>
 
-        {/* Tips and Help Section */}
-        <Animated.View 
-          style={[
-            styles.tipsSection,
-            {
-              opacity: tipsSectionAnim,
-              transform: [{ 
-                translateY: tipsSectionAnim.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [20, 0]
-                }) 
-              }]
-            }
-          ]}
-        >
-          <View style={styles.tipContainer}>
-            <Ionicons name="information-circle" size={18} color="#F9A825" style={styles.tipIcon} />
-            <Text style={styles.tipText}>
-              Use a strong password with a combination of letters, numbers, and special characters.
-            </Text>
-          </View>
-          
-          <View style={styles.tipContainer}>
-            <Ionicons name="information-circle" size={18} color="#F9A825" style={styles.tipIcon} />
-            <Text style={styles.tipText}>
-              Regularly update your password to enhance your account security.
-            </Text>
-          </View>
-          
-          <View style={styles.tipContainer}>
-            <Ionicons name="information-circle" size={18} color="#F9A825" style={styles.tipIcon} />
-            <Text style={styles.tipText}>
-              Never share your password with anyone, including customer support.
-            </Text>
-          </View>
-        </Animated.View>
-        
         <View style={styles.divider} />
         
-        {/* Action Buttons */}
+        {/* Enhanced Action Buttons */}
         <Animated.View 
           style={[
             styles.actionButtonsContainer,
             {
-              opacity: buttonsAnim,
+              opacity: actionButtonsAnim,
               transform: [{ 
-                translateY: buttonsAnim.interpolate({
+                translateY: actionButtonsAnim.interpolate({
                   inputRange: [0, 1],
-                  outputRange: [20, 0]
+                  outputRange: [30, 0]
                 }) 
               }]
             }
           ]}
         >
           <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => setPasswordModalVisible(true)}
-            activeOpacity={0.7}
+            style={styles.deviceManagementButton}
+            onPress={() => {
+              setShowDevicesModal(true);
+              fetchUserDevices();
+            }}
+            activeOpacity={0.8}
           >
-            <View style={styles.buttonIcon}>
-              <Ionicons name="key-outline" size={18} color="#F9A825" />
+            <View style={styles.deviceManagementContent}>
+              <View style={styles.deviceManagementIcon}>
+                <Ionicons name="devices" size={22} color="#FF9800" />
+              </View>
+              <View style={styles.deviceManagementTextContainer}>
+                <Text style={styles.deviceManagementText}>Manage Devices</Text>
+                <Text style={styles.deviceManagementSubtext}>View and control device access</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#FF9800" />
             </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.actionButtonText}>Change Password</Text>
-              <Text style={styles.actionButtonDescription}>Update your account password</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color="#CBD5E0" />
           </TouchableOpacity>
-          
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => setEmailModalVisible(true)}
-            activeOpacity={0.7}
+
+          {/* Device Information Section */}
+          <Animated.View 
+            style={[
+              styles.deviceSection,
+              {
+                opacity: deviceSectionAnim,
+                transform: [{ 
+                  translateY: deviceSectionAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [30, 0]
+                  }) 
+                }]
+              }
+            ]}
           >
-            <View style={styles.buttonIcon}>
-              <Ionicons name="mail-outline" size={18} color="#F9A825" />
+            <TouchableOpacity 
+              style={styles.deviceInfoCard} 
+              onPress={() => setShowDeviceInfo(!showDeviceInfo)}
+              activeOpacity={0.7}
+            >
+              <View style={styles.deviceCardHeader}>
+                <View style={styles.deviceIconContainer}>
+                  <Ionicons name="phone-portrait-outline" size={24} color="#FF9800" />
+                </View>
+                <View style={styles.deviceInfoTextContainer}>
+                  <Text style={styles.deviceCardTitle}>Device Information</Text>
+                  <Text style={styles.deviceCardSubtitle}>View current device details</Text>
+                </View>
+                <Ionicons 
+                  name={showDeviceInfo ? "chevron-up" : "chevron-down"} 
+                  size={20} 
+                  color="#FF9800" 
+                />
+              </View>
+              
+              {showDeviceInfo && (
+                <View style={styles.deviceDetails}>
+                  <View style={styles.deviceDetailRow}>
+                    <Text style={styles.deviceDetailLabel}>Platform:</Text>
+                    <Text style={styles.deviceDetailValue}>{deviceInfo.platform}</Text>
+                  </View>
+                  <View style={styles.deviceDetailRow}>
+                    <Text style={styles.deviceDetailLabel}>OS Version:</Text>
+                    <Text style={styles.deviceDetailValue}>{deviceInfo.version}</Text>
+                  </View>
+                  <View style={styles.deviceDetailRow}>
+                    <Text style={styles.deviceDetailLabel}>Screen Size:</Text>
+                    <Text style={styles.deviceDetailValue}>
+                      {Math.round(deviceInfo.screenWidth)}x{Math.round(deviceInfo.screenHeight)}
+                    </Text>
+                  </View>
+                  <View style={styles.deviceDetailRow}>
+                    <Text style={styles.deviceDetailLabel}>Last Access:</Text>
+                    <Text style={styles.deviceDetailValue}>
+                      {new Date().toLocaleDateString()} at {new Date().toLocaleTimeString()}
+                    </Text>
+                  </View>
+                </View>
+              )}
+            </TouchableOpacity>
+          </Animated.View>
+
+          {/* Security Tips Card */}
+          <View style={styles.tipsCard}>
+            <View style={styles.tipsHeader}>
+              <View style={styles.tipsIconContainer}>
+                <Ionicons name="bulb" size={20} color="#FF9800" />
+              </View>
+              <Text style={styles.tipsTitle}>Security Tips</Text>
             </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.actionButtonText}>Change Email</Text>
-              <Text style={styles.actionButtonDescription}>Update your account email address</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color="#CBD5E0" />
-          </TouchableOpacity>
+            <Text style={styles.tipText}>
+              • Use strong passwords with mixed characters{'\n'}
+              • Enable two-factor authentication when possible{'\n'}
+              • Never share your credentials with anyone{'\n'}
+              • Update passwords regularly for better security
+            </Text>
+          </View>
         </Animated.View>
       </View>
       
+      {/* Devices Management Modal */}
+      <Modal visible={showDevicesModal} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.devicesModalContainer}>
+            <View style={styles.devicesModalHeader}>
+              <Text style={styles.devicesModalTitle}>Device Management</Text>
+              <TouchableOpacity 
+                style={styles.closeIcon} 
+                onPress={() => setShowDevicesModal(false)}
+              >
+                <Ionicons name="close" size={24} color="#2D3436" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Tabs */}
+            <View style={styles.tabsContainer}>
+              <TouchableOpacity
+                style={[
+                  styles.tab,
+                  devicesTabActive === 'authorized' && styles.activeTab
+                ]}
+                onPress={() => setDevicesTabActive('authorized')}
+              >
+                <Ionicons 
+                  name="checkmark-circle" 
+                  size={20} 
+                  color={devicesTabActive === 'authorized' ? '#FFFFFF' : '#00B894'} 
+                />
+                <Text style={[
+                  styles.tabText,
+                  devicesTabActive === 'authorized' && styles.activeTabText
+                ]}>
+                  Authorized
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.tab,
+                  devicesTabActive === 'blocked' && styles.activeTab
+                ]}
+                onPress={() => setDevicesTabActive('blocked')}
+              >
+                <Ionicons 
+                  name="ban" 
+                  size={20} 
+                  color={devicesTabActive === 'blocked' ? '#FFFFFF' : '#F44336'} 
+                />
+                <Text style={[
+                  styles.tabText,
+                  devicesTabActive === 'blocked' && styles.activeTabText
+                ]}>
+                  Blocked
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Devices List */}
+            <ScrollView style={styles.devicesListContainer}>
+              {loadingDevices ? (
+                <View style={styles.loadingContainer}>
+                  <Text style={styles.loadingText}>Loading devices...</Text>
+                </View>
+              ) : (
+                userDevices
+                  .filter(device => 
+                    devicesTabActive === 'authorized' ? device.authorized : !device.authorized
+                  )
+                  .map((device, index) => (
+                                           <View key={device.id} style={styles.deviceItem}>
+                         <View style={styles.deviceIcon}>
+                           <Ionicons 
+                             name={
+                               device.model.toLowerCase().includes('ios') 
+                                 ? 'phone-portrait' 
+                                 : device.model.toLowerCase().includes('web')
+                                   ? 'desktop'
+                                   : device.name.toLowerCase().includes('tablet')
+                                     ? 'tablet-portrait'
+                                     : 'phone-portrait'
+                             } 
+                             size={24} 
+                             color="#FF9800" 
+                           />
+                         </View>
+                      
+                      <View style={styles.deviceDetails}>
+                        <Text style={styles.deviceName}>{device.name}</Text>
+                        <Text style={styles.deviceModel}>{device.model}</Text>
+                        <Text style={styles.deviceLocation}>
+                          {device.location} • {device.ip_address}
+                        </Text>
+                        <Text style={styles.deviceLastAccess}>
+                          Last access: {new Date(device.last_access).toLocaleDateString()} at{' '}
+                          {new Date(device.last_access).toLocaleTimeString()}
+                        </Text>
+                      </View>
+
+                      <View style={styles.deviceActions}>
+                        <TouchableOpacity
+                          style={[
+                            styles.deviceActionButton,
+                            { backgroundColor: device.authorized ? '#F44336' : '#00B894' }
+                          ]}
+                          onPress={() => toggleDeviceAuthorization(device.id, device.authorized)}
+                        >
+                          <Ionicons 
+                            name={device.authorized ? 'ban' : 'checkmark'} 
+                            size={18} 
+                            color="#FFFFFF" 
+                          />
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          style={[styles.deviceActionButton, { backgroundColor: '#718096' }]}
+                          onPress={() => deleteDevice(device.id)}
+                        >
+                          <Ionicons name="trash" size={18} color="#FFFFFF" />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  ))
+              )}
+
+              {!loadingDevices && userDevices.filter(device => 
+                devicesTabActive === 'authorized' ? device.authorized : !device.authorized
+              ).length === 0 && (
+                <View style={styles.emptyDevicesContainer}>
+                  <Ionicons 
+                    name={devicesTabActive === 'authorized' ? 'devices' : 'ban'} 
+                    size={48} 
+                    color="#CBD5E0" 
+                  />
+                  <Text style={styles.emptyDevicesText}>
+                    No {devicesTabActive} devices found
+                  </Text>
+                </View>
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
       {/* Password Modal */}
       <Modal visible={isPasswordModalVisible} transparent animationType="fade">
         <View style={styles.modalOverlay}>
