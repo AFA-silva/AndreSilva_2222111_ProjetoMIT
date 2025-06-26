@@ -51,45 +51,64 @@ const SupportPage = () => {
   const faqs = [
     { 
       id: 1, 
-      question: 'How do I reset my password?'
+      question: 'How do I reset my password?',
+      answer: 'To reset your password, go to the security page and tap "Password Security". Enter your old password and new password. Then tap "Update Password".',
+      category: 'Account',
+      icon: 'key-outline'
     },
     { 
       id: 2, 
-      question: 'How can I update my profile information?'
+      question: 'How can I update my profile information?',
+      answer: 'Navigate to Settings > Profile to update your personal information. You can change your name, profile picture, and other account details.',
+      category: 'Account',
+      icon: 'person-outline'
     },
     { 
       id: 3, 
-      question: 'Why is my data not syncing properly?'
+      question: 'Why is my data not syncing properly?',
+      answer: 'Check your internet connection first. If the issue persists, try logging out and back in or contact us.',
+      category: 'Technical',
+      icon: 'sync-outline'
     },
     { 
       id: 4, 
-      question: 'How do I add or edit my financial goals?'
+      question: 'How do I add or edit my financial goals?',
+      answer: 'Go to the Goals section in the manage page. Tap the "+" button to create a new goal or tap on existing goals to edit them. You can set target amounts, deadlines, and track your progress.',
+      category: 'Features',
+      icon: 'flag-outline'
     },
     { 
       id: 5, 
-      question: 'Can I export my financial data?'
+      question: 'Can I export my financial data?',
+      answer: 'Currently, data export is not available. We are working on it.',
+      category: 'Features',
+      icon: 'download-outline'
     },
     { 
       id: 6, 
-      question: 'How do I change my email address?'
+      question: 'How do I change my email address?',
+      answer: 'Go to Settings > Security and tap "Email Security". Enter your new email and verify it through the confirmation link sent to your new email address.',
+      category: 'Account',
+      icon: 'mail-outline'
     },
     { 
       id: 7, 
-      question: 'What currencies are supported?'
+      question: 'What currencies are supported?',
+      answer: 'We support all major world currencies including USD, EUR, GBP, JPY, CAD, AUD, and many more. You can change your default currency in Manage > Currency Market.',
+      category: 'Features',
+      icon: 'cash-outline'
     },
     { 
       id: 8, 
-      question: 'How do I delete my account?'
-    },
-    { 
-      id: 9, 
-      question: 'Why am I not receiving notifications?'
-    },
-    { 
-      id: 10, 
-      question: 'How do I contact customer support?'
+      question: 'How do I delete my account?',
+      answer: 'To delete your account, you need to do a request to us on the Support page.',
+      category: 'Account',
+      icon: 'trash-outline'
     },
   ];
+
+  // FAQ Modal state
+  const [faqModalAnim] = useState(new Animated.Value(0));
 
   // Get user session on component mount
   useEffect(() => {
@@ -293,6 +312,32 @@ const SupportPage = () => {
     }
   }, [showAlert]);
 
+  // Remove search and category filter state/logic
+  // (delete searchQuery, setSearchQuery, selectedCategory, setSelectedCategory, searchAnim, categories, filteredFAQs)
+
+  // Instead, just use faqs and expandedFAQs
+
+  // Remove openFAQModal/closeFAQModal's search/category logic
+  const openFAQModal = () => {
+    setFAQModalVisible(true);
+    setExpandedFAQs({});
+    Animated.timing(faqModalAnim, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const closeFAQModal = () => {
+    Animated.timing(faqModalAnim, {
+      toValue: 0,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(() => {
+      setFAQModalVisible(false);
+    });
+  };
+
   return (
     <View style={{ flex: 1, backgroundColor: '#FCFCFD' }}>
       <ScrollView 
@@ -461,7 +506,7 @@ const SupportPage = () => {
               <View style={styles.supportInfoIcon}>
                 <Ionicons name="mail-outline" size={20} color="#F9A825" />
               </View>
-              <Text style={styles.supportInfoText}>AndreSupabase@gmail.com</Text>
+              <Text style={styles.supportInfoText}>projectmiteste@gmail.com</Text>
             </View>
           </View>
 
@@ -482,7 +527,7 @@ const SupportPage = () => {
           >
             <TouchableOpacity 
               style={styles.faqButton} 
-              onPress={() => setFAQModalVisible(true)}
+              onPress={openFAQModal}
               activeOpacity={0.7}
             >
               <Ionicons name="help-circle" size={20} color="#FF9800" />
@@ -491,42 +536,126 @@ const SupportPage = () => {
           </Animated.View>
         </View>
 
-        {/* FAQ Modal */}
-        <Modal visible={isFAQModalVisible} transparent={true} animationType="slide">
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContainer}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Frequently Asked Questions</Text>
-                <TouchableOpacity onPress={() => setFAQModalVisible(false)}>
-                  <Ionicons name="close" size={24} color="#666" />
+        {/* Enhanced FAQ Modal */}
+        <Modal visible={isFAQModalVisible} transparent={true} animationType="none">
+          <Animated.View 
+            style={[
+              styles.modalOverlay,
+              {
+                opacity: faqModalAnim,
+                backgroundColor: faqModalAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: ['rgba(0, 0, 0, 0)', 'rgba(0, 0, 0, 0.6)']
+                })
+              }
+            ]}
+          >
+            <Animated.View 
+              style={[
+                styles.enhancedModalContainer,
+                {
+                  transform: [
+                    {
+                      scale: faqModalAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0.8, 1]
+                      })
+                    },
+                    {
+                      translateY: faqModalAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [50, 0]
+                      })
+                    }
+                  ]
+                }
+              ]}
+            >
+              {/* Enhanced Modal Header */}
+              <LinearGradient
+                colors={['#FF6B35', '#F79B35', '#FFD662']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.enhancedModalHeader}
+              >
+                <View style={styles.enhancedHeaderContent}>
+                  <View style={styles.enhancedHeaderIcon}>
+                    <Ionicons name="help-circle" size={32} color="#FFFFFF" />
+                  </View>
+                  <View style={styles.enhancedHeaderText}>
+                    <Text style={styles.enhancedModalTitle}>Help Center</Text>
+                    <Text style={styles.enhancedModalSubtitle}>Find answers to common questions</Text>
+                  </View>
+                  <TouchableOpacity 
+                    style={styles.enhancedCloseButton}
+                    onPress={closeFAQModal}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="close" size={24} color="#FFFFFF" />
+                  </TouchableOpacity>
+                </View>
+              </LinearGradient>
+
+              {/* FAQ List (no search/filter) */}
+              <ScrollView 
+                style={styles.enhancedFaqScrollView}
+                showsVerticalScrollIndicator={false}
+              >
+                {faqs.length > 0 ? (
+                  faqs.map((faq) => (
+                    <View
+                      key={faq.id}
+                      style={[
+                        styles.enhancedFaqItem,
+                        expandedFAQs[faq.id] && styles.enhancedFaqItemExpanded
+                      ]}
+                    >
+                      <TouchableOpacity
+                        style={styles.enhancedFaqHeader}
+                        onPress={() => handleFAQToggle(faq.id)}
+                        activeOpacity={0.7}
+                      >
+                        <View style={styles.enhancedFaqIcon}>
+                          <Ionicons name={faq.icon} size={20} color="#FF9800" />
+                        </View>
+                        <View style={styles.enhancedFaqContent}>
+                          <Text style={styles.enhancedFaqQuestion}>{faq.question}</Text>
+                          <Text style={styles.enhancedFaqCategory}>{faq.category}</Text>
+                        </View>
+                        <View style={styles.enhancedFaqChevron}>
+                          <Ionicons name="chevron-down" size={20} color="#FF9800" style={{ transform: [{ rotate: expandedFAQs[faq.id] ? '180deg' : '0deg' }] }} />
+                        </View>
+                      </TouchableOpacity>
+                      {expandedFAQs[faq.id] && (
+                        <View style={styles.enhancedFaqAnswer}>
+                          <View style={styles.enhancedAnswerContent}>
+                            <Text style={styles.enhancedAnswerText}>{faq.answer}</Text>
+                          </View>
+                        </View>
+                      )}
+                    </View>
+                  ))
+                ) : (
+                  <View style={styles.noResultsContainer}>
+                    <Ionicons name="search-outline" size={48} color="#A0AEC0" />
+                    <Text style={styles.noResultsText}>No questions found</Text>
+                  </View>
+                )}
+              </ScrollView>
+
+              {/* Enhanced Modal Footer */}
+              <View style={styles.enhancedModalFooter}>
+                <TouchableOpacity 
+                  style={styles.enhancedContactButton}
+                  onPress={closeFAQModal}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="mail-outline" size={18} color="#FFFFFF" />
+                  <Text style={styles.enhancedContactButtonText}>I Understood! Go Back!</Text>
                 </TouchableOpacity>
               </View>
-              
-              <ScrollView style={styles.faqScrollView}>
-                {faqs.map((faq) => (
-                  <TouchableOpacity
-                    key={faq.id}
-                    style={styles.faqItem}
-                    onPress={() => handleFAQToggle(faq.id)}
-                  >
-                    <View style={styles.faqTitleContainer}>
-                      <Text style={styles.faqQuestion}>{faq.question}</Text>
-                      <Ionicons
-                        name={expandedFAQs[faq.id] ? "chevron-up" : "chevron-down"}
-                        size={20}
-                        color="#FF9800"
-                      />
-                    </View>
-                    {expandedFAQs[faq.id] && (
-                      <Text style={styles.faqAnswer}>
-                        This is a placeholder answer for: {faq.question}
-                      </Text>
-                    )}
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
-          </View>
+            </Animated.View>
+          </Animated.View>
         </Modal>
       </ScrollView>
     </View>
