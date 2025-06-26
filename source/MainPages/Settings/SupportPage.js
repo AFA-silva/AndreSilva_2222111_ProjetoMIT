@@ -9,6 +9,7 @@ import {
   Animated,
   Platform
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import styles from '../../Styles/Settings/SupportPageStyle';
 import { Ionicons } from '@expo/vector-icons';
 import Alert from '../../Utility/Alerts';
@@ -27,7 +28,15 @@ const SupportPage = () => {
   
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  const headerSlideAnim = useRef(new Animated.Value(-50)).current;
   const formAnim = useRef(new Animated.Value(0)).current;
+  const faqButtonAnim = useRef(new Animated.Value(0)).current;
+  const floatingAnim1 = useRef(new Animated.Value(0)).current;
+  const floatingAnim2 = useRef(new Animated.Value(0)).current;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  
+  // ScrollView ref for scroll to top functionality
+  const scrollViewRef = useRef(null);
   
   // Alert state
   const [showAlert, setShowAlert] = useState(false);
@@ -42,33 +51,43 @@ const SupportPage = () => {
   const faqs = [
     { 
       id: 1, 
-      question: 'How can I contact support?', 
-      answer: 'Fill out the form on this page and submit your request. Our team will respond via email as soon as possible, typically within 24 hours on business days.' 
+      question: 'How do I reset my password?'
     },
     { 
       id: 2, 
-      question: 'What should I include in my message?', 
-      answer: 'Please include detailed information about the issue you are facing, including any error messages, steps to reproduce the problem, and what you were trying to accomplish. Screenshots can be very helpful.' 
+      question: 'How can I update my profile information?'
     },
     { 
       id: 3, 
-      question: 'How long does it take to get a response?', 
-      answer: 'Our support team typically responds within 24-48 hours on business days. For urgent matters, we prioritize response times and aim to get back to you as soon as possible.' 
+      question: 'Why is my data not syncing properly?'
     },
     { 
       id: 4, 
-      question: 'Can I track my support request?', 
-      answer: 'Currently, we do not have a tracking system, but our team will reach out to you via the email associated with your account. If you need to follow up, simply reply to the email thread.' 
+      question: 'How do I add or edit my financial goals?'
     },
     { 
       id: 5, 
-      question: 'Are there any charges for support?', 
-      answer: 'No, our support services are free for all users. We are committed to providing quality assistance to help you get the most out of our platform without any additional fees.' 
+      question: 'Can I export my financial data?'
     },
     { 
       id: 6, 
-      question: 'What hours is support available?', 
-      answer: 'Our support team is available Monday through Friday from 9:00 AM to 6:00 PM (GMT). While we may respond outside these hours, official support is provided during business days.' 
+      question: 'How do I change my email address?'
+    },
+    { 
+      id: 7, 
+      question: 'What currencies are supported?'
+    },
+    { 
+      id: 8, 
+      question: 'How do I delete my account?'
+    },
+    { 
+      id: 9, 
+      question: 'Why am I not receiving notifications?'
+    },
+    { 
+      id: 10, 
+      question: 'How do I contact customer support?'
     },
   ];
 
@@ -86,7 +105,6 @@ const SupportPage = () => {
         }
         if (data?.session) {
           setUserSession(data.session);
-          console.log('Support page - user session loaded:', data.session.user.email);
         } else {
           setAlertMessage('No active session found. Please log in again.');
           setAlertType('error');
@@ -104,18 +122,82 @@ const SupportPage = () => {
   React.useEffect(() => {
     const useNativeDriver = Platform.OS !== 'web';
     
+    // Main entrance animations
     Animated.sequence([
       Animated.timing(fadeAnim, {
         toValue: 1,
         duration: 600,
         useNativeDriver,
       }),
-      Animated.timing(formAnim, {
+      Animated.parallel([
+        Animated.timing(headerSlideAnim, {
+          toValue: 0,
+          duration: 400,
+          useNativeDriver,
+        }),
+        Animated.timing(formAnim, {
+          toValue: 1,
+          duration: 500,
+          useNativeDriver,
+        }),
+      ]),
+      Animated.timing(faqButtonAnim, {
         toValue: 1,
-        duration: 500,
+        duration: 400,
         useNativeDriver,
       })
     ]).start();
+
+    // Floating animations for decorative elements
+    const startFloatingAnimations = () => {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(floatingAnim1, {
+            toValue: 1,
+            duration: 3000,
+            useNativeDriver,
+          }),
+          Animated.timing(floatingAnim1, {
+            toValue: 0,
+            duration: 3000,
+            useNativeDriver,
+          }),
+        ])
+      ).start();
+
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(floatingAnim2, {
+            toValue: 1,
+            duration: 4000,
+            useNativeDriver,
+          }),
+          Animated.timing(floatingAnim2, {
+            toValue: 0,
+            duration: 4000,
+            useNativeDriver,
+          }),
+        ])
+      ).start();
+
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, {
+            toValue: 1.1,
+            duration: 2000,
+            useNativeDriver,
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 1,
+            duration: 2000,
+            useNativeDriver,
+          }),
+        ])
+      ).start();
+    };
+
+    const timer = setTimeout(startFloatingAnimations, 800);
+    return () => clearTimeout(timer);
   }, []);
 
   const handleFAQToggle = (id) => {
@@ -185,6 +267,11 @@ const SupportPage = () => {
       setSubject('');
       setMessage('');
       setAdditionalInfo('');
+      
+      // Scroll to top of the page
+      if (scrollViewRef.current) {
+        scrollViewRef.current.scrollTo({ y: 0, animated: true });
+      }
 
     } catch (error) {
       console.error('Unexpected error submitting support request:', error);
@@ -207,7 +294,12 @@ const SupportPage = () => {
   }, [showAlert]);
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: '#F8F9FA' }}>
+    <View style={{ flex: 1, backgroundColor: '#FCFCFD' }}>
+      <ScrollView 
+        ref={scrollViewRef}
+        contentContainerStyle={styles.scrollContainer}
+        showsVerticalScrollIndicator={false}
+      >
       {showAlert && (
         <Alert
           message={alertMessage}
@@ -216,23 +308,57 @@ const SupportPage = () => {
         />
       )}
       
-      <View style={styles.container}>
-        <View style={styles.contentContainer}>
-          {/* Decorative elements */}
-          <View style={styles.gradientHeader} />
-          <View style={styles.decorationCircle} />
-          <View style={styles.decorationDot} />
-          
-          {/* Icon and Header */}
-          <Animated.View style={{ opacity: fadeAnim, transform: [{ scale: fadeAnim }] }}>
-            <View style={styles.iconBackground}>
-              <Ionicons name="help-circle-outline" size={80} color="#F9A825" style={styles.icon} />
+      <View style={styles.contentContainer}>
+        {/* Decorative elements */}
+        <View style={styles.gradientHeader} />
+        <View style={styles.decorationCircle} />
+        <View style={styles.decorationDot} />
+      
+        {/* Beautiful Modern Header */}
+        <Animated.View 
+          style={[
+            { 
+              opacity: fadeAnim,
+              transform: [
+                { translateY: headerSlideAnim },
+                { scale: fadeAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0.95, 1]
+                })}
+              ]
+            }
+          ]}
+        >
+          <LinearGradient
+            colors={['#FF6B35', '#F79B35', '#FFD662']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.modernHeaderContainer}
+          >
+            {/* Floating decorative elements */}
+            <View style={styles.floatingCircle1} />
+            <View style={styles.floatingCircle2} />
+            <View style={styles.floatingCircle3} />
+            <View style={styles.geometricShape} />
+            
+            <View style={styles.headerContent}>
+              {/* Beautiful headset icon with glow effect */}
+              <View style={styles.shieldContainer}>
+                <View style={styles.shieldGlow} />
+                <View style={styles.shieldBackground}>
+                  <Ionicons name="headset" size={40} color="#FF6B35" />
+                </View>
+              </View>
+              
+              <View style={styles.textSection}>
+                <Text style={styles.modernTitle}>Support Center</Text>
+                <View style={styles.modernUnderline} />
+              </View>
             </View>
-            <Text style={styles.header}>Support Center</Text>
-            <Text style={styles.content}>
-              Need help? Fill out the form below to contact our support team. We'll respond as soon as possible.
-            </Text>
-          </Animated.View>
+          </LinearGradient>
+        </Animated.View>
+
+
 
           {/* Form Inputs */}
           <Animated.View 
@@ -340,73 +466,70 @@ const SupportPage = () => {
           </View>
 
           {/* FAQ Button */}
-          <View style={styles.faqButtonContainer}>
+          <Animated.View 
+            style={[
+              styles.faqButtonContainer,
+              {
+                opacity: faqButtonAnim,
+                transform: [{ 
+                  translateY: faqButtonAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [20, 0]
+                  }) 
+                }]
+              }
+            ]}
+          >
             <TouchableOpacity 
               style={styles.faqButton} 
               onPress={() => setFAQModalVisible(true)}
               activeOpacity={0.7}
             >
-              <Ionicons name="help-circle" size={20} color="#2D3436" />
+              <Ionicons name="help-circle" size={20} color="#FF9800" />
               <Text style={styles.faqButtonText}>Frequently Asked Questions</Text>
             </TouchableOpacity>
-          </View>
+          </Animated.View>
         </View>
 
         {/* FAQ Modal */}
-        <Modal visible={isFAQModalVisible} transparent={true} animationType="fade">
+        <Modal visible={isFAQModalVisible} transparent={true} animationType="slide">
           <View style={styles.modalOverlay}>
             <View style={styles.modalContainer}>
-              <View style={styles.modalHeaderContainer}>
-                <Text style={styles.modalHeader}>Frequently Asked Questions</Text>
-                <TouchableOpacity 
-                  style={styles.closeIcon} 
-                  onPress={() => setFAQModalVisible(false)}
-                >
-                  <Ionicons name="close" size={24} color="#2D3436" />
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Frequently Asked Questions</Text>
+                <TouchableOpacity onPress={() => setFAQModalVisible(false)}>
+                  <Ionicons name="close" size={24} color="#666" />
                 </TouchableOpacity>
               </View>
               
-              <ScrollView style={styles.faqScrollView} showsVerticalScrollIndicator={false}>
+              <ScrollView style={styles.faqScrollView}>
                 {faqs.map((faq) => (
-                  <View 
-                    key={faq.id} 
-                    style={[
-                      styles.faqItem,
-                      expandedFAQs[faq.id] && styles.activeFaqItem
-                    ]}
+                  <TouchableOpacity
+                    key={faq.id}
+                    style={styles.faqItem}
+                    onPress={() => handleFAQToggle(faq.id)}
                   >
-                    <TouchableOpacity
-                      style={styles.faqTitleContainer}
-                      onPress={() => handleFAQToggle(faq.id)}
-                      activeOpacity={0.7}
-                    >
+                    <View style={styles.faqTitleContainer}>
                       <Text style={styles.faqQuestion}>{faq.question}</Text>
                       <Ionicons
-                        name={expandedFAQs[faq.id] ? 'chevron-up' : 'chevron-down'}
+                        name={expandedFAQs[faq.id] ? "chevron-up" : "chevron-down"}
                         size={20}
-                        color={expandedFAQs[faq.id] ? "#F9A825" : "#2D3436"}
+                        color="#FF9800"
                       />
-                    </TouchableOpacity>
+                    </View>
                     {expandedFAQs[faq.id] && (
-                      <Text style={styles.faqAnswer}>{faq.answer}</Text>
+                      <Text style={styles.faqAnswer}>
+                        This is a placeholder answer for: {faq.question}
+                      </Text>
                     )}
-                  </View>
+                  </TouchableOpacity>
                 ))}
               </ScrollView>
-              
-              <TouchableOpacity 
-                style={styles.closeButton} 
-                onPress={() => setFAQModalVisible(false)}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="close-circle-outline" size={20} color="#4A5568" style={{ marginRight: 8 }} />
-                <Text style={styles.closeButtonText}>Close</Text>
-              </TouchableOpacity>
             </View>
           </View>
         </Modal>
-      </View>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 };
 
