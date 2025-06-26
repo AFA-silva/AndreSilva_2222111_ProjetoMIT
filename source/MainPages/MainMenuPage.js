@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Modal, Animated, FlatList, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Modal, Animated, FlatList, ActivityIndicator, AppState } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import styles from '../Styles/MainPageStyles/MainMenuPageStyle';
 import { supabase } from '../../Supabase';
@@ -97,6 +97,65 @@ const MainMenuPage = ({ navigation }) => {
     { key: 'netIncome', type: 'netIncome' },
     { key: 'goalStatus', type: 'goalStatus' }
   ];
+
+    // Simple email validation function - fetch auth email directly
+  const userEmailValidation = async () => {
+    try {
+      // Fetch current user directly from auth
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      
+      if (authError || !user) {
+        logManager.error('EmailValidation', 'Failed to get current auth user', authError);
+        return;
+      }
+
+      const authEmail = user.email;
+      const userId = user.id;
+      
+      // Get database email
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('email')
+        .eq('id', userId)
+        .single();
+        
+      if (userError) {
+        logManager.error('EmailValidation', 'Failed to fetch database email', userError);
+        return;
+      }
+
+      const databaseEmail = userData.email;
+      
+      logManager.log('EmailValidation', `=== EMAIL VALIDATION (DIRECT AUTH) ===`, true);
+      logManager.log('EmailValidation', `Auth email (direct): ${authEmail}`, true);
+      logManager.log('EmailValidation', `Database email: ${databaseEmail}`, true);
+      logManager.log('EmailValidation', `User ID: ${userId}`, true);
+      
+      // Sync database with the current auth email
+      if (authEmail !== databaseEmail) {
+        logManager.log('EmailValidation', `Emails differ. Updating database to match auth email`, true);
+        logManager.log('EmailValidation', `From: ${databaseEmail} → To: ${authEmail}`, true);
+        
+        const { data: updateData, error: updateError } = await supabase
+          .from('users')
+          .update({ email: authEmail })
+          .eq('id', userId)
+          .select();
+          
+        if (updateError) {
+          logManager.error('EmailValidation', 'Failed to update database email', updateError);
+          logManager.log('EmailValidation', `Update error details: ${JSON.stringify(updateError)}`, true);
+        } else {
+          logManager.log('EmailValidation', 'Database email updated successfully!', true);
+          logManager.log('EmailValidation', `Updated data: ${JSON.stringify(updateData)}`, true);
+        }
+      } else {
+        logManager.log('EmailValidation', 'Auth and database emails match - no update needed', true);
+      }
+    } catch (error) {
+      logManager.error('EmailValidation', 'Error in email validation', error);
+    }
+  };
 
   // Device registration function
   const registerDeviceAccess = async (userId) => {
@@ -234,6 +293,9 @@ const MainMenuPage = ({ navigation }) => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (session && session.user) {
+          // Validate and sync email
+          await userEmailValidation();
+          
           const { data, error } = await supabase
             .from('user_currency_preferences')
             .select('actual_currency')
@@ -288,12 +350,49 @@ const MainMenuPage = ({ navigation }) => {
       }, 300); // 300ms debounce to avoid multiple calls
     });
     
+    // Add auth state listener to catch email confirmations
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+      logManager.log('AuthState', `Auth event: ${event}`, true);
+      
+      if ((event === 'USER_UPDATED' || event === 'SIGNED_IN') && session) {
+        // Validate and sync email when auth state changes
+        await userEmailValidation();
+      }
+    });
+
+    // Add AppState listener to check email when app becomes active
+    const handleAppStateChange = async (nextAppState) => {
+      if (nextAppState === 'active') {
+        logManager.log('AppState', 'App became active, checking email sync...', true);
+        try {
+          const { data, error } = await supabase.auth.getSession();
+          if (!error && data?.session) {
+            await userEmailValidation();
+          }
+        } catch (error) {
+          logManager.error('AppState', 'Error checking email on app state change', error);
+        }
+      }
+    };
+
+    const appStateSubscription = AppState.addEventListener('change', handleAppStateChange);
+
     // Remove listeners when unmounting
     return () => {
       logManager.log('Lifecycle', `Component unmounted [ID: ${componentId}]`, true);
       unsubscribe();
       removeCurrencyChangeListener(handleCurrencyChange);
       clearTimeout(focusDebounceTimeout);
+      
+      // Clean up auth listener
+      if (authListener && authListener.subscription) {
+        authListener.subscription.unsubscribe();
+      }
+      
+      // Clean up AppState listener
+      if (appStateSubscription) {
+        appStateSubscription.remove();
+      }
     };
   }, [navigation]);
 
@@ -352,6 +451,9 @@ const MainMenuPage = ({ navigation }) => {
         setError('User not authenticated');
         return;
       }
+      
+      // Validate and sync email
+      await userEmailValidation();
       
       const userId = session.session.user.id;
       logManager.debounce('Authentication', `User authenticated: ${userId.substr(0, 8)}...`);

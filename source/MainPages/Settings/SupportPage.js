@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -12,6 +12,7 @@ import {
 import styles from '../../Styles/Settings/SupportPageStyle';
 import { Ionicons } from '@expo/vector-icons';
 import Alert from '../../Utility/Alerts';
+import { supabase } from '../../../Supabase';
 
 const SupportPage = () => {
   // Form state
@@ -32,6 +33,10 @@ const SupportPage = () => {
   const [showAlert, setShowAlert] = useState(false);
   const [alertMessage, setAlertMessage] = useState('');
   const [alertType, setAlertType] = useState('');
+  
+  // User session state
+  const [userSession, setUserSession] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // FAQ data
   const faqs = [
@@ -67,6 +72,34 @@ const SupportPage = () => {
     },
   ];
 
+  // Get user session on component mount
+  useEffect(() => {
+    const fetchSession = async () => {
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        if (error) {
+          console.error('Error fetching session:', error);
+          setAlertMessage('Failed to load user session. Please log in again.');
+          setAlertType('error');
+          setShowAlert(true);
+          return;
+        }
+        if (data?.session) {
+          setUserSession(data.session);
+          console.log('Support page - user session loaded:', data.session.user.email);
+        } else {
+          setAlertMessage('No active session found. Please log in again.');
+          setAlertType('error');
+          setShowAlert(true);
+        }
+      } catch (error) {
+        console.error('Error in fetchSession:', error);
+      }
+    };
+    
+    fetchSession();
+  }, []);
+
   // Animation on component mount
   React.useEffect(() => {
     const useNativeDriver = Platform.OS !== 'web';
@@ -89,7 +122,8 @@ const SupportPage = () => {
     setExpandedFAQs((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    // Validation checks
     if (!subject.trim()) {
       setAlertMessage('Please fill in the subject field');
       setAlertType('error');
@@ -103,23 +137,71 @@ const SupportPage = () => {
       setShowAlert(true);
       return;
     }
-    
-    setAlertMessage('Your support request has been submitted! We will contact you soon.');
-    setAlertType('success');
-    setShowAlert(true);
-    
-    // Clear form after submission
-    setSubject('');
-    setMessage('');
-    setAdditionalInfo('');
+
+    if (!userSession) {
+      setAlertMessage('No active session. Please log in again.');
+      setAlertType('error');
+      setShowAlert(true);
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      console.log('Submitting support request...');
+      
+      // Prepare support request data
+      const supportRequestData = {
+        user_id: userSession.user.id,
+        subject: subject.trim(),
+        message: message.trim(),
+        additional_info: additionalInfo.trim() || null,
+        status: 'open'
+      };
+
+      console.log('Support request data:', supportRequestData);
+
+      // Insert into database
+      const { data, error } = await supabase
+        .from('support_requests')
+        .insert([supportRequestData])
+        .select();
+
+      if (error) {
+        console.error('Error inserting support request:', error);
+        setAlertMessage(`Failed to submit support request: ${error.message}`);
+        setAlertType('error');
+        setShowAlert(true);
+        return;
+      }
+
+      console.log('Support request inserted successfully:', data);
+      
+      setAlertMessage('Your support request has been submitted! We will contact you soon.');
+      setAlertType('success');
+      setShowAlert(true);
+      
+      // Clear form after successful submission
+      setSubject('');
+      setMessage('');
+      setAdditionalInfo('');
+
+    } catch (error) {
+      console.error('Unexpected error submitting support request:', error);
+      setAlertMessage('An unexpected error occurred. Please try again.');
+      setAlertType('error');
+      setShowAlert(true);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  // Auto-hide alert after 3 seconds
+  // Auto-hide alert after 5 seconds (consistent with SecurityPage)
   React.useEffect(() => {
     if (showAlert) {
       const timer = setTimeout(() => {
         setShowAlert(false);
-      }, 3000);
+      }, 5000);
       return () => clearTimeout(timer);
     }
   }, [showAlert]);
@@ -221,9 +303,24 @@ const SupportPage = () => {
             </View>
 
             <View style={styles.buttonContainer}>
-              <TouchableOpacity style={styles.submitButton} onPress={handleSubmit} activeOpacity={0.8}>
-                <Ionicons name="paper-plane" size={18} color="#FFFFFF" style={styles.submitIcon} />
-                <Text style={styles.submitButtonText}>Submit Request</Text>
+              <TouchableOpacity 
+                style={[
+                  styles.submitButton, 
+                  isSubmitting && styles.submitButtonDisabled
+                ]} 
+                onPress={handleSubmit} 
+                activeOpacity={0.8}
+                disabled={isSubmitting}
+              >
+                <Ionicons 
+                  name={isSubmitting ? "hourglass" : "paper-plane"} 
+                  size={18} 
+                  color="#FFFFFF" 
+                  style={styles.submitIcon} 
+                />
+                <Text style={styles.submitButtonText}>
+                  {isSubmitting ? 'Submitting...' : 'Submit Request'}
+                </Text>
               </TouchableOpacity>
             </View>
           </Animated.View>

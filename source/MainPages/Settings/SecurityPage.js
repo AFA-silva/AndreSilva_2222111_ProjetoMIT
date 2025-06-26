@@ -7,8 +7,10 @@ import {
   Modal,
   ScrollView,
   Animated,
-  Platform
+  Platform,
+  AppState
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import styles from '../../Styles/Settings/SecurityPageStyle';
 import { Ionicons } from '@expo/vector-icons';
@@ -109,6 +111,98 @@ const SecurityPage = () => {
     ]).start();
   }, []);
 
+  // Email validation function - same as MainMenuPage
+  const userEmailValidation = async () => {
+    try {
+      // Fetch current user directly from auth
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      
+      if (authError || !user) {
+        console.error('[SecurityPage-EmailValidation] Failed to get current auth user', authError);
+        return;
+      }
+
+      const authEmail = user.email;
+      const userId = user.id;
+      
+      // Get database email
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('email')
+        .eq('id', userId)
+        .single();
+        
+      if (userError) {
+        console.error('[SecurityPage-EmailValidation] Failed to fetch database email', userError);
+        return;
+      }
+
+      const databaseEmail = userData.email;
+      
+      console.log('[SecurityPage-EmailValidation] === EMAIL VALIDATION ===');
+      console.log('[SecurityPage-EmailValidation] Auth email (direct):', authEmail);
+      console.log('[SecurityPage-EmailValidation] Database email:', databaseEmail);
+      console.log('[SecurityPage-EmailValidation] User ID:', userId);
+      
+      // Sync database with the current auth email
+      if (authEmail !== databaseEmail) {
+        console.log('[SecurityPage-EmailValidation] Emails differ. Updating database to match auth email');
+        console.log('[SecurityPage-EmailValidation] From:', databaseEmail, '→ To:', authEmail);
+        
+        const { data: updateData, error: updateError } = await supabase
+          .from('users')
+          .update({ email: authEmail })
+          .eq('id', userId)
+          .select();
+          
+        if (updateError) {
+          console.error('[SecurityPage-EmailValidation] Failed to update database email', updateError);
+        } else {
+          console.log('[SecurityPage-EmailValidation] Database email updated successfully!');
+          console.log('[SecurityPage-EmailValidation] Updated data:', updateData);
+          
+          // Update the UI with the new email
+          setOldEmail(authEmail);
+        }
+      } else {
+        console.log('[SecurityPage-EmailValidation] Auth and database emails match - no update needed');
+        // Still update UI to ensure it shows the correct email
+        setOldEmail(authEmail);
+      }
+    } catch (error) {
+      console.error('[SecurityPage-EmailValidation] Error in email validation', error);
+    }
+  };
+
+  // Function to refresh current email from database
+  const refreshCurrentEmail = async (userId) => {
+    try {
+      console.log('Refreshing email for user ID:', userId);
+      
+      const { data: userData, error } = await supabase
+        .from('users')
+        .select('email')
+        .eq('id', userId)
+        .single();
+        
+      if (!error && userData?.email) {
+        console.log('Email found in database:', userData.email);
+        console.log('Current oldEmail state:', oldEmail);
+        
+        if (userData.email !== oldEmail) {
+          console.log('Email changed! Updating UI from', oldEmail, 'to', userData.email);
+          setOldEmail(userData.email);
+        } else {
+          console.log('Email unchanged in database');
+        }
+      } else {
+        console.error('Error fetching current email from database:', error);
+      }
+    } catch (error) {
+      console.error('Error refreshing current email:', error);
+    }
+  };
+
   useEffect(() => {
     const fetchSession = async () => {
       const { data, error } = await supabase.auth.getSession();
@@ -118,7 +212,10 @@ const SecurityPage = () => {
       }
       if (data?.session) {
         setUserSession(data.session);
-        setOldEmail(data.session.user.email);
+        
+        // Run email validation first (same as MainMenuPage)
+        await userEmailValidation();
+        
         // Register current device access
         await registerDeviceAccess();
       } else {
@@ -128,48 +225,61 @@ const SecurityPage = () => {
     fetchSession();
   }, []);
 
-  // Add a new useEffect to listen for auth state changes
+  // Refresh email whenever the screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      console.log('SecurityPage focused - running email validation...');
+      userEmailValidation();
+    }, [])
+  );
+
+  // Add AppState listener to refresh email when app becomes active
   useEffect(() => {
-    // Set up auth state change listener
+    const handleAppStateChange = async (nextAppState) => {
+      if (nextAppState === 'active') {
+        console.log('App became active - running email validation in SecurityPage...');
+        await userEmailValidation();
+      }
+    };
+
+    const appStateSubscription = AppState.addEventListener('change', handleAppStateChange);
+
+    return () => {
+      if (appStateSubscription) {
+        appStateSubscription.remove();
+      }
+    };
+  }, []);
+
+  // Add auth state listener to catch email confirmations
+  useEffect(() => {
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      // If the user changes their email and verifies it, this event will fire
+      console.log('Auth state changed in SecurityPage:', event, session?.user?.email);
+      
       if (event === 'USER_UPDATED' && session) {
-        // Check if email has changed compared to our stored oldEmail
-        if (session.user.email !== oldEmail && session.user.email_confirmed_at) {
-          try {
-            // Now update the email in database since auth email was confirmed
-            const { error: dbError } = await supabase
-              .from('users')
-              .update({ email: session.user.email })
-              .eq('id', session.user.id);
-              
-            if (dbError) {
-              console.error('Failed to update email in database:', dbError);
-            } else {
-              // Update local session data
-              setUserSession(session);
-              setOldEmail(session.user.email);
-              showAlert('Email has been successfully updated!', 'success');
-            }
-          } catch (error) {
-            console.error('Error syncing email with database:', error);
-          }
-        }
+        console.log('User updated - running email validation...');
+        // Also update the userSession state to ensure consistency
+        setUserSession(session);
+        await userEmailValidation();
+      } else if (event === 'SIGNED_IN' && session) {
+        console.log('User signed in - running email validation in SecurityPage...');
+        await userEmailValidation();
       }
     });
 
-    // Clean up listener on component unmount
     return () => {
       if (authListener && authListener.subscription) {
         authListener.subscription.unsubscribe();
       }
     };
-  }, [oldEmail]);
+  }, [userSession]);
+
+
 
   const showAlert = (message, type) => {
     const alertId = Date.now();
     setAlerts([...alerts, { id: alertId, message, type }]);
-    setTimeout(() => removeAlert(alertId), 3000);
+    setTimeout(() => removeAlert(alertId), 5000);
   };
 
   const removeAlert = (id) => {
@@ -375,15 +485,21 @@ const SecurityPage = () => {
         return;
       }
 
-      // Don't update the database at this point - remove the immediate database update
+      console.log('Email update request sent successfully');
       
       // Show success alert that tells user to check their email
       showAlert('Please check your new email inbox and click the confirmation link to complete the change.', 'info');
-      setEmailModalVisible(false);
-      // Clear email fields
+      
+      // Clear email fields immediately
       setNewEmail('');
       setConfirmNewEmail('');
+      
+      // Close modal immediately after showing alert
+      console.log('Closing email modal immediately...');
+      setEmailModalVisible(false);
+      
     } catch (error) {
+      console.error('Error in handleEmailChange:', error);
       showAlert('An unexpected error occurred. Please try again.', 'error');
     }
   };
@@ -534,7 +650,7 @@ const SecurityPage = () => {
           >
             <View style={styles.deviceManagementContent}>
               <View style={styles.deviceManagementIcon}>
-                <Ionicons name="devices" size={22} color="#FF9800" />
+                <Ionicons name="phone-portrait" size={22} color="#FF9800" />
               </View>
               <View style={styles.deviceManagementTextContainer}>
                 <Text style={styles.deviceManagementText}>Manage Devices</Text>
@@ -753,7 +869,7 @@ const SecurityPage = () => {
               ).length === 0 && (
                 <View style={styles.emptyDevicesContainer}>
                   <Ionicons 
-                    name={devicesTabActive === 'authorized' ? 'devices' : 'ban'} 
+                    name={devicesTabActive === 'authorized' ? 'phone-portrait' : 'ban'} 
                     size={48} 
                     color="#CBD5E0" 
                   />
@@ -773,81 +889,79 @@ const SecurityPage = () => {
           <View style={styles.modalContainer}>
             <View style={styles.modalHeaderContainer}>
               <Text style={styles.modalHeader}>Change Password</Text>
-              <TouchableOpacity 
-                style={styles.closeIcon} 
+            </View>
+            
+            <View style={styles.modalContent}>
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Current Password</Text>
+                <TextInput
+                  style={[
+                    styles.input,
+                    focusedInput === 'oldPassword' && styles.focusedInput
+                  ]}
+                  placeholder="Enter your current password"
+                  placeholderTextColor="#9CA3AF"
+                  secureTextEntry
+                  value={oldPassword}
+                  onChangeText={setOldPassword}
+                  onFocus={() => setFocusedInput('oldPassword')}
+                  onBlur={() => setFocusedInput(null)}
+                />
+              </View>
+              
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>New Password</Text>
+                <TextInput
+                  style={[
+                    styles.input,
+                    focusedInput === 'newPassword' && styles.focusedInput
+                  ]}
+                  placeholder="Enter your new password"
+                  placeholderTextColor="#9CA3AF"
+                  secureTextEntry
+                  value={newPassword}
+                  onChangeText={setNewPassword}
+                  onFocus={() => setFocusedInput('newPassword')}
+                  onBlur={() => setFocusedInput(null)}
+                />
+                <Text style={styles.inputHelpText}>
+                  Password must be at least 6 characters long
+                </Text>
+              </View>
+              
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Confirm New Password</Text>
+                <TextInput
+                  style={[
+                    styles.input,
+                    focusedInput === 'confirmNewPassword' && styles.focusedInput
+                  ]}
+                  placeholder="Confirm your new password"
+                  placeholderTextColor="#9CA3AF"
+                  secureTextEntry
+                  value={confirmNewPassword}
+                  onChangeText={setConfirmNewPassword}
+                  onFocus={() => setFocusedInput('confirmNewPassword')}
+                  onBlur={() => setFocusedInput(null)}
+                />
+              </View>
+            </View>
+            
+            <View style={styles.modalButtons}>
+              <TouchableOpacity style={styles.submitButton} onPress={handlePasswordChange} activeOpacity={0.8}>
+                <Ionicons name="shield-checkmark" size={18} color="#FFFFFF" style={styles.submitIcon} />
+                <Text style={styles.submitButtonText}>Update Password</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={styles.goBackButton}
                 onPress={() => setPasswordModalVisible(false)}
+                activeOpacity={0.7}
               >
-                <Ionicons name="close" size={24} color="#2D3436" />
+                <Ionicons name="close-circle-outline" size={18} color="#6B7280" style={{ marginRight: 6 }} />
+                <Text style={styles.goBackButtonText}>Cancel</Text>
               </TouchableOpacity>
             </View>
-            
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Current Password</Text>
-              <TextInput
-                style={[
-                  styles.input,
-                  focusedInput === 'oldPassword' && styles.focusedInput
-                ]}
-                placeholder="Enter your current password"
-                placeholderTextColor="#A0AEC0"
-                secureTextEntry
-                value={oldPassword}
-                onChangeText={setOldPassword}
-                onFocus={() => setFocusedInput('oldPassword')}
-                onBlur={() => setFocusedInput(null)}
-              />
-            </View>
-            
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>New Password</Text>
-              <TextInput
-                style={[
-                  styles.input,
-                  focusedInput === 'newPassword' && styles.focusedInput
-                ]}
-                placeholder="Enter your new password"
-                placeholderTextColor="#A0AEC0"
-                secureTextEntry
-                value={newPassword}
-                onChangeText={setNewPassword}
-                onFocus={() => setFocusedInput('newPassword')}
-                onBlur={() => setFocusedInput(null)}
-              />
-              <Text style={styles.inputHelpText}>
-                Password must be at least 6 characters long
-              </Text>
-            </View>
-            
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Confirm New Password</Text>
-              <TextInput
-                style={[
-                  styles.input,
-                  focusedInput === 'confirmNewPassword' && styles.focusedInput
-                ]}
-                placeholder="Confirm your new password"
-                placeholderTextColor="#A0AEC0"
-                secureTextEntry
-                value={confirmNewPassword}
-                onChangeText={setConfirmNewPassword}
-                onFocus={() => setFocusedInput('confirmNewPassword')}
-                onBlur={() => setFocusedInput(null)}
-              />
-            </View>
-            
-            <TouchableOpacity style={styles.submitButton} onPress={handlePasswordChange} activeOpacity={0.8}>
-              <Ionicons name="shield-checkmark" size={20} color="#FFFFFF" style={styles.submitIcon} />
-              <Text style={styles.submitButtonText}>Update Password</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity
-              style={styles.goBackButton}
-              onPress={() => setPasswordModalVisible(false)}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="close-circle-outline" size={20} color="#4A5568" style={{ marginRight: 8 }} />
-              <Text style={styles.goBackButtonText}>Cancel</Text>
-            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -858,66 +972,67 @@ const SecurityPage = () => {
           <View style={styles.modalContainer}>
             <View style={styles.modalHeaderContainer}>
               <Text style={styles.modalHeader}>Change Email</Text>
-              <TouchableOpacity 
-                style={styles.closeIcon} 
+            </View>
+            
+            <View style={styles.modalContent}>
+              <View style={styles.currentEmailContainer}>
+                <Text style={styles.currentEmailLabel}>Current Email:</Text>
+                <Text style={styles.currentEmailValue}>{oldEmail}</Text>
+              </View>
+              
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>New Email</Text>
+                <TextInput
+                  style={[
+                    styles.input,
+                    focusedInput === 'newEmail' && styles.focusedInput
+                  ]}
+                  placeholder="Enter your new email address"
+                  placeholderTextColor="#9CA3AF"
+                  keyboardType="email-address"
+                  value={newEmail}
+                  onChangeText={setNewEmail}
+                  onFocus={() => setFocusedInput('newEmail')}
+                  onBlur={() => setFocusedInput(null)}
+                />
+                <Text style={styles.inputHelpText}>
+                  We'll send a verification link to this email
+                </Text>
+              </View>
+              
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Confirm New Email</Text>
+                <TextInput
+                  style={[
+                    styles.input,
+                    focusedInput === 'confirmNewEmail' && styles.focusedInput
+                  ]}
+                  placeholder="Confirm your new email address"
+                  placeholderTextColor="#9CA3AF"
+                  keyboardType="email-address"
+                  value={confirmNewEmail}
+                  onChangeText={setConfirmNewEmail}
+                  onFocus={() => setFocusedInput('confirmNewEmail')}
+                  onBlur={() => setFocusedInput(null)}
+                />
+              </View>
+            </View>
+            
+            <View style={styles.modalButtons}>
+              <TouchableOpacity style={styles.submitButton} onPress={handleEmailChange} activeOpacity={0.8}>
+                <Ionicons name="mail" size={18} color="#FFFFFF" style={styles.submitIcon} />
+                <Text style={styles.submitButtonText}>Update Email</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={styles.goBackButton}
                 onPress={() => setEmailModalVisible(false)}
+                activeOpacity={0.7}
               >
-                <Ionicons name="close" size={24} color="#2D3436" />
+                <Ionicons name="close-circle-outline" size={18} color="#6B7280" style={{ marginRight: 6 }} />
+                <Text style={styles.goBackButtonText}>Cancel</Text>
               </TouchableOpacity>
             </View>
-            
-            <Text style={styles.currentEmailText}>Current Email: {oldEmail}</Text>
-            
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>New Email</Text>
-              <TextInput
-                style={[
-                  styles.input,
-                  focusedInput === 'newEmail' && styles.focusedInput
-                ]}
-                placeholder="Enter your new email address"
-                placeholderTextColor="#A0AEC0"
-                keyboardType="email-address"
-                value={newEmail}
-                onChangeText={setNewEmail}
-                onFocus={() => setFocusedInput('newEmail')}
-                onBlur={() => setFocusedInput(null)}
-              />
-              <Text style={styles.inputHelpText}>
-                We'll send a verification link to this email
-              </Text>
-            </View>
-            
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Confirm New Email</Text>
-              <TextInput
-                style={[
-                  styles.input,
-                  focusedInput === 'confirmNewEmail' && styles.focusedInput
-                ]}
-                placeholder="Confirm your new email address"
-                placeholderTextColor="#A0AEC0"
-                keyboardType="email-address"
-                value={confirmNewEmail}
-                onChangeText={setConfirmNewEmail}
-                onFocus={() => setFocusedInput('confirmNewEmail')}
-                onBlur={() => setFocusedInput(null)}
-              />
-            </View>
-            
-            <TouchableOpacity style={styles.submitButton} onPress={handleEmailChange} activeOpacity={0.8}>
-              <Ionicons name="mail" size={20} color="#FFFFFF" style={styles.submitIcon} />
-              <Text style={styles.submitButtonText}>Update Email</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity
-              style={styles.goBackButton}
-              onPress={() => setEmailModalVisible(false)}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="close-circle-outline" size={20} color="#4A5568" style={{ marginRight: 8 }} />
-              <Text style={styles.goBackButtonText}>Cancel</Text>
-            </TouchableOpacity>
           </View>
         </View>
       </Modal>

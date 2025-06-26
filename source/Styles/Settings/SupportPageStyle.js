@@ -168,6 +168,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
   },
+  submitButtonDisabled: {
+    backgroundColor: '#CBD5E0',
+    shadowColor: '#CBD5E0',
+    shadowOpacity: 0.15,
+  },
   submitButtonText: {
     fontSize: 18,
     fontWeight: '700',
