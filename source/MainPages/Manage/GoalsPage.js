@@ -1009,7 +1009,7 @@ const GoalsPage = ({ navigation }) => {
               </TouchableOpacity>
             </View>
 
-            <View style={styles.modalContent}>
+            <ScrollView style={styles.modalContent} contentContainerStyle={{ paddingBottom: 24 }} showsVerticalScrollIndicator={true}>
               <View style={styles.modalInputContainer}>
                 <Text style={styles.modalInputLabel}>Goal Name</Text>
                 <TextInput
@@ -1131,24 +1131,24 @@ const GoalsPage = ({ navigation }) => {
                   </Text>
                 </View>
               )}
-            </View>
 
-            <View style={styles.modalButtonsContainer}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.cancelButton]}
-                onPress={() => setGoalState(prev => ({ ...prev, isModalVisible: false }))}
-              >
-                <Ionicons name="close" size={20} color="#FFFFFF" />
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.saveButton]}
-                onPress={handleSaveGoal}
-              >
-                <Ionicons name="save" size={20} color="#FFFFFF" />
-                <Text style={styles.saveButtonText}>Save</Text>
-              </TouchableOpacity>
-            </View>
+              <View style={styles.modalButtonsContainer}>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.cancelButton]}
+                  onPress={() => setGoalState(prev => ({ ...prev, isModalVisible: false }))}
+                >
+                  <Ionicons name="close" size={20} color="#FFFFFF" />
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.saveButton]}
+                  onPress={handleSaveGoal}
+                >
+                  <Ionicons name="save" size={20} color="#FFFFFF" />
+                  <Text style={styles.saveButtonText}>Save</Text>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
           </View>
         </View>
       </Modal>
