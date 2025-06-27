@@ -328,6 +328,33 @@ const SecurityPage = () => {
     setAlerts(alerts.filter((alert) => alert.id !== id));
   };
 
+  // Fetch the real public IP address using a public API
+  const getPublicIP = async () => {
+    try {
+      const response = await fetch('https://api.ipify.org?format=json');
+      const data = await response.json();
+      return data.ip;
+    } catch (error) {
+      console.error('Error fetching public IP:', error);
+      return null;
+    }
+  };
+
+  // Fetch the city from the public IP using ipinfo.io
+  const getCityFromIP = async (ip) => {
+    try {
+      if (!ip) return 'Unknown';
+      const response = await fetch(`https://api.ipinfo.io/${ip}?token=YOUR_TOKEN`);
+      const data = await response.json();
+      console.log('🌍 IPINFO Response:', data);
+      if (data.country && data.country !== '') return data.country;
+      return 'Unknown';
+    } catch (error) {
+      console.error('Error fetching country from IP (ipinfo.io):', error);
+      return 'Unknown';
+    }
+  };
+
   // Device management functions
   // Device registration happens on SecurityPage mount and session fetch.
   // It only registers once per device (per user, model, name). If the device exists, only last_access is updated.
@@ -335,27 +362,41 @@ const SecurityPage = () => {
     try {
       if (!userSession) return;
       
-      // Get detailed device information using expo-device
-      const deviceName = Device.deviceName || 'Unknown Device';
-      const deviceModel = Device.modelName || 'Unknown Model';
-      const manufacturer = Device.manufacturer || 'Unknown Manufacturer';
-      const brand = Device.brand || 'Unknown Brand';
-      const osVersion = Device.osVersion || 'Unknown';
+      // Get detailed device information using expo-device (no fallbacks)
+      const deviceName = Device.deviceName;
+      const deviceModel = Device.modelName;
+      const modelCode = Device.modelId;
+      const manufacturer = Device.manufacturer;
+      const brand = Device.brand;
+      const osVersion = Device.osVersion;
       
-      // Create a more descriptive device model string
-      const detailedModel = `${brand} ${deviceModel} (${manufacturer})`;
+      // Create a more descriptive device model string (include model code)
+      let detailedModel = '';
+      if (brand && deviceModel && modelCode && manufacturer) {
+        detailedModel = `${brand} ${deviceModel} (${modelCode}, ${manufacturer})`;
+      } else if (brand && deviceModel && manufacturer) {
+        detailedModel = `${brand} ${deviceModel} (${manufacturer})`;
+      } else if (deviceModel) {
+        detailedModel = deviceModel;
+      }
       
+      // Fetch the real public IP address
+      const realIP = await getPublicIP();
+      // Fetch the city from the IP
+      const city = await getCityFromIP(realIP);
+      
+      // Build deviceData only with available fields
       const deviceData = {
         user_id: userSession.user.id,
-        model: detailedModel,
-        name: deviceName,
-        ip_address: '192.168.1.1', // Better placeholder IP
-        location: 'Current Location', // Better placeholder
         authorized: true,
         last_access: new Date().toISOString(),
         created_at: new Date().toISOString()
       };
-
+      if (detailedModel) deviceData.model = detailedModel;
+      if (deviceName) deviceData.name = deviceName;
+      if (realIP) deviceData.ip_address = realIP;
+      if (city) deviceData.location = city;
+      
       // Check if device already exists (should already be registered from MainPage)
       const { data: existingDevice, error: checkError } = await supabase
         .from('device_info')
