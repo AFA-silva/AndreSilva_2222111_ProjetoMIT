@@ -973,9 +973,10 @@ const GoalsPage = ({ navigation }) => {
       <View style={styles.metricCard}>
         <Text style={styles.metricLabel}>Savings Allocated</Text>
         <Text style={[styles.metricValue, { color: getSavingsColor(financialMetrics.totalSavingsPercentage) }]}> 
-          {Number(financialMetrics.totalSavingsPercentage).toFixed(2)}% (
+          {Number(financialMetrics.totalSavingsPercentage).toFixed(2)}%
+        </Text>
+        <Text style={[styles.metricValue, { color: getSavingsColor(financialMetrics.totalSavingsPercentage) }]}> 
           {formatCurrency(((financialMetrics.totalSavingsPercentage / 100) * financialMetrics.availableMoney).toFixed(2))}
-          )
         </Text>
       </View>
     </View>

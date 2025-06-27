@@ -189,6 +189,10 @@ const CalendarPage = () => {
       // Inicializar a data atual ou usar o mês selecionado se fornecido
       const now = selectedMonth ? new Date(selectedMonth) : new Date();
       
+      // Get today's date at midnight for comparison
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
       // Buscar eventos básicos do calendário
       console.log('📊 Fetching calendar events from database...');
       const { data: calendarEvents, error } = await supabase
@@ -344,11 +348,8 @@ const CalendarPage = () => {
         
         const eventDate = new Date(event.date);
         
-        // Verificar se a data é válida
-        if (isNaN(eventDate.getTime())) {
-          console.warn('⚠️ Skipping event with invalid date:', event);
-          return;
-        }
+        // Hide past events
+        if (eventDate < today) return;
         
         // Verificar se esta data está dentro do intervalo visualizado ou próximo mês
         const isInCurrentViewPeriod = 
