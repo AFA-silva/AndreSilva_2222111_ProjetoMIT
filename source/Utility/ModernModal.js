@@ -32,7 +32,7 @@ const ModernModal = ({
   const backdropOpacity = useSharedValue(0);
   const rotation = useSharedValue(-2);
 
-  // Configurações de cores por esquema
+  // Color configurations by scheme
   const colorSchemes = {
     orange: {
       primary: '#FF9800',
@@ -62,7 +62,7 @@ const ModernModal = ({
 
   const colors = colorSchemes[colorScheme] || colorSchemes.orange;
 
-  // Configurações de tamanho
+  // Size configurations
   const sizes = {
     small: Math.min(screenWidth * 0.7, 300),
     medium: Math.min(screenWidth * 0.85, 400),
@@ -73,14 +73,14 @@ const ModernModal = ({
 
   useEffect(() => {
     if (visible) {
-      // Animação de entrada mais elaborada
+      // More elaborate entrance animation
       scale.value = 0;
       opacity.value = 0;
       translateY.value = 50;
       backdropOpacity.value = 0;
       rotation.value = -2;
       
-      // Animação sequencial para entrada
+              // Sequential animation for entrance
       backdropOpacity.value = withTiming(1, { duration: 200 });
       
       withDelay(50, () => {
@@ -111,8 +111,8 @@ const ModernModal = ({
           })
         );
       });
-    } else {
-      // Animação de saída
+          } else {
+        // Exit animation
       const exitDuration = 200;
       opacity.value = withTiming(0, { duration: exitDuration });
       scale.value = withTiming(0.8, { duration: exitDuration });
@@ -166,7 +166,7 @@ const ModernModal = ({
             animatedModalStyle
           ]}
         >
-          {/* Header com animação */}
+          {/* Header with animation */}
           <Animated.View style={[styles.header, animatedHeaderStyle]}>
             <View style={styles.titleContainer}>
               <View style={[styles.titleIcon, { backgroundColor: colors.primary }]}>
@@ -272,7 +272,7 @@ const styles = StyleSheet.create({
 
 export default ModernModal;
 
-// Componente especializado para formulários
+// Specialized component for forms
 export const FormModal = ({ 
   visible, 
   onClose, 
@@ -321,7 +321,7 @@ export const FormModal = ({
   );
 };
 
-// Componente especializado para confirmação de delete
+// Specialized component for delete confirmation
 export const DeleteModal = ({ 
   visible, 
   onClose, 
@@ -555,7 +555,7 @@ const modalStyles = StyleSheet.create({
     flex: 1,
     maxHeight: 400,
   },
-  // Estilos específicos para formulários de receita
+  // Specific styles for income forms
   inputLabel: {
     fontSize: 16,
     fontWeight: '600',
@@ -642,9 +642,9 @@ const modalStyles = StyleSheet.create({
   },
 });
 
-// Componentes específicos para a página de receitas
+// Specific components for the income page
 
-// Modal de formulário para adicionar/editar receitas
+// Form modal for adding/editing incomes
 export const IncomeFormModal = ({ 
   visible, 
   onClose, 
@@ -714,7 +714,7 @@ export const IncomeFormModal = ({
   );
 };
 
-// Modal de confirmação para deletar receitas
+// Confirmation modal for deleting incomes
 export const IncomeDeleteModal = ({ 
   visible, 
   onClose, 
@@ -736,7 +736,7 @@ export const IncomeDeleteModal = ({
   );
 };
 
-// Modal de gerenciamento para categorias e frequências
+// Management modal for categories and frequencies
 export const IncomeManageModal = ({ 
   visible, 
   onClose,

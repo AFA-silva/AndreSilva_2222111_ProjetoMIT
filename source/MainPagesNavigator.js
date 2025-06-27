@@ -39,7 +39,7 @@ const MainPagesNavigator = () => {
         <Stack.Screen name="CalendarPage" component={CalendarPage} />
       </Stack.Navigator>
 
-      {/* Carrega a barra de navegação fora do Stack.Navigator*/}
+      {/* Load the navigation bar outside the Stack.Navigator*/}
       <NavigationBar />
     </>
   );

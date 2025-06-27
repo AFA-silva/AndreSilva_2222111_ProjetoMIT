@@ -176,14 +176,14 @@ const CalendarPage = () => {
         return;
       }
 
-      // Inicializar a data atual ou usar o mês selecionado se fornecido
+      // Initialize current date or use selected month if provided
       const now = selectedMonth ? new Date(selectedMonth) : new Date();
       
       // Get today's date at midnight for comparison
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       
-      // Buscar eventos básicos do calendário
+      // Fetch basic calendar events
       const { data: calendarEvents, error } = await supabase
         .from('calendar_events')
         .select(`
@@ -200,12 +200,12 @@ const CalendarPage = () => {
         throw error;
       }
 
-      // Arrays para armazenar IDs de income e expense para busca posterior
+      // Arrays to store income and expense IDs for later search
       const incomeIds = [];
       const expenseIds = [];
       const goalIds = [];
 
-      // Identificar quais IDs precisamos buscar
+      // Identify which IDs we need to search for
       calendarEvents?.forEach(event => {
         if (event.event_id) {
           if (event.type === 'income') {
@@ -218,12 +218,12 @@ const CalendarPage = () => {
         }
       });
 
-      // Buscar detalhes de income e expense
+      // Fetch income and expense details
       let incomeDetails = {};
       let expenseDetails = {};
       let goalDetails = {};
 
-      // Buscar detalhes de income se houver IDs
+      // Fetch income details if there are IDs
       if (incomeIds.length > 0) {
         const { data: incomeData, error: incomeError } = await supabase
           .from('income')
@@ -239,9 +239,9 @@ const CalendarPage = () => {
           .in('id', incomeIds);
         
         if (incomeError) {
-          console.error('Erro ao buscar income:', incomeError);
+          console.error('Error fetching income:', incomeError);
         } else if (incomeData) {
-          // Criar um mapa de ID para detalhes para fácil acesso
+          // Create an ID to details map for easy access
           incomeDetails = incomeData.reduce((acc, income) => {
             acc[income.id] = income;
             return acc;
@@ -249,7 +249,7 @@ const CalendarPage = () => {
         }
       }
 
-      // Buscar detalhes de expense se houver IDs
+      // Fetch expense details if there are IDs
       if (expenseIds.length > 0) {
         const { data: expenseData, error: expenseError } = await supabase
           .from('expenses')
@@ -265,9 +265,9 @@ const CalendarPage = () => {
           .in('id', expenseIds);
         
         if (expenseError) {
-          console.error('Erro ao buscar expenses:', expenseError);
+          console.error('Error fetching expenses:', expenseError);
         } else if (expenseData) {
-          // Criar um mapa de ID para detalhes para fácil acesso
+          // Create an ID to details map for easy access
           expenseDetails = expenseData.reduce((acc, expense) => {
             acc[expense.id] = expense;
             return acc;
@@ -275,7 +275,7 @@ const CalendarPage = () => {
         }
       }
 
-      // Buscar detalhes de goal se houver IDs
+      // Fetch goal details if there are IDs
       if (goalIds.length > 0) {
         const { data: goalData, error: goalError } = await supabase
           .from('goals')
@@ -287,9 +287,9 @@ const CalendarPage = () => {
           .in('id', goalIds);
         
         if (goalError) {
-          console.error('Erro ao buscar goals:', goalError);
+          console.error('Error fetching goals:', goalError);
         } else if (goalData) {
-          // Criar um mapa de ID para detalhes para fácil acesso
+          // Create an ID to details map for easy access
           goalDetails = goalData.reduce((acc, goal) => {
             acc[goal.id] = goal;
             return acc;
@@ -297,7 +297,7 @@ const CalendarPage = () => {
         }
       }
 
-      // Process calendar events com os detalhes adicionais
+      // Process calendar events with additional details
       const markedDates = {};
       const assignedRecordsMap = {};
       let upcomingEventsList = [];
@@ -311,14 +311,14 @@ const CalendarPage = () => {
       let expenseCount = 0;
       let goalCount = 0;
       
-      // Definir o período relevante para visualização
-      const viewMonthStart = new Date(now.getFullYear(), now.getMonth(), 1); // Primeiro dia do mês atual
-      const viewMonthLastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0); // Último dia do mês atual
-      const nextMonthLastDay = new Date(now.getFullYear(), now.getMonth() + 2, 0); // Último dia do próximo mês
+      // Define relevant period for visualization
+              const viewMonthStart = new Date(now.getFullYear(), now.getMonth(), 1); // First day of current month
+        const viewMonthLastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0); // Last day of current month
+        const nextMonthLastDay = new Date(now.getFullYear(), now.getMonth() + 2, 0); // Last day of next month
       
-      // Processar cada evento do calendário
+              // Process each calendar event
       calendarEvents?.forEach(event => {
-        // Verificação de integridade do evento
+                  // Event integrity check
         if (!event || !event.id || !event.date || !event.type) {
           console.warn('⚠️ Skipping invalid event:', event);
           return;
@@ -329,11 +329,11 @@ const CalendarPage = () => {
         // Hide past events
         if (eventDate < today) return;
         
-        // Verificar se esta data está dentro do intervalo visualizado ou próximo mês
+                  // Check if this date is within the viewed interval or next month
         const isInCurrentViewPeriod = 
           (eventDate >= viewMonthStart && eventDate <= nextMonthLastDay);
         
-        if (!isInCurrentViewPeriod) return; // Pular datas fora do período relevante
+                  if (!isInCurrentViewPeriod) return; // Skip dates outside relevant period
         
         const date = event.date;
         
@@ -352,7 +352,7 @@ const CalendarPage = () => {
         
         // Collect upcoming events for viewed month and next month
         if (eventDate >= viewMonthStart && eventDate <= nextMonthLastDay) {
-          // Enriquecer o evento com detalhes, se disponíveis
+          // Enrich the event with details, if available
           let details = null;
           if (event.event_id) {
             if (event.type === 'income') {
@@ -364,7 +364,7 @@ const CalendarPage = () => {
             }
           }
           
-          // Adicionar detalhes ao evento
+          // Add details to the event
           if (details) {
             event.name = details.name || '';
             event.amount = details.amount || 0;
@@ -373,12 +373,12 @@ const CalendarPage = () => {
             event.frequency_id = details.frequency_id || null;
             event.frequencies = details.frequencies || null;
           } else {
-            // Valores padrão se detalhes não estiverem disponíveis
+            // Default values if details are not available
             event.name = event.type.charAt(0).toUpperCase() + event.type.slice(1) + ' Event';
             event.amount = 0;
           }
           
-          // Criar cópia do evento para esta data específica
+          // Create a copy of the event for this specific date
           const eventCopy = {
             ...event,
             formattedDate: eventDate
@@ -446,7 +446,7 @@ const CalendarPage = () => {
       
       setUpcomingEvents(upcomingEventsList);
       
-      // Armazenar o mês atual que está sendo visualizado
+      // Store the current month being viewed
       setCurrentViewMonth(now);
     } catch (error) {
       console.error('Error fetching events:', error);
@@ -518,10 +518,10 @@ const CalendarPage = () => {
 
       if (error) throw error;
       
-      // Filtrar registros que já estão associados à data selecionada
+      // Filter out records that are already assigned to the selected date
       const alreadyAssignedIds = new Set();
       
-      // Verificar quais registros já estão associados à data selecionada
+      // Check which records are already assigned to the selected date
       if (assignedRecords[selectedDate]) {
         assignedRecords[selectedDate].forEach(key => {
           if (key.startsWith(`${type}-`)) {
@@ -531,10 +531,10 @@ const CalendarPage = () => {
         });
       }
       
-      // Filtrar registros que não estão associados
+      // Filter out records that are not assigned
       const filteredData = data?.filter(item => !alreadyAssignedIds.has(item.id.toString())) || [];
       
-      // Formatar os dados para exibição
+      // Format the data for display
       const formattedData = filteredData.map(item => ({
         ...item,
         displayText: `${item.name} - ${item.categories?.name || 'No category'} - ${Number(item.amount).toFixed(2)}${userCurrency}`
@@ -716,7 +716,7 @@ const CalendarPage = () => {
 
   const handleDeleteEvent = async (eventId) => {
     try {
-      // Encontrar o evento nos eventos selecionados
+      // Find the event in selected events
       const eventToBeDeleted = selectedEvents.find(event => event.id === eventId) || 
                            filteredEvents.find(event => event.id === eventId);
       if (!eventToBeDeleted) {
@@ -729,7 +729,7 @@ const CalendarPage = () => {
         showError('Goals must be removed directly on the Goals page.');
         return;
       }
-      // Definir o tipo de exclusão com base no evento ser recorrente ou não
+      // Define deletion type based on event being recurring or not
       setEventToDelete(eventToBeDeleted);
       setIsRecurringDelete(eventToBeDeleted.is_recurring);
       setDeleteModalVisible(true);
@@ -739,7 +739,7 @@ const CalendarPage = () => {
     }
   };
 
-  // Função simplificada para excluir evento individual
+  // Simplified function to delete individual event
   const deleteCurrentEvent = async (eventToDelete, eventId) => {
     try {
       
@@ -754,7 +754,7 @@ const CalendarPage = () => {
         throw error;
       }
       
-      // Atualizar estado local para remover o evento
+      // Update local state to remove the event
       if (showFilteredEvents) {
         setFilteredEvents(currentEvents => 
           currentEvents.filter(event => event.id !== eventId)
@@ -765,7 +765,7 @@ const CalendarPage = () => {
         );
       }
       
-      // Atualizar os eventos do calendário
+      // Update calendar events
       await fetchEvents();
       
     } catch (error) {
@@ -774,7 +774,7 @@ const CalendarPage = () => {
     }
   };
 
-  // Função para excluir todos os eventos recorrentes com o mesmo event_id
+  // Function to delete all recurring events with the same event_id
   const deleteAllRecurringEvents = async (eventToDelete, eventId) => {
     try {
       
@@ -790,7 +790,7 @@ const CalendarPage = () => {
         throw error;
       }
       
-      // Atualizar os eventos do calendário
+      // Update calendar events
       await fetchEvents();
       
     } catch (error) {
@@ -821,14 +821,14 @@ const CalendarPage = () => {
     );
   };
 
-  // Função getEventDisplayText para obter o nome correto do evento
+  // Function getEventDisplayText to get the correct event name
   const getEventDisplayText = (event) => {
-    // Se o evento tiver nome específico, usá-lo
+    // If the event has a specific name, use it
     if (event.name && event.name !== 'Income Event' && event.name !== 'Expense Event' && event.name !== 'Goal Event') {
       return event.name;
     }
     
-    // Caso contrário, usar o tipo genérico
+    // Otherwise, use generic type
     return `${event.type.charAt(0).toUpperCase() + event.type.slice(1)} Event`;
   };
 
@@ -837,13 +837,13 @@ const CalendarPage = () => {
     
     // Calculate totals by type
     const totals = selectedEvents.reduce((acc, event) => {
-      // Se o evento tiver um valor fixo, usá-lo diretamente
+      // If the event has a fixed value, use it directly
       if (event.amount > 0) {
         acc[event.type] = (acc[event.type] || 0) + Number(event.amount);
         return acc;
       }
       
-      // Caso contrário, tentar extrair do campo description
+      // Otherwise, try to extract from description
       const amountMatch = event.description && typeof event.description === 'string' 
         ? event.description.match(/- ([\d,\.]+)[€$£¥]/) 
         : null;
@@ -857,12 +857,12 @@ const CalendarPage = () => {
       return acc;
     }, {});
     
-    // Calcular o saldo total (income - expense)
+    // Calculate total balance (income - expense)
     const incomeTotal = totals.income || 0;
     const expenseTotal = totals.expense || 0;
     const balance = incomeTotal - expenseTotal;
     
-    // Determinar a cor com base no saldo (positivo = verde, negativo = vermelho)
+    // Determine color based on balance (positive = green, negative = red)
     const balanceColor = balance >= 0 ? '#4CAF50' : '#F44336';
     
     return (
@@ -870,7 +870,7 @@ const CalendarPage = () => {
         <Text style={styles.eventSummaryTitle}>Summary</Text>
         
         <View style={styles.eventSummaryContent}>
-          {/* Mostrar income se existir */}
+          {/* Show income if exists */}
           {totals.income !== undefined && (
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Income:</Text>
@@ -880,7 +880,7 @@ const CalendarPage = () => {
             </View>
           )}
           
-          {/* Mostrar expense se existir */}
+          {/* Show expense if exists */}
           {totals.expense !== undefined && (
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Expenses:</Text>
@@ -890,7 +890,7 @@ const CalendarPage = () => {
             </View>
           )}
           
-          {/* Sempre mostrar o saldo se houver income ou expense */}
+          {/* Always show balance if there's income or expense */}
           {(totals.income !== undefined || totals.expense !== undefined) && (
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Balance:</Text>
@@ -909,13 +909,13 @@ const CalendarPage = () => {
     
     // Calculate totals by type
     const totals = selectedEvents.reduce((acc, event) => {
-      // Se o evento tiver um valor fixo, usá-lo diretamente
+      // If the event has a fixed value, use it directly
       if (event.amount > 0) {
         acc[event.type] = (acc[event.type] || 0) + Number(event.amount);
         return acc;
       }
       
-      // Caso contrário, tentar extrair do campo description
+      // Otherwise, try to extract from description
       const amountMatch = event.description && typeof event.description === 'string' 
         ? event.description.match(/- ([\d,\.]+)[€$£¥]/) 
         : null;
@@ -929,12 +929,12 @@ const CalendarPage = () => {
       return acc;
     }, {});
     
-    // Calcular o saldo total (income - expense)
+    // Calculate total balance (income - expense)
     const incomeTotal = totals.income || 0;
     const expenseTotal = totals.expense || 0;
     const balance = incomeTotal - expenseTotal;
     
-    // Determinar a cor com base no saldo (positivo = verde, negativo = vermelho)
+    // Determine color based on balance (positive = green, negative = red)
     const balanceColor = balance >= 0 ? '#4CAF50' : '#F44336';
     
     return (
@@ -968,19 +968,19 @@ const CalendarPage = () => {
           addExistingToCalendar(item, recordType);
         }}
       >
-        {/* Nome do registro */}
+        {/* Record name */}
         <Text style={styles.recordText}>
           {item.name}
         </Text>
         
         <View style={styles.recordInfoRow}>
-          {/* Coluna esquerda: categoria e frequência */}
+          {/* Left column: category and frequency */}
           <View style={styles.recordInfoColumn}>
             <Text style={styles.recordCategory}>
               {item.categories?.name || 'Other'}
             </Text>
             
-            {/* Mostrar frequência se disponível */}
+            {/* Show frequency if available */}
             {item.frequencies && (
               <Text style={styles.recordFrequency}>
                 {getFrequencyDisplayName(item.frequencies.days)} ({item.frequencies.name || 'Custom'})
@@ -993,7 +993,7 @@ const CalendarPage = () => {
             )}
           </View>
           
-          {/* Valor à direita */}
+          {/* Value to the right */}
           <Text style={[
             styles.recordAmount,
             { color: recordType === 'income' ? '#4CAF50' : '#F44336' }
@@ -1210,21 +1210,21 @@ const CalendarPage = () => {
     );
   };
 
-  // Função renderEventItem atualizada para mostrar todas as informações solicitadas
+  // Function renderEventItem updated to show all requested information
   const renderEventItem = (event, key) => {
-    // Usar o nome real do evento
+    // Use the real event name
     const displayText = getEventDisplayText(event);
     
-    // Determinar o texto de recorrência
+    // Determine recurrence text
     const recurrenceText = event.is_recurring ? 'Recurring' : 'One-time';
     
-    // Determinar a frequência a ser exibida
+    // Determine frequency to be displayed
     let frequencyText = event.is_recurring ? 'Monthly' : 'One-time';
     if (event.frequencies && event.frequencies.name) {
       frequencyText = event.frequencies.name;
     }
     
-    // Categoria (se disponível)
+    // Category (if available)
     const categoryText = event.category || 'Other';
     
     return (
@@ -1240,7 +1240,7 @@ const CalendarPage = () => {
             </Text>
           </View>
           
-          {/* Botão de delete */}
+          {/* Delete button */}
           <TouchableOpacity
             onPress={() => handleDeleteEvent(event.id)}
             style={styles.deleteButton}
@@ -1250,17 +1250,17 @@ const CalendarPage = () => {
         </View>
         
         <View style={styles.eventDetailsContainer}>
-          {/* Nome do evento */}
+          {/* Event name */}
           <Text style={styles.eventName}>{displayText}</Text>
           
           <View style={styles.eventInfoRow}>
-            {/* Coluna esquerda: categoria e frequência */}
+            {/* Left column: category and frequency */}
             <View style={styles.eventInfoColumn}>
               <Text style={styles.eventCategory}>{categoryText}</Text>
               <Text style={styles.eventFrequency}>{frequencyText}</Text>
             </View>
             
-            {/* Valor à direita */}
+            {/* Value to the right */}
             {event.amount > 0 && (
               <Text style={[
                 styles.eventAmount,
@@ -1275,40 +1275,40 @@ const CalendarPage = () => {
     );
   };
 
-  // Função para mostrar eventos por tipo
+  // Function to show events by type
   const showEventsByType = (type) => {
-    // Verificar o mês atual sendo visualizado
+    // Check current month being viewed
     const year = currentViewMonth.getFullYear();
     const month = currentViewMonth.getMonth();
     
-    // Filtrar todos os eventos do mês atual do tipo especificado
+    // Filter all events of current month of specified type
     const filteredEventsList = [];
     
-    // Percorrer todos os dias do mês
+    // Loop through all days of the month
     Object.keys(events).forEach(dateKey => {
       const eventDate = new Date(dateKey);
-      // Verificar se a data está no mês atual
+      // Check if date is in current month
       if (eventDate.getMonth() === month && eventDate.getFullYear() === year) {
-        // Filtrar eventos do tipo especificado
+        // Filter events of specified type
         const eventsOfType = events[dateKey]?.events?.filter(event => event.type === type) || [];
-        // Adicionar à lista de eventos filtrados
+        // Add to filtered events list
         filteredEventsList.push(...eventsOfType);
       }
     });
     
-    // Atualizar estados
+    // Update states
     setFilteredEvents(filteredEventsList);
     setFilteredEventType(type);
     setShowFilteredEvents(true);
   };
 
-  // Renderizar eventos filtrados por tipo
+  // Render filtered events by type
   const renderFilteredEvents = () => {
-    // Nome do mês atual para o título
+    // Current month name for title
     const currentMonthName = currentViewMonth.toLocaleString('en-US', { month: 'long' });
     const currentYear = currentViewMonth.getFullYear();
     
-    // Calcular totais e ordenar eventos por data
+    // Calculate totals and sort events by date
     const totalAmount = filteredEvents.reduce((sum, event) => sum + Number(event.amount || 0), 0);
     const sortedEvents = [...filteredEvents].sort((a, b) => new Date(a.date) - new Date(b.date));
     
@@ -1403,7 +1403,7 @@ const CalendarPage = () => {
                         {item.is_recurring ? 'Recurring' : 'One-time'}
                       </Text>
                       
-                      {/* Mostrar valor se disponível */}
+                      {/* Show value if available */}
                       {item.amount > 0 && (
                         <Text style={[
                           styles.filteredEventAmount,
@@ -1445,14 +1445,14 @@ const CalendarPage = () => {
     );
   };
 
-  // Atualizar renderização de upcoming events
+  // Update render for upcoming events
   const renderMonthlyStats = () => {
-    // Usar o mês atual visualizado no calendário
+    // Use current month being viewed in calendar
     const currentMonthName = currentViewMonth.toLocaleString('en-US', { month: 'long' });
     const currentMonthYear = currentViewMonth.getFullYear();
     
-    // Upcoming events já são filtrados corretamente na função fetchEvents
-    // usando o mês visualizado como base, então não precisamos filtrar novamente
+    // Upcoming events are already filtered correctly in fetchEvents function
+    // using viewed month as base, so we don't need to filter again
     
     return (
       <View style={styles.monthlyStatsContainer}>
@@ -1491,7 +1491,7 @@ const CalendarPage = () => {
           
           {upcomingEvents.length > 0 ? (
             upcomingEvents.map((event, index) => {
-              // Usar o nome real do evento
+              // Use the real event name
               const displayText = getEventDisplayText(event);
               
               const eventDate = new Date(event.date);
@@ -1535,7 +1535,7 @@ const CalendarPage = () => {
     );
   };
 
-  // Adicionar useEffect para buscar a moeda do usuário
+  // Add useEffect to fetch user currency
   useEffect(() => {
     const fetchUserCurrency = async () => {
       try {
@@ -1550,8 +1550,8 @@ const CalendarPage = () => {
           .single();
 
         if (error) {
-          console.error('Erro ao buscar moeda do usuário:', error);
-          return; // Manter o símbolo € como padrão em caso de erro
+          console.error('Error fetching user currency:', error);
+          return; // Keep € symbol as default in case of error
         }
         
         if (data && data.actual_currency) {
@@ -1576,7 +1576,7 @@ const CalendarPage = () => {
         </View>
       )}
       
-      {/* Exibir eventos filtrados quando o usuário clicar em um card */}
+      {/* Show filtered events when user clicks on a card */}
       {showFilteredEvents && renderFilteredEvents()}
       
       <ScrollView style={styles.container}>
@@ -1596,7 +1596,7 @@ const CalendarPage = () => {
             minDate={currentDate}
             disableAllTouchEventsForDisabledDays={true}
             onMonthChange={(month) => {
-              // Quando o mês é alterado no calendário, buscar eventos para esse mês
+              // When month is changed in calendar, fetch events for that month
               fetchEvents(month.dateString);
             }}
             theme={{

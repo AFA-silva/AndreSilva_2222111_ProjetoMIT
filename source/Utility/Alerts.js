@@ -2,8 +2,14 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform, Modal } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 
-// Componente de Alert simples (notificação no topo)
-const Alert = ({ message, type = 'info', onClose }) => {
+// Simple Alert component (top notification)
+const Alert = ({ 
+  visible, 
+  message, 
+  type = 'info', 
+  duration = 3000, 
+  onClose 
+}) => {
   const getBackgroundColor = () => {
     switch (type) {
       case 'success':
@@ -27,14 +33,16 @@ const Alert = ({ message, type = 'info', onClose }) => {
   );
 };
 
-// Componente de Modal de Confirmação
-const ConfirmModal = ({ 
+// Confirmation Modal component
+const ConfirmationModal = ({ 
   visible, 
   title, 
   message, 
-  buttons, 
-  onClose,
-  type = 'info'
+  confirmText = 'Confirm', 
+  cancelText = 'Cancel',
+  onConfirm, 
+  onCancel,
+  type = 'warning' // warning, danger, info
 }) => {
   const getIconAndColor = () => {
     switch (type) {
@@ -100,118 +108,139 @@ const ConfirmModal = ({
   );
 };
 
-const styles = StyleSheet.create({
-  // Estilos do Alert original (notificação no topo)
-  alertContainer: {
+// Original Alert styles (top notification)
+const alertStyles = StyleSheet.create({
+  container: {
     position: 'absolute',
-    top: 40,
-    left: 10,
-    right: 10,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 12,
-    borderRadius: 8,
-    elevation: 9999, // Para Android
-    zIndex: 999999, // Para iOS
-    ...(Platform.OS === 'web' ? {
-      boxShadow: '0px 2px 3.84px rgba(0, 0, 0, 0.25)'
-    } : {
-      shadowColor: '#000',
-      shadowOffset: {
-        width: 0,
-        height: 2,
-      },
-      shadowOpacity: 0.25,
-      shadowRadius: 3.84,
-    }),
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 1000,
+    paddingHorizontal: 20,
+    paddingTop: Platform.OS === 'ios' ? 50 : 30,
   },
-  alertText: {
-    color: 'white',
+  alert: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 10,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+    borderLeftWidth: 4,
+  },
+  success: {
+    borderLeftColor: '#4CAF50',
+    backgroundColor: '#E8F5E8',
+  },
+  error: {
+    borderLeftColor: '#F44336',
+    backgroundColor: '#FFEBEE',
+  },
+  warning: {
+    borderLeftColor: '#FF9800',
+    backgroundColor: '#FFF3E0',
+  },
+  info: {
+    borderLeftColor: '#2196F3',
+    backgroundColor: '#E3F2FD',
+  },
+  message: {
     fontSize: 14,
-    flexShrink: 1,
+    color: '#333',
+    lineHeight: 20,
   },
-  closeButton: {
-    padding: 5,
+  successText: {
+    color: '#2E7D32',
   },
-  
-  // Estilos do Modal de Confirmação
-  modalOverlay: {
+  errorText: {
+    color: '#C62828',
+  },
+  warningText: {
+    color: '#E65100',
+  },
+  infoText: {
+    color: '#1565C0',
+  },
+});
+
+// Confirmation Modal styles
+const modalStyles = StyleSheet.create({
+  overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
   },
-  modalContainer: {
-    backgroundColor: 'white',
-    borderRadius: 20,
+  modal: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
     padding: 24,
     width: '100%',
-    maxWidth: 350,
+    maxWidth: 400,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.25,
-    shadowRadius: 16,
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 4.65,
     elevation: 8,
   },
-  modalHeader: {
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-    marginTop: 12,
+  title: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 12,
     textAlign: 'center',
   },
-  modalMessage: {
-    fontSize: 16,
+  message: {
+    fontSize: 14,
     color: '#666',
-    textAlign: 'center',
-    lineHeight: 22,
+    lineHeight: 20,
     marginBottom: 24,
+    textAlign: 'center',
   },
-  modalButtonsContainer: {
-    flexDirection: 'column',
+  buttonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     gap: 12,
   },
-  modalButton: {
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderRadius: 12,
+  button: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
     alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 48,
-    width: '100%',
-  },
-  defaultButton: {
-    backgroundColor: '#3F51B5',
   },
   cancelButton: {
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#f5f5f5',
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: '#ddd',
   },
-  destructiveButton: {
-    backgroundColor: '#F44336',
+  confirmButton: {
+    backgroundColor: '#007AFF',
   },
-  modalButtonText: {
+  dangerButton: {
+    backgroundColor: '#FF3B30',
+  },
+  buttonText: {
     fontSize: 16,
-    fontWeight: '600',
-  },
-  defaultButtonText: {
-    color: 'white',
+    fontWeight: '500',
   },
   cancelButtonText: {
     color: '#666',
   },
-  destructiveButtonText: {
-    color: 'white',
+  confirmButtonText: {
+    color: '#fff',
   },
 });
 
 // Exportar ambos os componentes
 export default Alert;
-export { Alert, ConfirmModal };
+export { Alert, ConfirmationModal };

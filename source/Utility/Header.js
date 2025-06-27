@@ -24,7 +24,7 @@ const Header = ({ title }) => {
         end={{ x: 1, y: 0 }}
         style={styles.headerContainer}
       >
-        {/* Círculo decorativo */}
+        {/* Decorative circle */}
         <View style={styles.decorativeCircle} />
         
         <View style={styles.titleContainer}>

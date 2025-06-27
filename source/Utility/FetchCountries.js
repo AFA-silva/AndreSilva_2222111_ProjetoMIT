@@ -64,7 +64,7 @@ export const fetchCountries = async () => {
   }
 };
 
-// Função para obter moeda pelo código ou nome do país
+// Function to get currency by country code or name
 export const getCurrencyByCountryCode = async (countryCodeOrName) => {
   try {
     const countries = await fetchCountries();
@@ -79,7 +79,7 @@ export const getCurrencyByCountryCode = async (countryCodeOrName) => {
       };
     }
     
-    // Procurar por código ou por nome do país
+    // Search by code or country name
     const country = countries.find(
       c => c.code === countryCodeOrName || 
            c.name === countryCodeOrName ||
@@ -111,7 +111,7 @@ export const getCurrencyByCountryCode = async (countryCodeOrName) => {
   }
 };
 
-// Armazenar em cache a moeda atual para evitar múltiplas chamadas à API
+// Cache current currency to avoid multiple API calls
 let currentCurrencyInfo = null;
 
 // Flag para indicar se os valores devem ser convertidos
@@ -120,7 +120,7 @@ let shouldConvertValues = true;
 // Array de callbacks para notificar componentes quando a moeda for alterada
 const currencyChangeListeners = [];
 
-// Registrar um componente para receber notificações de alteração de moeda
+// Register a component to receive currency change notifications
 export const addCurrencyChangeListener = (callback) => {
   if (typeof callback === 'function' && !currencyChangeListeners.includes(callback)) {
     currencyChangeListeners.push(callback);
@@ -129,7 +129,7 @@ export const addCurrencyChangeListener = (callback) => {
   return false;
 };
 
-// Remover um listener quando o componente for desmontado
+// Remove a listener when component is unmounted
 export const removeCurrencyChangeListener = (callback) => {
   const index = currencyChangeListeners.indexOf(callback);
   if (index !== -1) {
@@ -139,7 +139,7 @@ export const removeCurrencyChangeListener = (callback) => {
   return false;
 };
 
-// Notificar todos os componentes registrados sobre alteração de moeda
+// Notify all registered components about currency change
 const notifyCurrencyChange = () => {
   currencyChangeListeners.forEach(callback => {
     try {
@@ -150,21 +150,21 @@ const notifyCurrencyChange = () => {
   });
 };
 
-// Definir a moeda atual para uso em toda a aplicação
+// Define current currency for use throughout the application
 export const setCurrentCurrency = async (countryCodeOrName) => {
   try {
     let currencyData = null;
     
-    // Se é uma string, assumimos que é um código ou nome de país
+    // If it's a string, assume it's a country code or name
     if (typeof countryCodeOrName === 'string') {
       currencyData = await getCurrencyByCountryCode(countryCodeOrName);
     } 
-    // Se é um objeto, assumimos que já é um objeto de moeda
+          // If it's an object, assume it's already a currency object
     else if (typeof countryCodeOrName === 'object' && countryCodeOrName !== null) {
       currencyData = countryCodeOrName;
     }
     
-    // Se ainda não temos dados de moeda válidos, usar EUR como padrão
+          // If we still don't have valid currency data, use EUR as default
     if (!currencyData || !currencyData.code) {
       currencyData = {
         code: 'EUR',
@@ -173,7 +173,7 @@ export const setCurrentCurrency = async (countryCodeOrName) => {
       };
     }
     
-    // Validar que os dados de moeda são válidos
+          // Validate that currency data is valid
     if (!currencyData.code || !currencyData.symbol) {
       console.error('Invalid currency data structure:', currencyData);
       // Use EUR as fallback
@@ -185,14 +185,14 @@ export const setCurrentCurrency = async (countryCodeOrName) => {
     }
     
     try {
-      // Atualizar na Supabase (única fonte de verdade)
+      // Update in Supabase (single source of truth)
       await updateUserCurrencyPreference(currencyData);
     } catch (dbError) {
       console.error('Error saving currency to database:', dbError);
       // Continue with local update even if database fails
     }
     
-    // Atualizar o cache local
+          // Update local cache
     currentCurrencyInfo = currencyData;
     
     // Notificar todos os componentes registrados
@@ -216,23 +216,23 @@ export const setCurrentCurrency = async (countryCodeOrName) => {
   }
 };
 
-// Função para carregar a moeda salva no início do aplicativo
+// Function to load saved currency at app startup
 export const loadSavedCurrency = async () => {
   try {
     // Carregar diretamente do Supabase
     const currencyInfo = await fetchUserCurrencyPreference();
     
-    // Verificar se a moeda já está definida e é a mesma
-    // Isso evita notificações desnecessárias que podem causar loops
+    // Check if currency is already defined and is the same
+    // This avoids unnecessary notifications that could cause loops
     const isSameCurrency = currentCurrencyInfo && 
       currentCurrencyInfo.code === currencyInfo.code;
     
     if (!isSameCurrency) {
       currentCurrencyInfo = currencyInfo;
-      // Só notificar se realmente houve mudança
+              // Only notify if there was actually a change
       notifyCurrencyChange();
     } else {
-      // Apenas atualizar a referência sem notificar
+              // Just update the reference without notifying
       currentCurrencyInfo = currencyInfo;
     }
     
@@ -245,91 +245,76 @@ export const loadSavedCurrency = async () => {
 
 // Obter a moeda atual do cache
 export const getCurrentCurrency = () => {
-  // Verificar se temos a moeda em cache
+  // If we don't have it, start an asynchronous search and throw error
   if (!currentCurrencyInfo) {
-    // Se não temos, iniciar uma busca assíncrona e lançar erro
-    if (!getCurrentCurrency.fetchingFromSupabase) {
-      getCurrentCurrency.fetchingFromSupabase = true;
-      
-      // Iniciar busca assíncrona
-      (async () => {
-        try {
-          currentCurrencyInfo = await fetchUserCurrencyPreference();
-          notifyCurrencyChange();
-        } catch (error) {
-          console.error('Erro ao buscar moeda do Supabase:', error);
-        } finally {
-          getCurrentCurrency.fetchingFromSupabase = false;
-        }
-      })();
-    }
+    getCurrentCurrency.fetchingFromSupabase = true;
     
-    // Não temos valor até o carregamento ser concluído
-    throw new Error('Currency not yet loaded. Please initialize currency first with loadSavedCurrency()');
+    // Start asynchronous search
+    loadSavedCurrency().then(() => {
+      getCurrentCurrency.fetchingFromSupabase = false;
+    }).catch(() => {
+      getCurrentCurrency.fetchingFromSupabase = false;
+    });
+    
+    // We don't have a value until loading is completed
+    throw new Error('Currency not loaded yet');
   }
   return currentCurrencyInfo;
 };
 
-// Função para formatar valores monetários com o símbolo da moeda atual
+// Function to format monetary values with current currency symbol
 export const formatCurrency = (value, forcedSymbol = null) => {
-  // Se um símbolo foi fornecido, usá-lo diretamente
+  // If a symbol was provided, use it directly
   if (forcedSymbol) {
-    // Garantir que o valor seja um número
+    // Ensure the value is a number
     const numValue = parseFloat(value);
-    
     if (isNaN(numValue)) {
       return `${forcedSymbol} 0.00`;
     }
     
-    // Formatar o número com 2 casas decimais
+    // Format the number with 2 decimal places
     const formattedValue = numValue.toFixed(2);
-    
-    // Retornar o valor formatado com o símbolo da moeda e um espaço
+    // Return the formatted value with the currency symbol and a space
     return `${forcedSymbol} ${formattedValue}`;
   }
   
-  // Caso contrário, tentar obter do cache atual
-  try {
-    const currency = getCurrentCurrency();
-    const symbol = currency?.symbol;
-    if (!symbol) {
-      return `$ ${parseFloat(value).toFixed(2)}`;
-    }
-    
-    // Garantir que o valor seja um número
+  // Otherwise, try to get from current cache
+  const currentCurrency = getCurrentCurrency();
+  if (currentCurrency && currentCurrency.symbol) {
+    // Ensure the value is a number
     const numValue = parseFloat(value);
-    
     if (isNaN(numValue)) {
-      return `${symbol} 0.00`;
+      return `${currentCurrency.symbol} 0.00`;
     }
     
-    // Formatar o número com 2 casas decimais
+    // Format the number with 2 decimal places
     const formattedValue = numValue.toFixed(2);
-    
-    // Retornar o valor formatado com o símbolo da moeda e um espaço
-    return `${symbol} ${formattedValue}`;
-  } catch (error) {
-    // Se não foi possível obter a moeda, usar $ como padrão
-    console.log('Currency not loaded yet, using default symbol');
-    const numValue = parseFloat(value);
-    return `$ ${isNaN(numValue) ? '0.00' : numValue.toFixed(2)}`;
+    // Return the formatted value with the currency symbol and a space
+    return `${currentCurrency.symbol} ${formattedValue}`;
   }
+  
+  // If we couldn't get the currency, use $ as default
+  const numValue = parseFloat(value);
+  if (isNaN(numValue)) {
+    return '$ 0.00';
+  }
+  return `$ ${numValue.toFixed(2)}`;
 };
 
-// Armazenar em cache as taxas de câmbio para evitar múltiplas chamadas à API
+// Cache exchange rates to avoid multiple API calls
 let exchangeRatesCache = {
   rates: {},
   lastUpdated: null,
   baseCurrency: null
 };
 
-// Configurações da API - substitua pela sua chave de API
-const EXCHANGE_API_KEY = 'de3d3cc388a2679655798ec7'; // Adicionada chave pública
-const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 horas em milissegundos
+// API configuration - replace with your API key
+const EXCHANGE_API_KEY = 'de3d3cc388a2679655798ec7'; // Added public key
+const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
 
 // No longer using fixed rates
 
-// Função para buscar taxas de câmbio atualizadas
+// Function to fetch updated exchange rates
 export const fetchExchangeRates = async (baseCurrency = 'EUR') => {
   try {
     // Verificar cache primeiro
@@ -342,94 +327,91 @@ export const fetchExchangeRates = async (baseCurrency = 'EUR') => {
       return exchangeRatesCache.rates;
     }
 
-    // Se não houver cache válido, buscar da API
+    // If there's no valid cache, fetch from API
     try {
       const response = await fetch(`https://v6.exchangerate-api.com/v6/${EXCHANGE_API_KEY}/latest/${baseCurrency}`);
       const data = await response.json();
       
       if (data.result === 'success') {
-        // Atualizar cache
+        // Update cache
         exchangeRatesCache = {
           rates: data.conversion_rates,
-          lastUpdated: now,
-          baseCurrency
+          lastUpdated: new Date(),
+          baseCurrency: baseCurrency
         };
+        
         return data.conversion_rates;
       } else {
-        console.error(`Erro na API: ${data.error_type}`);
-        throw new Error(`Erro na API: ${data.error_type}`);
+        throw new Error(data.error || 'Failed to fetch exchange rates');
       }
     } catch (apiError) {
-      console.error('Erro ao buscar taxas de câmbio da API:', apiError);
+      console.error('Error fetching exchange rates from API:', apiError);
       
       // No longer using fixed rates as a fallback
-      throw new Error('Currently our currency exchange services are unavailable. Try again later!');
+      throw new Error('Exchange rate service unavailable');
     }
   } catch (error) {
-    console.error('Erro geral ao buscar taxas de câmbio:', error);
+    console.error('General error fetching exchange rates:', error);
     
     // No longer using cache or fixed rates
     throw new Error('Currently our currency exchange services are unavailable. Try again later!');
   }
 };
 
-// Função para converter valores entre moedas
+// Function to convert values between currencies
 export const convertCurrency = async (amount, fromCurrency, toCurrency) => {
   try {
-    // Garantir que o valor seja um número
+    // Ensure the value is a number
     const numAmount = parseFloat(amount);
     if (isNaN(numAmount)) {
-      throw new Error('Valor inválido para conversão');
+      throw new Error('Invalid value for conversion');
     }
     
-    // Se as moedas forem iguais, não precisa converter
+    // If currencies are the same, no need to convert
     if (fromCurrency === toCurrency) {
       return numAmount;
     }
     
-    // Buscar as taxas com base na moeda de origem
+    // Fetch rates based on source currency
     const rates = await fetchExchangeRates(fromCurrency);
     
-    // Verificar se a taxa para a moeda de destino existe
+    // Check if the rate for the target currency exists
     if (!rates[toCurrency]) {
-      throw new Error(`Taxa de câmbio não disponível para ${toCurrency}`);
+      throw new Error(`Exchange rate not available for ${toCurrency}`);
     }
     
-    // Converter o valor
-    const convertedAmount = numAmount * rates[toCurrency];
-    return convertedAmount;
+    return numAmount * rates[toCurrency];
   } catch (error) {
-    console.error('Erro ao converter moeda:', error);
+    console.error('Error converting currency:', error);
     return null;
   }
 };
 
-// Função para formatar valores monetários com uma moeda específica
-export const formatCurrencyWithCode = async (value, currencyCode = null) => {
+// Function to format monetary values with a specific currency
+export const formatCurrencyWithCode = async (value, currencyCode) => {
   try {
-    // Se não especificar moeda, usar a atual
+    // If no currency specified, use current one
     if (!currencyCode) {
       return formatCurrency(value);
     }
     
-    // Obter informações da moeda
-    const countries = await fetchCountries();
-    const country = countries.find(c => c.currency === currencyCode);
+    // Get currency information
+    const country = await getCurrencyByCountryCode(currencyCode);
     
-    // Se não encontrar, usar formatação padrão
+    // If not found, use default formatting
     if (!country || !country.currencySymbol) {
-      return `${currencyCode} ${parseFloat(value).toFixed(2)}`;
+      return `${value}`;
     }
     
-    // Formatar com o símbolo da moeda específica e um espaço
+    // Format with the specific currency symbol and a space
     return `${country.currencySymbol} ${parseFloat(value).toFixed(2)}`;
   } catch (error) {
-    console.error('Erro ao formatar com código de moeda:', error);
+    console.error('Error formatting with currency code:', error);
     return `${value}`;
   }
 };
 
-// Função para verificar se os valores devem ser convertidos
+// Function to check if values should be converted
 export const shouldConvertCurrencyValues = () => {
   return shouldConvertValues;
 };

@@ -44,7 +44,7 @@ const IncomePage = ({ navigation }) => {
   const [showManageModal, setShowManageModal] = useState(false);
   const [activeManageTab, setActiveManageTab] = useState('categories');
 
-  // Estados para modais de categoria/frequência
+  // States for category/frequency modals
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showFrequencyModal, setShowFrequencyModal] = useState(false);
   const [categoryModalMode, setCategoryModalMode] = useState('add'); // 'add' or 'edit'
@@ -54,7 +54,7 @@ const IncomePage = ({ navigation }) => {
   const [categoryFormData, setCategoryFormData] = useState({ name: '' });
   const [frequencyFormData, setFrequencyFormData] = useState({ name: '', days: '' });
   
-  // Estados para modais de exclusão
+  // States for deletion modals
   const [showDeleteCategoryModal, setShowDeleteCategoryModal] = useState(false);
   const [showDeleteFrequencyModal, setShowDeleteFrequencyModal] = useState(false);
   const [categoryToDelete, setCategoryToDelete] = useState(null);
@@ -87,7 +87,7 @@ const IncomePage = ({ navigation }) => {
       setOriginalCurrency(data.actual_currency);
       return data.actual_currency;
     } catch (error) {
-      console.error('[IncomePage] Erro ao carregar moeda do usuário:', error);
+      console.error('[IncomePage] Error loading user currency:', error);
       throw new Error('Cannot determine user currency');
     }
   };
@@ -108,17 +108,17 @@ const IncomePage = ({ navigation }) => {
       // Armazenar os valores originais
       setOriginalIncomes(data || []);
       
-      // Obter a moeda do usuário para usar na conversão
+      // Get user currency to use in conversion
       const origCurrency = await loadUserCurrency();
       
       // Converter valores para a moeda atual
       await convertIncomesToCurrentCurrency(data || [], origCurrency);
       
-      // Limpar o filtro quando novos dados são carregados
+      // Clear filter when new data is loaded
       setFilteredIncomes([]);
       setSelectedCategoryId(null);
       
-      processChartData(data || []); // Processar os dados para o gráfico
+      processChartData(data || []); // Process data for chart
     } catch (error) {
       console.error('Unexpected error fetching incomes:', error);
     } finally {
@@ -126,7 +126,7 @@ const IncomePage = ({ navigation }) => {
     }
   };
 
-  // Função para converter os valores para a moeda atual
+  // Function to convert values to current currency
   const convertIncomesToCurrentCurrency = async (data, origCurrency) => {
     try {
       if (!data || data.length === 0) {
@@ -156,24 +156,24 @@ const IncomePage = ({ navigation }) => {
     }
   };
 
-  // Ouvinte para mudanças na moeda
+  // Listener for currency changes
   const handleCurrencyChange = async (newCurrency) => {
     try {
-      // Verificar se devemos converter os valores
+              // Check if we should convert values
       const shouldConvert = shouldConvertCurrencyValues();
       
       if (shouldConvert) {
         // Converter valores usando a moeda original
         await convertIncomesToCurrentCurrency(originalIncomes, originalCurrency);
       } else {
-        // Apenas atualizar o símbolo da moeda, sem converter os valores
+        // Just update currency symbol without converting values
         setIncomes([...originalIncomes]);
       }
       
-      // Forçar re-renderização do gráfico
+              // Force chart re-rendering
       setChartRenderKey(Date.now());
     } catch (error) {
-      console.error('Erro ao lidar com mudança de moeda:', error);
+      console.error('Error handling currency change:', error);
     }
   };
 
@@ -218,7 +218,7 @@ const IncomePage = ({ navigation }) => {
 
     incomeData.forEach((income) => {
       const { category_id, categories, frequencies, amount } = income;
-      const days = frequencies?.days || 30; // Usar os dias da frequência ou 30 como padrão
+      const days = frequencies?.days || 30; // Use frequency days or 30 as default
       const monthlyAmount = (amount * 30) / days; // Converter para valor mensal
 
       if (!categoryMap[category_id]) {
@@ -234,7 +234,7 @@ const IncomePage = ({ navigation }) => {
     const chartData = Object.values(categoryMap).map((category) => ({
       name: category.name,
       amount: category.total,
-      color: `#${Math.floor(Math.random() * 16777215).toString(16)}`, // Gerar cores aleatórias
+              color: `#${Math.floor(Math.random() * 16777215).toString(16)}`, // Generate random colors
       legendFontColor: '#333',
       legendFontSize: 12,
     }));
@@ -248,28 +248,28 @@ const IncomePage = ({ navigation }) => {
         return;
       }
       setUserId(user.id);
-      await loadUserCurrency(); // Carregar a moeda do usuário
+      await loadUserCurrency(); // Load user currency
       fetchUserIncomes(user.id);
       fetchUserCategoriesAndFrequencies(user.id);
     };
     fetchUserData();
     
-    // Adicionar listener para mudanças de moeda
+          // Add listener for currency changes
     addCurrencyChangeListener(handleCurrencyChange);
     
-    // Limpar listener ao desmontar
+          // Clean up listener on unmount
     return () => {
       removeCurrencyChangeListener(handleCurrencyChange);
     };
   }, []);
 
-  // Adicionada lógica para recarregar dados ao reentrar na página
+      // Added logic to reload data when re-entering the page
   useFocusEffect(
     React.useCallback(() => {
       if (userId) {
         fetchUserIncomes(userId);
         fetchUserCategoriesAndFrequencies(userId);
-        setChartRenderKey(Date.now()); // ← FORÇA O RE-RENDER DO CHART
+        setChartRenderKey(Date.now()); // ← FORCE CHART RE-RENDER
       }
     }, [userId])
   );
@@ -773,16 +773,16 @@ const IncomePage = ({ navigation }) => {
       setAlertType('success');
       setShowAlert(true);
 
-      fetchUserIncomes(userId); // Atualiza lista após salvar
+      fetchUserIncomes(userId); // Update list after saving
       
-      // Limpar o filtro quando um income é editado
+      // Clear filter when an income is edited
       setFilteredIncomes([]);
       setSelectedCategoryId(null);
     } catch (error) {
       console.error('Unexpected error saving income:', error);
       alert('Unexpected error. Please try again.');
     } finally {
-      closeModals(); // Fecha todos os modais após salvar
+      closeModals(); // Close all modals after saving
     }
   };
 
@@ -792,9 +792,9 @@ const IncomePage = ({ navigation }) => {
       if (error) {
         console.error('Error deleting income:', error);
       } else {
-        fetchUserIncomes(userId); // Atualiza lista após exclusão
+        fetchUserIncomes(userId); // Update list after deletion
         
-        // Limpar o filtro quando um income é excluído
+        // Clear filter when an income is deleted
         setFilteredIncomes([]);
         setSelectedCategoryId(null);
         
@@ -806,24 +806,24 @@ const IncomePage = ({ navigation }) => {
     } catch (error) {
       console.error('Unexpected error deleting income:', error);
     } finally {
-      closeModals(); // Fecha todos os modais após concluir a exclusão
+      closeModals(); // Close all modals after completing deletion
     }
   };
 
-  // Método simplificado de seleção da categoria do gráfico
+  // Simplified method for chart category selection
   const handleChartCategorySelect = (selectedCategory) => {
     if (!selectedCategory) {
-      // Se nenhuma categoria está selecionada, limpar o filtro
+      // If no category is selected, clear the filter
       setSelectedCategoryId(null);
       setFilteredIncomes([]);
       return;
     }
 
-    // Encontrar a categoria correspondente no array de categorias
+    // Find the corresponding category in the categories array
     const category = categories.find(c => c.name === selectedCategory.name);
     if (!category) return;
 
-    // Se clicar na mesma categoria, limpa o filtro
+    // If clicking on the same category, clear the filter
     if (selectedCategoryId === category.id) {
       setSelectedCategoryId(null);
       setFilteredIncomes([]);
@@ -832,11 +832,11 @@ const IncomePage = ({ navigation }) => {
     
     setSelectedCategoryId(category.id);
     
-    // Filtrar os incomes para mostrar apenas os da categoria selecionada
+    // Filter incomes to show only those from the selected category
     const filtered = incomes.filter(income => income.category_id === category.id);
     setFilteredIncomes(filtered);
     
-    // Mostrar mensagem se não encontrar incomes
+    // Show message if no incomes are found
     if (filtered.length === 0) {
       setAlertMessage('No incomes found for this category');
       setAlertType('info');
@@ -845,7 +845,7 @@ const IncomePage = ({ navigation }) => {
   };
 
   const renderIncomeItem = (item, index) => {
-    // Agora só renderiza income cards, não o botão Add
+    // Now only renders income cards, not the Add button
 
     const isHighlighted = selectedCategoryId === item.category_id;
 
@@ -989,7 +989,7 @@ const IncomePage = ({ navigation }) => {
             />
           </View>
 
-          {/* Se existir um filtro ativo, mostrar botão para limpar */}
+          {/* If there's an active filter, show button to clear */}
           {filteredIncomes.length > 0 && (
             <TouchableOpacity 
               style={styles.clearFilterButton}

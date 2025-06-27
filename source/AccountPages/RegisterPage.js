@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'; // Import of React components
 import { View, Text, TextInput, TouchableOpacity, Modal, FlatList, ActivityIndicator, Image } from 'react-native'; // Import of React Native visual components
 import { supabase } from '../../Supabase'; // Import of Database (supabase)
-import styles from '../Styles/AccountPageStyles/RegisterPageStyle'; // Import of styling for Register
+import styles from '../Styles/AccountPageStyles/RegisterPageStyle'; // Import styles for Register
 import { isEmailValid, isPhoneValid, isPasswordValid, isFieldNotEmpty, isNameValid } from '../Utility/Validations'; // Import of validations for fields
 import Alert from '../Utility/Alerts'; // Import of alert component
 import { fetchCountries } from '../Utility/FetchCountries'; // Import of function that fetches the list of countries (Countries API)

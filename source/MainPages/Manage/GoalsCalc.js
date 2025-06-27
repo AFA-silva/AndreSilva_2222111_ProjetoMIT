@@ -313,13 +313,13 @@ import { formatCurrency as formatCurrencyUtil } from '../../Utility/FetchCountri
       const multiPriorityScenarios = [];
       const validPriorityCombinations = [];
       
-      // Gerar todas as combinações possíveis de prioridades
-      // Começando com combinações pequenas (apenas 2 prioridades)
+      // Generate all possible priority combinations
+      // Starting with small combinations (only 2 priorities)
       const priorityValues = Object.keys(expensesByPriority)
         .filter(p => expensesByPriority[p].length > 0)
         .map(p => parseInt(p));
       
-      // Função para gerar combinações
+      // Function to generate combinations
       const generateCombinations = (arr, size) => {
         const result = [];
         const f = (prefix, arr, n) => {
@@ -335,23 +335,23 @@ import { formatCurrency as formatCurrencyUtil } from '../../Utility/FetchCountri
         return result;
       };
       
-      // Gerar combinações de tamanho 2 a N (todas as prioridades)
+      // Generate combinations of size 2 to N (all priorities)
       const allCombinations = [];
       for (let size = 2; size <= priorityValues.length; size++) {
         const combinations = generateCombinations(priorityValues, size);
         allCombinations.push(...combinations);
       }
       
-      // Avaliar cada combinação
+      // Evaluate each combination
       for (const combination of allCombinations) {
-        combination.sort((a, b) => a - b); // Ordenar prioridades
+        combination.sort((a, b) => a - b); // Sort priorities
         let totalSavings = 0;
         const combinedExpenseDetails = [];
         
         for (const priority of combination) {
           const priorityExpenses = expensesByPriority[priority] || [];
           
-          // Calcular total economizado
+          // Calculate total saved
           for (const expense of priorityExpenses) {
             const days = expense.frequencies?.days || 30;
             const monthlySaving = (expense.amount * 30) / days;
@@ -366,13 +366,13 @@ import { formatCurrency as formatCurrencyUtil } from '../../Utility/FetchCountri
           }
         }
         
-        // Verificar viabilidade
+        // Check feasibility
         const newAvailableMoney = availableMoney + totalSavings;
         const currentMonthlyWithNewAvailable = (goal.goal_saving_minimum / 100) * newAvailableMoney;
         const newTotalSaved = currentMonthlyWithNewAvailable * monthsToDeadline;
         const scenarioPossible = newTotalSaved >= goalAmount;
         
-        // Só adicione se houver economias significativas
+        // Only add if there are significant savings
         if (totalSavings > 0) {
           multiPriorityScenarios.push({
             priorities: combination,
@@ -389,10 +389,10 @@ import { formatCurrency as formatCurrencyUtil } from '../../Utility/FetchCountri
         }
       }
       
-      // Encontrar a combinação mais eficiente entre todas viáveis
+      // Find the most efficient combination among all viable ones
       let mostEfficientScenario = null;
       
-      // PRIORIDADE MÁXIMA: Ajuste de Porcentagem (se for possível)
+      // MAXIMUM PRIORITY: Percentage Adjustment (if possible)
       if (percentageScenario.possible) {
         mostEfficientScenario = {
           type: 'percentage',
