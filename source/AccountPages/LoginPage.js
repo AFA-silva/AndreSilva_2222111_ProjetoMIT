@@ -159,6 +159,13 @@ const LoginPage = ({ navigation }) => {
         <Alert message={alertMessage} type={alertType} onClose={() => setShowAlert(false)} />
       )}
 
+      {/* Logo da aplicação */}
+      <Image 
+        source={require('../../assets/logo.png')} 
+        style={styles.logo} 
+        accessibilityLabel="Application logo"
+      />
+
       <Text style={styles.title}>Login Account</Text>
       <Text style={styles.subtitle}>Login with your credentials</Text>
 

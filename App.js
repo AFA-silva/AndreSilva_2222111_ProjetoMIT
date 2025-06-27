@@ -1,23 +1,16 @@
 import React, { useEffect, useState } from 'react'; // React import
 import { NavigationContainer } from '@react-navigation/native'; // NavigationContainer import
 import { createStackNavigator } from '@react-navigation/stack'; // Stack.Navigator import
-import { Platform, View, Text, ActivityIndicator, StyleSheet } from 'react-native'; // Platform import to detect environment
+import { Platform } from 'react-native'; // Platform import to detect environment
 import WelcomePage from './source/AccountPages/WelcomePage'; // Welcome page import
 import LoginPage from './source/AccountPages/LoginPage'; // Login page import
 import RegisterPage from './source/AccountPages/RegisterPage'; // Register page import
+import SplashScreen from './source/AccountPages/SplashScreen'; // Splash screen import
 import MainPagesNavigator from './source/MainPagesNavigator'; // Main Pages Navigator import
 import { cleanupDuplicateCurrencyPreferences } from './source/Utility/MainQueries'; // Cleanup function import
 import authService from './source/Utility/AuthService'; // Auth service import
 
 const Stack = createStackNavigator();
-
-// Loading screen component
-const LoadingScreen = () => (
-  <View style={loadingStyles.container}>
-    <ActivityIndicator size="large" color="#f4c542" />
-    <Text style={loadingStyles.text}>Verificando sessão...</Text>
-  </View>
-);
 
 // Polyfill to fix accessibility issues with aria-hidden in React Native Web
 const setupWebAccessibility = () => {
@@ -50,6 +43,7 @@ const setupWebAccessibility = () => {
 
 export default function App() {
   const [isLoading, setIsLoading] = useState(true);
+  const [showSplash, setShowSplash] = useState(true);
   const [initialRoute, setInitialRoute] = useState('Welcome');
 
   // Check for existing session and determine initial route
@@ -70,30 +64,44 @@ export default function App() {
         const { shouldLogin, reason } = await authService.shouldAutoLogin();
         
         if (shouldLogin) {
-          console.log(`Auto-login with Remember Me: redirecting to main app (${reason})`);
+          console.log(`Auto-login with Remember Me: will go to main app after splash (${reason})`);
           setInitialRoute('MainPages');
         } else {
-          console.log(`No auto-login: showing welcome page (${reason})`);
+          console.log(`No auto-login: will go to welcome page after splash (${reason})`);
           setInitialRoute('Welcome');
         }
         
-      } catch (error) {
+        console.log('Splash screen will always show first, then navigate to:', shouldLogin ? 'MainPages' : 'Welcome');
+        
+            } catch (error) {
         console.error('Error during app initialization:', error);
         setInitialRoute('Welcome');
       } finally {
-        // Add a small delay to prevent flash
+        // Always show splash screen animation first (4.5 seconds)
+        // Total animation time: logo(0.8s) + wait(0.4s) + text(0.6s) + circle(0.5s) + hold(0.5s) + pulse/border(1.7s) = ~4.5s
+        const splashDuration = 4500;
+        console.log(`Always showing splash screen for ${splashDuration}ms first`);
+        
         setTimeout(() => {
+          console.log('Splash animation completed, hiding splash screen');
+          setShowSplash(false);
           setIsLoading(false);
-        }, 1000);
+        }, splashDuration);
       }
     };
     
     initializeApp();
   }, []);
 
-  // Show loading screen while checking authentication
+  // Always show splash screen first, no matter what
+  if (showSplash) {
+    const message = initialRoute === 'MainPages' ? 'Validating session...' : 'Welcome to MIT!';
+    return <SplashScreen message={message} />;
+  }
+
+  // Show minimal loading while determining route (should be very brief)
   if (isLoading) {
-    return <LoadingScreen />;
+    return null;
   }
 
   return (
@@ -118,17 +126,3 @@ export default function App() {
     </NavigationContainer>
   );
 }
-
-const loadingStyles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-  },
-  text: {
-    marginTop: 20,
-    fontSize: 16,
-    color: '#666',
-  },
-});

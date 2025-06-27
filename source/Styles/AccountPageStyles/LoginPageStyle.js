@@ -8,6 +8,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     padding: 20,
   },
+  logo: {
+    width: 120,
+    height: 120,
+    marginBottom: 30,
+    resizeMode: 'contain',
+  },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
