@@ -62,6 +62,12 @@ const ExpensesPage = ({ navigation }) => {
   const [editingFrequency, setEditingFrequency] = useState(null);
   const [categoryFormData, setCategoryFormData] = useState({ name: '' });
   const [frequencyFormData, setFrequencyFormData] = useState({ name: '', days: '' });
+  
+  // Estados para modais de exclusão
+  const [showDeleteCategoryModal, setShowDeleteCategoryModal] = useState(false);
+  const [showDeleteFrequencyModal, setShowDeleteFrequencyModal] = useState(false);
+  const [categoryToDelete, setCategoryToDelete] = useState(null);
+  const [frequencyToDelete, setFrequencyToDelete] = useState(null);
 
   // Novo método para lidar com a seleção de categoria no gráfico
   const handleChartCategorySelect = (selectedCategory) => {
@@ -855,24 +861,8 @@ const ExpensesPage = ({ navigation }) => {
 
   const handleDeleteCategory = async (category) => {
     try {
-      // Confirm deletion
-      Alert.alert(
-        'Delete Category',
-        `Are you sure you want to delete the category "${category.name}"?\n\nThis action cannot be undone and may affect existing expenses using this category.`,
-        [
-          {
-            text: 'Cancel',
-            style: 'cancel',
-          },
-          {
-            text: 'Delete',
-            style: 'destructive',
-            onPress: async () => {
-              await deleteExpenseCategory(category);
-            },
-          },
-        ]
-      );
+      setCategoryToDelete(category);
+      setShowDeleteCategoryModal(true);
     } catch (error) {
       console.error('Unexpected error deleting category:', error);
       setAlertMessage('Unexpected error occurred');
@@ -1098,24 +1088,8 @@ const ExpensesPage = ({ navigation }) => {
 
   const handleDeleteFrequency = async (frequency) => {
     try {
-      // Confirm deletion
-      Alert.alert(
-        'Delete Frequency',
-        `Are you sure you want to delete the frequency "${frequency.name}"?\n\nThis action cannot be undone and may affect existing expenses using this frequency.`,
-        [
-          {
-            text: 'Cancel',
-            style: 'cancel',
-          },
-          {
-            text: 'Delete',
-            style: 'destructive',
-            onPress: async () => {
-              await deleteExpenseFrequency(frequency);
-            },
-          },
-        ]
-      );
+      setFrequencyToDelete(frequency);
+      setShowDeleteFrequencyModal(true);
     } catch (error) {
       console.error('Unexpected error deleting frequency:', error);
       setAlertMessage('Unexpected error occurred');
@@ -2241,6 +2215,244 @@ const ExpensesPage = ({ navigation }) => {
             </View>
           </View>
         </View>
+      )}
+
+      {/* Delete Category Modal */}
+      {showDeleteCategoryModal && (
+        <TouchableOpacity
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: 1000,
+          }}
+          activeOpacity={1}
+          onPress={() => setShowDeleteCategoryModal(false)}
+        >
+          <TouchableOpacity
+            style={{
+              width: '90%',
+              maxWidth: 350,
+              backgroundColor: '#FFFFFF',
+              borderRadius: 12,
+              padding: 20,
+              alignSelf: 'center',
+            }}
+            activeOpacity={1}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: 16,
+              gap: 12,
+            }}>
+              <Ionicons name="warning" size={32} color="#FF6B6B" />
+              <Text style={{
+                fontSize: 20,
+                fontWeight: '700',
+                color: '#F44336',
+                letterSpacing: 0.5,
+              }}>Delete Category</Text>
+            </View>
+            <Text style={{
+              fontSize: 16,
+              color: '#C62828',
+              textAlign: 'center',
+              marginBottom: 8,
+              letterSpacing: 0.3,
+            }}>
+              Are you sure you want to delete the category "{categoryToDelete?.name}"?
+            </Text>
+            <Text style={{
+              fontSize: 14,
+              color: '#E57373',
+              textAlign: 'center',
+              marginBottom: 20,
+              letterSpacing: 0.2,
+            }}>
+              This action cannot be undone and may affect existing expenses using this category.
+            </Text>
+            <View style={{
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              gap: 12,
+            }}>
+              <TouchableOpacity
+                style={{
+                  flex: 1,
+                  backgroundColor: '#F44336',
+                  padding: 16,
+                  borderRadius: 8,
+                  alignItems: 'center',
+                  minHeight: 48,
+                  justifyContent: 'center',
+                  flexDirection: 'row',
+                }}
+                onPress={async () => {
+                  await deleteExpenseCategory(categoryToDelete);
+                  setShowDeleteCategoryModal(false);
+                }}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="trash" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
+                <Text style={{
+                  color: '#FFFFFF',
+                  fontWeight: '600',
+                  fontSize: 16,
+                  letterSpacing: 0.5,
+                }}>Delete</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{
+                  flex: 1,
+                  backgroundColor: '#FFCDD2',
+                  padding: 16,
+                  borderRadius: 8,
+                  alignItems: 'center',
+                  minHeight: 48,
+                  justifyContent: 'center',
+                  flexDirection: 'row',
+                }}
+                onPress={() => setShowDeleteCategoryModal(false)}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="close" size={20} color="#C62828" style={{ marginRight: 8 }} />
+                <Text style={{
+                  color: '#C62828',
+                  fontWeight: '600',
+                  fontSize: 16,
+                  letterSpacing: 0.5,
+                }}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      )}
+
+      {/* Delete Frequency Modal */}
+      {showDeleteFrequencyModal && (
+        <TouchableOpacity
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: 1000,
+          }}
+          activeOpacity={1}
+          onPress={() => setShowDeleteFrequencyModal(false)}
+        >
+          <TouchableOpacity
+            style={{
+              width: '90%',
+              maxWidth: 350,
+              backgroundColor: '#FFFFFF',
+              borderRadius: 12,
+              padding: 20,
+              alignSelf: 'center',
+            }}
+            activeOpacity={1}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: 16,
+              gap: 12,
+            }}>
+              <Ionicons name="warning" size={32} color="#FF6B6B" />
+              <Text style={{
+                fontSize: 20,
+                fontWeight: '700',
+                color: '#F44336',
+                letterSpacing: 0.5,
+              }}>Delete Frequency</Text>
+            </View>
+            <Text style={{
+              fontSize: 16,
+              color: '#C62828',
+              textAlign: 'center',
+              marginBottom: 8,
+              letterSpacing: 0.3,
+            }}>
+              Are you sure you want to delete the frequency "{frequencyToDelete?.name}"?
+            </Text>
+            <Text style={{
+              fontSize: 14,
+              color: '#E57373',
+              textAlign: 'center',
+              marginBottom: 20,
+              letterSpacing: 0.2,
+            }}>
+              This action cannot be undone and may affect existing expenses using this frequency.
+            </Text>
+            <View style={{
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              gap: 12,
+            }}>
+              <TouchableOpacity
+                style={{
+                  flex: 1,
+                  backgroundColor: '#F44336',
+                  padding: 16,
+                  borderRadius: 8,
+                  alignItems: 'center',
+                  minHeight: 48,
+                  justifyContent: 'center',
+                  flexDirection: 'row',
+                }}
+                onPress={async () => {
+                  await deleteExpenseFrequency(frequencyToDelete);
+                  setShowDeleteFrequencyModal(false);
+                }}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="trash" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
+                <Text style={{
+                  color: '#FFFFFF',
+                  fontWeight: '600',
+                  fontSize: 16,
+                  letterSpacing: 0.5,
+                }}>Delete</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{
+                  flex: 1,
+                  backgroundColor: '#FFCDD2',
+                  padding: 16,
+                  borderRadius: 8,
+                  alignItems: 'center',
+                  minHeight: 48,
+                  justifyContent: 'center',
+                  flexDirection: 'row',
+                }}
+                onPress={() => setShowDeleteFrequencyModal(false)}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="close" size={20} color="#C62828" style={{ marginRight: 8 }} />
+                <Text style={{
+                  color: '#C62828',
+                  fontWeight: '600',
+                  fontSize: 16,
+                  letterSpacing: 0.5,
+                }}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
       )}
     </View>
   );

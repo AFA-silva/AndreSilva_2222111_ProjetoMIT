@@ -28,6 +28,7 @@ import Animated, {
   runOnJS
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
+import SkeletonLoading from './SkeletonLoading';
 
 const GaugeChart = ({ 
   value = 0, 
@@ -1411,6 +1412,44 @@ const Chart = ({
   
   const dynamicChartHeight = calculateDynamicHeight();
 
+  // Skeleton Loading Component
+  const SkeletonLoader = () => {
+    const shimmerAnim = new RNAnimated.Value(0);
+
+    useEffect(() => {
+      const shimmer = RNAnimated.loop(
+        RNAnimated.sequence([
+          RNAnimated.timing(shimmerAnim, {
+            toValue: 1,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+          RNAnimated.timing(shimmerAnim, {
+            toValue: 0,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+        ])
+      );
+      shimmer.start();
+      return () => shimmer.stop();
+    }, []);
+
+    const opacity = shimmerAnim.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0.3, 0.7],
+    });
+
+    return (
+      <View style={styles.skeletonContainer}>
+        <View style={styles.skeletonChart}>
+          <RNAnimated.View style={[styles.skeletonShimmer, { opacity }]} />
+        </View>
+        <Text style={styles.loadingText}>Loading chart...</Text>
+      </View>
+    );
+  };
+
   useEffect(() => {
     const timer = setTimeout(() => {
       setIsChartReady(true);
@@ -1861,7 +1900,7 @@ const Chart = ({
     if (!isChartReady) {
       return (
         <View style={[styles.chartBackground, styles.loadingContainer]}>
-          <Text style={styles.loadingText}>Loading chart...</Text>
+          <SkeletonLoader />
         </View>
       );
     }
@@ -2090,14 +2129,21 @@ const styles = StyleSheet.create({
     height: 120,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 20,
+    shadowColor: '#FF8F00',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: '#FFE0B2',
   },
   loadingText: {
-    color: '#FFFFFF',
+    color: '#000000',
     fontSize: 14,
     fontWeight: '600',
-    textShadowColor: 'rgba(0,0,0,0.3)',
-    textShadowOffset: {width: 0, height: 1},
-    textShadowRadius: 2,
   },
   noDataContainer: {
     backgroundColor: '#FFFFFF',
@@ -2292,6 +2338,28 @@ const styles = StyleSheet.create({
   activePeriodButtonTextCompact: {
     color: '#FFFFFF',
     fontWeight: '800',
+  },
+  // Skeleton loading styles
+  skeletonContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 120,
+  },
+  skeletonChart: {
+    height: 80,
+    width: '90%',
+    backgroundColor: '#F5F5F5',
+    borderRadius: 12,
+    marginBottom: 12,
+    overflow: 'hidden',
+  },
+  skeletonShimmer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(255, 255, 255, 0.4)',
   },
 });
 
