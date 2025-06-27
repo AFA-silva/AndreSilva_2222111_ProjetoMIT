@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Device from 'expo-device';
 import styles from '../../Styles/Settings/SecurityPageStyle';
 import { Ionicons } from '@expo/vector-icons';
 import Alert from '../../Utility/Alerts';
@@ -41,7 +42,14 @@ const SecurityPage = () => {
     platform: Platform.OS,
     version: Platform.Version,
     screenWidth: 0,
-    screenHeight: 0
+    screenHeight: 0,
+    deviceName: 'Unknown',
+    deviceModel: 'Unknown',
+    manufacturer: 'Unknown',
+    brand: 'Unknown',
+    totalMemory: 'Unknown',
+    osVersion: 'Unknown',
+    deviceType: 'Unknown'
   });
   const [userDevices, setUserDevices] = useState([]);
   const [loadingDevices, setLoadingDevices] = useState(false);
@@ -67,11 +75,39 @@ const SecurityPage = () => {
     const loadDeviceInfo = async () => {
       try {
         const { width, height } = require('react-native').Dimensions.get('window');
+        
+        // Get detailed device information using expo-device
+        const deviceName = Device.deviceName || 'Unknown Device';
+        const deviceModel = Device.modelName || 'Unknown Model';
+        const manufacturer = Device.manufacturer || 'Unknown Manufacturer';
+        const brand = Device.brand || 'Unknown Brand';
+        const totalMemory = Device.totalMemory ? `${Math.round(Device.totalMemory / (1024 * 1024 * 1024))} GB` : 'Unknown';
+        const osVersion = Device.osVersion || 'Unknown';
+        const deviceType = Device.deviceType || 'Unknown';
+        
         setDeviceInfo(prev => ({
           ...prev,
           screenWidth: width,
-          screenHeight: height
+          screenHeight: height,
+          deviceName,
+          deviceModel,
+          manufacturer,
+          brand,
+          totalMemory,
+          osVersion,
+          deviceType
         }));
+        
+        console.log('📱 Device Info Loaded:', {
+          deviceName,
+          deviceModel,
+          manufacturer,
+          brand,
+          totalMemory,
+          osVersion,
+          deviceType,
+          screenSize: `${width}x${height}`
+        });
       } catch (error) {
         console.error('Error loading device info:', error);
       }
@@ -293,33 +329,31 @@ const SecurityPage = () => {
   };
 
   // Device management functions
+  // Device registration happens on SecurityPage mount and session fetch.
+  // It only registers once per device (per user, model, name). If the device exists, only last_access is updated.
   const registerDeviceAccess = async () => {
     try {
       if (!userSession) return;
       
-      // Better device name detection
-      let deviceName = 'Unknown Device';
-      let deviceModel = `${Platform.OS} ${Platform.Version}`;
+      // Get detailed device information using expo-device
+      const deviceName = Device.deviceName || 'Unknown Device';
+      const deviceModel = Device.modelName || 'Unknown Model';
+      const manufacturer = Device.manufacturer || 'Unknown Manufacturer';
+      const brand = Device.brand || 'Unknown Brand';
+      const osVersion = Device.osVersion || 'Unknown';
       
-      if (Platform.OS === 'android') {
-        deviceName = 'Android Phone';
-        deviceModel = `Android API ${Platform.Version}`;
-      } else if (Platform.OS === 'ios') {
-        deviceName = 'iPhone';
-        deviceModel = `iOS ${Platform.Version}`;
-      } else if (Platform.OS === 'web') {
-        deviceName = 'Web Browser';
-        deviceModel = 'Web Application';
-      }
+      // Create a more descriptive device model string
+      const detailedModel = `${brand} ${deviceModel} (${manufacturer})`;
       
       const deviceData = {
         user_id: userSession.user.id,
-        model: deviceModel,
+        model: detailedModel,
         name: deviceName,
         ip_address: '192.168.1.1', // Better placeholder IP
         location: 'Current Location', // Better placeholder
         authorized: true,
-        last_access: new Date().toISOString()
+        last_access: new Date().toISOString(),
+        created_at: new Date().toISOString()
       };
 
       // Check if device already exists (should already be registered from MainPage)
@@ -327,7 +361,7 @@ const SecurityPage = () => {
         .from('device_info')
         .select('*')
         .eq('user_id', userSession.user.id)
-        .eq('model', deviceModel)
+        .eq('model', detailedModel)
         .eq('name', deviceName)
         .single();
 
@@ -343,7 +377,7 @@ const SecurityPage = () => {
           .update({ last_access: deviceData.last_access })
           .eq('id', existingDevice.id);
       } else {
-        // Insert new device
+        // Insert new device (with created_at)
         await supabase
           .from('device_info')
           .insert([deviceData]);
@@ -745,12 +779,36 @@ const SecurityPage = () => {
               {showDeviceInfo && (
                 <View style={styles.deviceDetails}>
                   <View style={styles.deviceDetailRow}>
+                    <Text style={styles.deviceDetailLabel}>Device Name:</Text>
+                    <Text style={styles.deviceDetailValue}>{deviceInfo.deviceName}</Text>
+                  </View>
+                  <View style={styles.deviceDetailRow}>
+                    <Text style={styles.deviceDetailLabel}>Model:</Text>
+                    <Text style={styles.deviceDetailValue}>{deviceInfo.deviceModel}</Text>
+                  </View>
+                  <View style={styles.deviceDetailRow}>
+                    <Text style={styles.deviceDetailLabel}>Manufacturer:</Text>
+                    <Text style={styles.deviceDetailValue}>{deviceInfo.manufacturer}</Text>
+                  </View>
+                  <View style={styles.deviceDetailRow}>
+                    <Text style={styles.deviceDetailLabel}>Brand:</Text>
+                    <Text style={styles.deviceDetailValue}>{deviceInfo.brand}</Text>
+                  </View>
+                  <View style={styles.deviceDetailRow}>
                     <Text style={styles.deviceDetailLabel}>Platform:</Text>
                     <Text style={styles.deviceDetailValue}>{deviceInfo.platform}</Text>
                   </View>
                   <View style={styles.deviceDetailRow}>
                     <Text style={styles.deviceDetailLabel}>OS Version:</Text>
-                    <Text style={styles.deviceDetailValue}>{deviceInfo.version}</Text>
+                    <Text style={styles.deviceDetailValue}>{deviceInfo.osVersion}</Text>
+                  </View>
+                  <View style={styles.deviceDetailRow}>
+                    <Text style={styles.deviceDetailLabel}>Device Type:</Text>
+                    <Text style={styles.deviceDetailValue}>{deviceInfo.deviceType}</Text>
+                  </View>
+                  <View style={styles.deviceDetailRow}>
+                    <Text style={styles.deviceDetailLabel}>Memory:</Text>
+                    <Text style={styles.deviceDetailValue}>{deviceInfo.totalMemory}</Text>
                   </View>
                   <View style={styles.deviceDetailRow}>
                     <Text style={styles.deviceDetailLabel}>Screen Size:</Text>
