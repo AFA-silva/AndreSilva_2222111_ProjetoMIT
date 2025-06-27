@@ -1133,7 +1133,7 @@ const IncomePage = ({ navigation }) => {
               <Text style={{
                 fontSize: 18,
                 fontWeight: '700',
-                color: '#FF9800',
+                color: '#000000',
                 marginBottom: 16,
                 textAlign: 'center',
               }}>
@@ -1143,13 +1143,13 @@ const IncomePage = ({ navigation }) => {
               <Text style={{
                 fontSize: 14,
                 fontWeight: '600',
-                color: '#E65100',
+                color: '#000000',
                 marginBottom: 4,
               }}>Income Name</Text>
               <TextInput
                 style={{
                   borderWidth: 1,
-                  borderColor: '#FFE082',
+                  borderColor: '#E0E0E0',
                   borderRadius: 8,
                   padding: 12,
                   marginBottom: 12,
@@ -1167,13 +1167,13 @@ const IncomePage = ({ navigation }) => {
               <Text style={{
                 fontSize: 14,
                 fontWeight: '600',
-                color: '#E65100',
+                color: '#000000',
                 marginBottom: 4,
               }}>Amount</Text>
               <TextInput
                 style={{
                   borderWidth: 1,
-                  borderColor: '#FFE082',
+                  borderColor: '#E0E0E0',
                   borderRadius: 8,
                   padding: 12,
                   marginBottom: 12,
@@ -1192,12 +1192,12 @@ const IncomePage = ({ navigation }) => {
               <Text style={{
                 fontSize: 14,
                 fontWeight: '600',
-                color: '#E65100',
+                color: '#000000',
                 marginBottom: 4,
               }}>Frequency</Text>
               <View style={{
                 borderWidth: 1,
-                borderColor: '#FFE082',
+                borderColor: '#E0E0E0',
                 borderRadius: 8,
                 marginBottom: 12,
                 backgroundColor: '#FFFFFF',
@@ -1221,12 +1221,12 @@ const IncomePage = ({ navigation }) => {
               <Text style={{
                 fontSize: 14,
                 fontWeight: '600',
-                color: '#E65100',
+                color: '#000000',
                 marginBottom: 4,
               }}>Category</Text>
               <View style={{
                 borderWidth: 1,
-                borderColor: '#FFE082',
+                borderColor: '#E0E0E0',
                 borderRadius: 8,
                 marginBottom: 16,
                 backgroundColor: '#FFFFFF',
@@ -1255,7 +1255,7 @@ const IncomePage = ({ navigation }) => {
                 <TouchableOpacity
                   style={{
                     flex: 1,
-                    backgroundColor: '#E0E0E0',
+                    backgroundColor: '#F44336',
                     padding: 16,
                     borderRadius: 8,
                     alignItems: 'center',
@@ -1266,7 +1266,7 @@ const IncomePage = ({ navigation }) => {
                   activeOpacity={0.7}
                 >
                   <Text style={{
-                    color: '#616161',
+                    color: '#FFFFFF',
                     fontWeight: '600',
                     fontSize: 16,
                   }}>Cancel</Text>
@@ -1274,7 +1274,7 @@ const IncomePage = ({ navigation }) => {
                 <TouchableOpacity
                   style={{
                     flex: 1,
-                    backgroundColor: '#FF9800',
+                    backgroundColor: '#4CAF50',
                     padding: 16,
                     borderRadius: 8,
                     alignItems: 'center',
@@ -1340,7 +1340,7 @@ const IncomePage = ({ navigation }) => {
               <Text style={{
                 fontSize: 18,
                 fontWeight: '700',
-                color: '#FF9800',
+                color: '#000000',
                 marginBottom: 16,
                 textAlign: 'center',
               }}>
@@ -1350,13 +1350,13 @@ const IncomePage = ({ navigation }) => {
               <Text style={{
                 fontSize: 14,
                 fontWeight: '600',
-                color: '#E65100',
+                color: '#000000',
                 marginBottom: 4,
               }}>Income Name</Text>
               <TextInput
                 style={{
                   borderWidth: 1,
-                  borderColor: '#FFE082',
+                  borderColor: '#E0E0E0',
                   borderRadius: 8,
                   padding: 12,
                   marginBottom: 12,
@@ -1374,13 +1374,13 @@ const IncomePage = ({ navigation }) => {
               <Text style={{
                 fontSize: 14,
                 fontWeight: '600',
-                color: '#E65100',
+                color: '#000000',
                 marginBottom: 4,
               }}>Amount</Text>
               <TextInput
                 style={{
                   borderWidth: 1,
-                  borderColor: '#FFE082',
+                  borderColor: '#E0E0E0',
                   borderRadius: 8,
                   padding: 12,
                   marginBottom: 12,
@@ -1399,12 +1399,12 @@ const IncomePage = ({ navigation }) => {
               <Text style={{
                 fontSize: 14,
                 fontWeight: '600',
-                color: '#E65100',
+                color: '#000000',
                 marginBottom: 4,
               }}>Frequency</Text>
               <View style={{
                 borderWidth: 1,
-                borderColor: '#FFE082',
+                borderColor: '#E0E0E0',
                 borderRadius: 8,
                 marginBottom: 12,
                 backgroundColor: '#FFFFFF',
@@ -1428,12 +1428,12 @@ const IncomePage = ({ navigation }) => {
               <Text style={{
                 fontSize: 14,
                 fontWeight: '600',
-                color: '#E65100',
+                color: '#000000',
                 marginBottom: 4,
               }}>Category</Text>
               <View style={{
                 borderWidth: 1,
-                borderColor: '#FFE082',
+                borderColor: '#E0E0E0',
                 borderRadius: 8,
                 marginBottom: 16,
                 backgroundColor: '#FFFFFF',
@@ -1462,7 +1462,7 @@ const IncomePage = ({ navigation }) => {
                 <TouchableOpacity
                   style={{
                     flex: 1,
-                    backgroundColor: '#E0E0E0',
+                    backgroundColor: '#F44336',
                     padding: 16,
                     borderRadius: 8,
                     alignItems: 'center',
@@ -1473,7 +1473,7 @@ const IncomePage = ({ navigation }) => {
                   activeOpacity={0.7}
                 >
                   <Text style={{
-                    color: '#616161',
+                    color: '#FFFFFF',
                     fontWeight: '600',
                     fontSize: 16,
                   }}>Cancel</Text>
@@ -1481,7 +1481,7 @@ const IncomePage = ({ navigation }) => {
                 <TouchableOpacity
                   style={{
                     flex: 1,
-                    backgroundColor: '#FF9800',
+                    backgroundColor: '#4CAF50',
                     padding: 16,
                     borderRadius: 8,
                     alignItems: 'center',
@@ -1543,7 +1543,7 @@ const IncomePage = ({ navigation }) => {
               <Text style={{
                 fontSize: 20,
                 fontWeight: '700',
-                color: '#FF9800',
+                color: '#000000',
                 letterSpacing: 0.5,
               }}>Delete Income</Text>
             </View>
@@ -1651,14 +1651,14 @@ const IncomePage = ({ navigation }) => {
              activeOpacity={1}
              onPress={(e) => e.stopPropagation()}
            >
-             <Text style={{
-               fontSize: 18,
-               fontWeight: '700',
-               color: '#FF9800',
-               marginBottom: 16,
-               textAlign: 'center',
-               letterSpacing: 0.5,
-             }}>Manage Extra</Text>
+                         <Text style={{
+              fontSize: 18,
+              fontWeight: '700',
+              color: '#000000',
+              marginBottom: 16,
+              textAlign: 'center',
+              letterSpacing: 0.5,
+            }}>Manage Extra</Text>
              
              {/* Tab Selection */}
              <View style={{
@@ -1744,7 +1744,7 @@ const IncomePage = ({ navigation }) => {
                   <Text style={{
                     fontSize: 16,
                     fontWeight: '600',
-                    color: '#E65100',
+                    color: '#000000',
                     marginBottom: 12,
                     letterSpacing: 0.3,
                   }}>Income Categories</Text>
@@ -1782,11 +1782,11 @@ const IncomePage = ({ navigation }) => {
                         borderColor: '#FFE082',
                       }}>
                         <Text style={{
-                          fontSize: 14,
-                          color: '#E65100',
-                          fontWeight: '500',
-                          flex: 1,
-                        }}>{category.name}</Text>
+                                                     fontSize: 14,
+                           color: '#000000',
+                           fontWeight: '500',
+                           flex: 1,
+                         }}>{category.name}</Text>
                         <View style={{
                           flexDirection: 'row',
                           gap: 8,
@@ -1853,7 +1853,7 @@ const IncomePage = ({ navigation }) => {
                    <Text style={{
                      fontSize: 16,
                      fontWeight: '600',
-                     color: '#E65100',
+                     color: '#000000',
                      marginBottom: 12,
                      letterSpacing: 0.3,
                    }}>Frequencies</Text>
@@ -1892,7 +1892,7 @@ const IncomePage = ({ navigation }) => {
                        }}>
                          <Text style={{
                            fontSize: 14,
-                           color: '#E65100',
+                           color: '#000000',
                            fontWeight: '500',
                            flex: 1,
                          }}>{frequency.name} ({frequency.days} days)</Text>
@@ -1936,7 +1936,7 @@ const IncomePage = ({ navigation }) => {
                        flexDirection: 'row',
                        alignItems: 'center',
                        justifyContent: 'center',
-                       backgroundColor: '#FF9800',
+                       backgroundColor: '#4CAF50',
                        paddingVertical: 10,
                        paddingHorizontal: 16,
                        borderRadius: 8,
@@ -1964,7 +1964,7 @@ const IncomePage = ({ navigation }) => {
              }}>
                <TouchableOpacity
                  style={{
-                   backgroundColor: '#FF9800',
+                   backgroundColor: '#4CAF50',
                    paddingVertical: 12,
                    paddingHorizontal: 24,
                    borderRadius: 8,
@@ -2024,7 +2024,7 @@ const IncomePage = ({ navigation }) => {
              <Text style={{
                fontSize: 18,
                fontWeight: '700',
-               color: '#FF9800',
+               color: '#000000',
                marginBottom: 16,
                textAlign: 'center',
              }}>
@@ -2034,13 +2034,13 @@ const IncomePage = ({ navigation }) => {
              <Text style={{
                fontSize: 14,
                fontWeight: '600',
-               color: '#E65100',
+               color: '#000000',
                marginBottom: 4,
              }}>Category Name</Text>
              <TextInput
                style={{
                  borderWidth: 1,
-                 borderColor: '#FFE082',
+                 borderColor: '#E0E0E0',
                  borderRadius: 8,
                  padding: 12,
                  marginBottom: 16,
@@ -2064,7 +2064,7 @@ const IncomePage = ({ navigation }) => {
                <TouchableOpacity
                  style={{
                    flex: 1,
-                   backgroundColor: '#E0E0E0',
+                   backgroundColor: '#F44336',
                    padding: 16,
                    borderRadius: 8,
                    alignItems: 'center',
@@ -2075,7 +2075,7 @@ const IncomePage = ({ navigation }) => {
                  activeOpacity={0.7}
                >
                  <Text style={{
-                   color: '#616161',
+                   color: '#FFFFFF',
                    fontWeight: '600',
                    fontSize: 16,
                  }}>Cancel</Text>
@@ -2083,7 +2083,7 @@ const IncomePage = ({ navigation }) => {
                <TouchableOpacity
                  style={{
                    flex: 1,
-                   backgroundColor: '#FF9800',
+                   backgroundColor: '#4CAF50',
                    padding: 16,
                    borderRadius: 8,
                    alignItems: 'center',
@@ -2143,7 +2143,7 @@ const IncomePage = ({ navigation }) => {
              <Text style={{
                fontSize: 18,
                fontWeight: '700',
-               color: '#FF9800',
+               color: '#000000',
                marginBottom: 16,
                textAlign: 'center',
              }}>
@@ -2153,13 +2153,13 @@ const IncomePage = ({ navigation }) => {
              <Text style={{
                fontSize: 14,
                fontWeight: '600',
-               color: '#E65100',
+               color: '#000000',
                marginBottom: 4,
              }}>Frequency Name</Text>
              <TextInput
                style={{
                  borderWidth: 1,
-                 borderColor: '#FFE082',
+                 borderColor: '#E0E0E0',
                  borderRadius: 8,
                  padding: 12,
                  marginBottom: 12,
@@ -2178,13 +2178,13 @@ const IncomePage = ({ navigation }) => {
              <Text style={{
                fontSize: 14,
                fontWeight: '600',
-               color: '#E65100',
+               color: '#000000',
                marginBottom: 4,
              }}>Days</Text>
              <TextInput
                style={{
                  borderWidth: 1,
-                 borderColor: '#FFE082',
+                 borderColor: '#E0E0E0',
                  borderRadius: 8,
                  padding: 12,
                  marginBottom: 16,
@@ -2208,7 +2208,7 @@ const IncomePage = ({ navigation }) => {
                <TouchableOpacity
                  style={{
                    flex: 1,
-                   backgroundColor: '#E0E0E0',
+                   backgroundColor: '#F44336',
                    padding: 16,
                    borderRadius: 8,
                    alignItems: 'center',
@@ -2219,7 +2219,7 @@ const IncomePage = ({ navigation }) => {
                  activeOpacity={0.7}
                >
                  <Text style={{
-                   color: '#616161',
+                   color: '#FFFFFF',
                    fontWeight: '600',
                    fontSize: 16,
                  }}>Cancel</Text>
@@ -2227,7 +2227,7 @@ const IncomePage = ({ navigation }) => {
                <TouchableOpacity
                  style={{
                    flex: 1,
-                   backgroundColor: '#FF9800',
+                   backgroundColor: '#4CAF50',
                    padding: 16,
                    borderRadius: 8,
                    alignItems: 'center',
@@ -2311,17 +2311,17 @@ const beautifulStyles = {
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 12,
-    backgroundColor: '#FFF8E1',
+    backgroundColor: '#FFFFFF',
     marginBottom: 8,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#E65100',
+    color: '#000000',
   },
   sectionSubtitle: {
     fontSize: 12,
-    color: '#F57C00',
+    color: '#757575',
     fontWeight: '600',
   },
   scrollContent: {
@@ -2422,7 +2422,7 @@ const beautifulStyles = {
   incomeTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#E65100',
+    color: '#000000',
     marginBottom: 2,
   },
   incomeAmount: {

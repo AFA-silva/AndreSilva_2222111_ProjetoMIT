@@ -562,12 +562,12 @@ const SimplePie3D = ({
         
         // Calcular a posição do rótulo com espaçamento específico
         // Posicionamento especial para investimentos e prêmios para evitar sobreposição
-        let labelRadius = radius * 1.15; // Base (reduzido de 1.2)
+        let labelRadius = radius * 1.25; // Base - distância aumentada para melhor legibilidade
         let labelAdjustment = 0;
         
         // Ajuste especial para categorias específicas para evitar sobreposição
         if (item.name === "Investimentos" || item.name === "Prémios") {
-          labelRadius = radius * 1.3; // Mais distante (reduzido de 1.5)
+          labelRadius = radius * 1.45; // Mais distante para evitar sobreposição
           
           // Se for Investimentos, ajustar para cima e direita
           if (item.name === "Investimentos") {
@@ -994,10 +994,10 @@ const SimplePie3D = ({
                   y={labelY}
                   fill={textColor}
                   fontSize={isSmallSlice ? "8" : (slice.isSelected ? "12" : "10")}
-                  fontWeight={slice.isSelected ? "bold" : "normal"}
+                  fontWeight={slice.isSelected ? "bold" : "600"}
                   textAnchor={slice.textAnchor}
                   stroke="#FFFFFF"
-                  strokeWidth="0.5"
+                  strokeWidth="0.2"
                   paintOrder="stroke"
                 >
                   {`${Math.round(slice.percentage * 100)}%`}
