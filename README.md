@@ -9,7 +9,7 @@ O MIT tem como principal objetivo oferecer uma plataforma simples e acessível p
 ## 🚀 Tecnologias Utilizadas atualmente
 
 - **React Native** (Desenvolvimento mobile para Android e iOS)
-- **Supabase** (Plataforma de backend com autenticação e banco de dados)
+- **Supabase** (Backend platform with authentication and database)
 - **JavaScript** (Código organizado e tipado)
 - **Expo** (Facilita o desenvolvimento e construção do app)
 

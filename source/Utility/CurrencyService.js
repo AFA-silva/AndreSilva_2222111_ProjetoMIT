@@ -243,7 +243,7 @@ export const convertCurrencyForUserData = async (fromCurrency, toCurrency) => {
       convertExpenses(userId, fromCurrency, toCurrency, rate)
     ]);
     
-    // 4. Atualizar preferência de moeda do usuário
+    // 4. Update user currency preference
     await updateUserCurrencyPreference(userId, toCurrency, fromCurrency);
     
     return { success: true };
@@ -339,7 +339,7 @@ async function convertExpenses(userId, fromCurrency, toCurrency, rate) {
   }
 }
 
-// Atualizar preferência de moeda
+// Update currency preference
 async function updateUserCurrencyPreference(userId, newCurrency, previousCurrency) {
   try {
     // Limpar preferências existentes para evitar duplicatas
@@ -361,10 +361,10 @@ async function updateUserCurrencyPreference(userId, newCurrency, previousCurrenc
     // Atualizar AsyncStorage também para redundância
     await AsyncStorage.setItem('user_preferred_currency', newCurrency);
     
-    console.log(`Preferência de moeda atualizada: ${newCurrency} (anterior: ${previousCurrency})`);
+          console.log(`Currency preference updated: ${newCurrency} (previous: ${previousCurrency})`);
     return true;
   } catch (error) {
-    console.error('Erro ao atualizar preferência de moeda:', error);
+          console.error('Error updating currency preference:', error);
     return false;
   }
 } 

@@ -487,7 +487,7 @@ const CalendarPage = () => {
       let data, error;
       
       if (type === 'income') {
-        // Query para tabela income com colunas corretas
+        // Query for income table with correct columns
         const response = await supabase
           .from('income')
           .select(`
@@ -505,7 +505,7 @@ const CalendarPage = () => {
         data = response.data;
         error = response.error;
       } else if (type === 'expense') {
-        // Query para tabela expenses
+        // Query for expenses table
         const response = await supabase
           .from('expenses')
           .select(`
@@ -523,7 +523,7 @@ const CalendarPage = () => {
         data = response.data;
         error = response.error;
       } else if (type === 'goal') {
-        // Query para tabela goals
+        // Query for goals table
         const response = await supabase
           .from('goals')
           .select(`
@@ -807,7 +807,7 @@ const CalendarPage = () => {
         sample: eventsToCreate[0]
       });
 
-      // Inserir todos os eventos no banco de dados
+      // Insert all events into database
       const { error, data: newEvents } = await supabase
         .from('calendar_events')
         .insert(eventsToCreate)
@@ -893,7 +893,7 @@ const CalendarPage = () => {
     try {
       console.log("🗑️ deleteCurrentEvent - Starting deletion for:", eventId);
       
-      // Excluir o evento do banco de dados
+      // Delete event from database
       const { error } = await supabase
         .from('calendar_events')
         .delete()
@@ -1708,7 +1708,7 @@ const CalendarPage = () => {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
-        // Buscar preferências de moeda do usuário da tabela correta
+        // Fetch user currency preferences from correct table
         const { data, error } = await supabase
           .from('user_currency_preferences')
           .select('actual_currency')

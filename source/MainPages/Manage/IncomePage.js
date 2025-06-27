@@ -66,7 +66,7 @@ const IncomePage = ({ navigation }) => {
   
 
 
-  // Obter a moeda do usuário diretamente do banco de dados
+  // Get user currency directly from database
   const loadUserCurrency = async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -84,7 +84,7 @@ const IncomePage = ({ navigation }) => {
         throw new Error('Failed to load currency preference');
       }
       
-      console.log('[IncomePage] Moeda carregada direto do banco:', data.actual_currency);
+              console.log('[IncomePage] Currency loaded directly from database:', data.actual_currency);
       setOriginalCurrency(data.actual_currency);
       return data.actual_currency;
     } catch (error) {

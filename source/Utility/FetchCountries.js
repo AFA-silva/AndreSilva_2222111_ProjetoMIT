@@ -236,7 +236,7 @@ export const loadSavedCurrency = async () => {
     // Carregar diretamente do Supabase
     const currencyInfo = await fetchUserCurrencyPreference();
     
-    console.log('Moeda carregada do Supabase:', currencyInfo);
+          console.log('Currency loaded from Supabase:', currencyInfo);
     
     // Verificar se a moeda já está definida e é a mesma
     // Isso evita notificações desnecessárias que podem causar loops
@@ -272,7 +272,7 @@ export const getCurrentCurrency = () => {
         try {
           currentCurrencyInfo = await fetchUserCurrencyPreference();
           notifyCurrencyChange();
-          console.log('Moeda atualizada com base no Supabase:', currentCurrencyInfo);
+          console.log('Currency updated based on Supabase:', currentCurrencyInfo);
         } catch (error) {
           console.error('Erro ao buscar moeda do Supabase:', error);
         } finally {

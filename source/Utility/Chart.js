@@ -567,15 +567,15 @@ const SimplePie3D = ({
         let labelAdjustment = 0;
         
         // Ajuste especial para categorias específicas para evitar sobreposição
-        if (item.name === "Investimentos" || item.name === "Prémios") {
+        if (item.name === "Investments" || item.name === "Premiums") {
           labelRadius = radius * 1.45; // Mais distante para evitar sobreposição
           
           // Se for Investimentos, ajustar para cima e direita
-          if (item.name === "Investimentos") {
+          if (item.name === "Investments") {
             labelAdjustment = Math.PI * -0.025; // Mover para cima e direita
           }
           // Se for Prêmios, ajustar para a esquerda
-          if (item.name === "Prémios") {
+          if (item.name === "Premiums") {
             labelAdjustment = -Math.PI * 0.08; // Deslocar para a esquerda
           }
         }

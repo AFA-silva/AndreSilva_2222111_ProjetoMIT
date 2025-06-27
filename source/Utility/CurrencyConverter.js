@@ -22,10 +22,10 @@ export const convertValueToCurrentCurrency = async (value, originalCurrency) => 
     
     // Verificar se a conversão deve ser realizada
     const shouldConvert = shouldConvertCurrencyValues();
-    console.log(`Deve converter? ${shouldConvert ? 'SIM' : 'NÃO'}`);
+    console.log(`Should convert? ${shouldConvert ? 'YES' : 'NO'}`);
     
     if (!shouldConvert) {
-      console.log('Conversão desativada por configuração do usuário. Mantendo valor original:', numValue);
+              console.log('Conversion disabled by user configuration. Keeping original value:', numValue);
       return numValue;
     }
     
@@ -80,7 +80,7 @@ export const convertValueToCurrentCurrency = async (value, originalCurrency) => 
       
       return convertedValue;
     } catch (apiError) {
-      console.error('Erro ao buscar taxas de câmbio:', apiError);
+              console.error('Error fetching exchange rates:', apiError);
       
       // Não há mais fallbacks - simplesmente lançar erro
       console.error('Currency exchange services are unavailable');
@@ -149,7 +149,7 @@ export const CurrencyConverterField = ({ value, onValueChange, style = {} }) => 
         const rates = await fetchExchangeRates(currentCurrency.code);
         
         if (!rates[targetCurrency]) {
-          setConvertedAmount('Taxa não disponível');
+          setConvertedAmount('Rate not available');
           return;
         }
         
@@ -162,7 +162,7 @@ export const CurrencyConverterField = ({ value, onValueChange, style = {} }) => 
           onValueChange(inputValue);
         }
       } catch (error) {
-        console.error('Erro na conversão:', error);
+        console.error('Error in conversion:', error);
       }
     };
     
@@ -191,7 +191,7 @@ export const CurrencyConverterField = ({ value, onValueChange, style = {} }) => 
           value={amount}
           onChangeText={setAmount}
           keyboardType="numeric"
-          placeholder="Digite o valor"
+          placeholder="Enter amount"
         />
         <Text style={styles.currencySymbol}>
           {getCurrentCurrency().symbol}
@@ -200,7 +200,7 @@ export const CurrencyConverterField = ({ value, onValueChange, style = {} }) => 
       
       {convertedAmount ? (
         <View style={styles.convertedContainer}>
-          <Text style={styles.convertedLabel}>Valor convertido:</Text>
+          <Text style={styles.convertedLabel}>Converted value:</Text>
           <View style={styles.convertedRow}>
             <Text style={styles.convertedAmount}>{convertedAmount}</Text>
             <TouchableOpacity 
@@ -223,7 +223,7 @@ export const CurrencyConverterField = ({ value, onValueChange, style = {} }) => 
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Selecionar Moeda</Text>
+              <Text style={styles.modalTitle}>Select Currency</Text>
               <TouchableOpacity
                 style={styles.closeButton}
                 onPress={() => setModalVisible(false)}
@@ -233,7 +233,7 @@ export const CurrencyConverterField = ({ value, onValueChange, style = {} }) => 
             </View>
             
             {isLoading ? (
-              <Text style={styles.loadingText}>Carregando moedas...</Text>
+              <Text style={styles.loadingText}>Loading currencies...</Text>
             ) : (
               <FlatList
                 data={availableCurrencies}

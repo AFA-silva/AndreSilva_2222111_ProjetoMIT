@@ -474,7 +474,7 @@ const CurrencyMarketPage = ({ navigation }) => {
           const { data: { user } } = await supabase.auth.getUser();
           
           if (user && isMounted) {
-            // Buscar preferências do usuário do banco de dados
+            // Fetch user preferences from database
             const { data, error } = await supabase
               .from('user_currency_preferences')
               .select('actual_currency')
@@ -483,11 +483,11 @@ const CurrencyMarketPage = ({ navigation }) => {
               
             if (!error && data && data.actual_currency) {
               userCurrency = data.actual_currency;
-              console.log('Moeda carregada do banco de dados:', userCurrency);
+              console.log('Currency loaded from database:', userCurrency);
             } else {
-              // Se não encontrou no banco, usar o valor padrão 'USD'
+                              // If not found in database, use default value 'USD'
               userCurrency = 'USD';
-              console.log('Nenhuma preferência de moeda encontrada, usando padrão:', userCurrency);
+                              console.log('No currency preference found, using default:', userCurrency);
               
               // Criar registro com valor padrão
               if (user && isMounted) {
@@ -499,7 +499,7 @@ const CurrencyMarketPage = ({ navigation }) => {
                   });
                   
                 if (insertError) {
-                  console.error('Erro ao criar preferência de moeda:', insertError);
+                  console.error('Error creating currency preference:', insertError);
                 }
               }
             }
@@ -508,7 +508,7 @@ const CurrencyMarketPage = ({ navigation }) => {
             userCurrency = 'USD';
           }
         } catch (dbError) {
-          console.error('Erro ao carregar moeda do banco:', dbError);
+          console.error('Error loading currency from database:', dbError);
           // Fallback para valor padrão
           userCurrency = 'USD';
         }
@@ -562,20 +562,20 @@ const CurrencyMarketPage = ({ navigation }) => {
   // Função para verificar e salvar mudança de moeda ao sair da página
   const verifyAndSaveCurrencyChange = async () => {
     try {
-      // Se a moeda atual é diferente da inicial, atualizar no banco
+      // If current currency is different from initial, update in database
       if (initialUserCurrency.current && 
           userPreferredCurrency && 
           initialUserCurrency.current !== userPreferredCurrency) {
         
         console.log(`Moeda alterada: ${initialUserCurrency.current} → ${userPreferredCurrency}`);
         
-        // Usar a função centralizada para atualizar a moeda no banco
+        // Use centralized function to update currency in database
         const success = await updateUserCurrencyPreference(userPreferredCurrency);
         
         if (success) {
-          console.log('Moeda atualizada no banco com sucesso via verifyAndSaveCurrencyChange');
+          console.log('Currency updated in database successfully via verifyAndSaveCurrencyChange');
         } else {
-          console.error('Erro ao atualizar moeda no banco via verifyAndSaveCurrencyChange');
+                      console.error('Error updating currency in database via verifyAndSaveCurrencyChange');
         }
       }
     } catch (error) {
