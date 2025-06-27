@@ -97,17 +97,6 @@ const SecurityPage = () => {
           osVersion,
           deviceType
         }));
-        
-        console.log('📱 Device Info Loaded:', {
-          deviceName,
-          deviceModel,
-          manufacturer,
-          brand,
-          totalMemory,
-          osVersion,
-          deviceType,
-          screenSize: `${width}x${height}`
-        });
       } catch (error) {
         console.error('Error loading device info:', error);
       }
@@ -160,8 +149,7 @@ const SecurityPage = () => {
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
       if (sessionError || !session || !session.user) {
-        console.log('[SecurityPage-EmailValidation] No valid session found (normal during email refresh)', sessionError);
-        // Don't show error - this is expected during email changes
+        // Don't show error - this is expected during email refresh
         return;
       }
 
@@ -169,7 +157,6 @@ const SecurityPage = () => {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       
       if (authError || !user) {
-        console.log('[SecurityPage-EmailValidation] Failed to get current auth user (normal during email refresh)', authError);
         // Don't show alert - this is expected during email changes
         return;
       }
@@ -185,22 +172,14 @@ const SecurityPage = () => {
         .single();
         
       if (userError) {
-        console.error('[SecurityPage-EmailValidation] Failed to fetch database email', userError);
+        console.error('Error fetching database email:', userError);
         return;
       }
 
       const databaseEmail = userData.email;
       
-      console.log('[SecurityPage-EmailValidation] === EMAIL VALIDATION ===');
-      console.log('[SecurityPage-EmailValidation] Auth email (direct):', authEmail);
-      console.log('[SecurityPage-EmailValidation] Database email:', databaseEmail);
-      console.log('[SecurityPage-EmailValidation] User ID:', userId);
-      
       // Sync database with the current auth email
       if (authEmail !== databaseEmail) {
-        console.log('[SecurityPage-EmailValidation] Emails differ. Updating database to match auth email');
-        console.log('[SecurityPage-EmailValidation] From:', databaseEmail, '→ To:', authEmail);
-        
         const { data: updateData, error: updateError } = await supabase
           .from('users')
           .update({ email: authEmail })
@@ -208,21 +187,17 @@ const SecurityPage = () => {
           .select();
           
         if (updateError) {
-          console.error('[SecurityPage-EmailValidation] Failed to update database email', updateError);
+          console.error('Error updating database email:', updateError);
         } else {
-          console.log('[SecurityPage-EmailValidation] Database email updated successfully!');
-          console.log('[SecurityPage-EmailValidation] Updated data:', updateData);
-          
           // Update the UI with the new email
           setOldEmail(authEmail);
         }
       } else {
-        console.log('[SecurityPage-EmailValidation] Auth and database emails match - no update needed');
         // Still update UI to ensure it shows the correct email
         setOldEmail(authEmail);
       }
     } catch (error) {
-      console.error('[SecurityPage-EmailValidation] Error in email validation', error);
+      console.error('Error in email validation:', error);
     }
   };
 
@@ -260,12 +235,11 @@ const SecurityPage = () => {
       try {
         const { data, error } = await supabase.auth.getSession();
         if (error) {
-          console.log('[SecurityPage] Failed to fetch session (normal during email refresh):', error);
           // Don't show alert - this is expected during email changes
           return;
         }
         if (data?.session) {
-          console.log('[SecurityPage] Session found successfully');
+          console.log('Session found successfully');
           setUserSession(data.session);
           
           // Run email validation first (same as MainMenuPage)
@@ -275,18 +249,16 @@ const SecurityPage = () => {
           const lastRegistration = sessionStorage?.getItem('lastDeviceRegistration');
           const now = Date.now();
           if (!lastRegistration || (now - parseInt(lastRegistration)) > 300000) { // 5 minutes
-            console.log('[SecurityPage] Registering device access on session load...');
+            console.log('Registering device access on session load...');
             await registerDeviceAccess();
             if (typeof Storage !== 'undefined') {
               sessionStorage?.setItem('lastDeviceRegistration', now.toString());
             }
           }
         } else {
-          console.log('[SecurityPage] No active session found (normal during email refresh)');
           // Don't show alert - this is expected during email changes
         }
       } catch (error) {
-        console.log('[SecurityPage] Exception during session fetch (normal during email refresh):', error);
         // Don't show alert - this is expected during email changes
       }
     };
@@ -307,7 +279,7 @@ const SecurityPage = () => {
           const lastRegistration = sessionStorage?.getItem('lastDeviceRegistration');
           const now = Date.now();
           if (!lastRegistration || (now - parseInt(lastRegistration)) > 300000) { // 5 minutes
-            console.log('[SecurityPage] Registering device access on focus...');
+            console.log('Registering device access on focus...');
             await registerDeviceAccess();
             if (typeof Storage !== 'undefined') {
               sessionStorage?.setItem('lastDeviceRegistration', now.toString());
@@ -378,7 +350,6 @@ const SecurityPage = () => {
       const { data: { session }, error } = await supabase.auth.getSession();
       
       if (error) {
-        console.log('[SecurityPage] Authentication check error (expected during email refresh):', error);
         if (!silent) {
           showAlert('Authentication error. Please try again.', 'error');
         }
@@ -388,20 +359,17 @@ const SecurityPage = () => {
       if (!session || !session.user) {
         // If no session and we haven't retried much, wait and try again
         if (retryCount < 3) {
-          console.log(`[SecurityPage] No session found, retrying silently... (attempt ${retryCount + 1}/3)`);
-          await new Promise(resolve => setTimeout(resolve, 500)); // Wait 500ms
-          return await checkAuthenticationStatus(retryCount + 1, silent);
+          setTimeout(() => {
+            checkAuthenticationStatus(retryCount + 1, true);
+          }, 1000);
+          return false;
         }
         
-        console.log('[SecurityPage] No valid session found after retries (this is normal during email refresh)');
-        // Don't show error for email refresh - it's expected behavior
         return false;
       }
       
-      console.log('[SecurityPage] Authentication check successful');
       return true;
     } catch (error) {
-      console.log('[SecurityPage] Exception during auth check (expected during email refresh):', error);
       if (!silent) {
         showAlert('Authentication error. Please try again.', 'error');
       }
@@ -427,7 +395,6 @@ const SecurityPage = () => {
       if (!ip) return 'Unknown';
       const response = await fetch(`https://api.ipinfo.io/${ip}?token=YOUR_TOKEN`);
       const data = await response.json();
-      console.log('🌍 IPINFO Response:', data);
       if (data.country && data.country !== '') return data.country;
       return 'Unknown';
     } catch (error) {
@@ -442,11 +409,11 @@ const SecurityPage = () => {
   const registerDeviceAccess = async () => {
     try {
       if (!userSession || !userSession.user) {
-        console.log('[SecurityPage] No valid user session for device registration');
+        console.log('No valid user session for device registration');
         return;
       }
       
-      console.log('[SecurityPage] Starting device registration...');
+      console.log('Starting device registration...');
       
       // Get detailed device information using expo-device with fallbacks
       const deviceName = Device.deviceName || `${Platform.OS} Device`;
@@ -456,7 +423,7 @@ const SecurityPage = () => {
       const brand = Device.brand || Platform.OS;
       const osVersion = Device.osVersion || Platform.Version;
       
-      console.log('[SecurityPage] Raw device info:', {
+      console.log('Raw device info:', {
         deviceName,
         deviceModel,
         modelCode,
@@ -477,15 +444,15 @@ const SecurityPage = () => {
         detailedModel = `${Platform.OS} Device`;
       }
       
-      console.log('[SecurityPage] Generated detailed model:', detailedModel);
+      console.log('Generated detailed model:', detailedModel);
       
       // Fetch the real public IP address
       let realIP = null;
       try {
         realIP = await getPublicIP();
-        console.log('[SecurityPage] Fetched IP:', realIP);
+        console.log('Fetched IP:', realIP);
       } catch (ipError) {
-        console.log('[SecurityPage] Failed to fetch IP:', ipError);
+        console.log('Failed to fetch IP:', ipError);
       }
       
       // Fetch the city from the IP
@@ -494,9 +461,9 @@ const SecurityPage = () => {
         if (realIP) {
           city = await getCityFromIP(realIP);
         }
-        console.log('[SecurityPage] Fetched location:', city);
+        console.log('Fetched location:', city);
       } catch (cityError) {
-        console.log('[SecurityPage] Failed to fetch location:', cityError);
+        console.log('Failed to fetch location:', cityError);
       }
       
       // Build deviceData with required fields and fallbacks
@@ -512,7 +479,7 @@ const SecurityPage = () => {
       if (realIP) deviceData.ip_address = realIP;
       if (city && city !== 'Unknown') deviceData.location = city;
       
-      console.log('[SecurityPage] Device data to register:', deviceData);
+      console.log('Device data to register:', deviceData);
       
       // Check if device already exists - be more specific to avoid duplicates
       const { data: existingDevices, error: checkError } = await supabase
@@ -523,16 +490,16 @@ const SecurityPage = () => {
         .eq('model', detailedModel);
 
       if (checkError) {
-        console.error('[SecurityPage] Error checking existing device:', checkError);
+        console.error('Error checking existing device:', checkError);
         return; // Don't continue if we can't check for duplicates
       }
 
-      console.log('[SecurityPage] Existing devices found:', existingDevices);
+      console.log('Existing devices found:', existingDevices);
 
       if (existingDevices && existingDevices.length > 0) {
         // Update last access for the existing device
         const deviceToUpdate = existingDevices[0];
-        console.log('[SecurityPage] Updating existing device:', deviceToUpdate.id);
+        console.log('Updating existing device:', deviceToUpdate.id);
         
         const { error: updateError } = await supabase
           .from('device_info')
@@ -544,43 +511,43 @@ const SecurityPage = () => {
           .eq('id', deviceToUpdate.id);
           
         if (updateError) {
-          console.error('[SecurityPage] Error updating device:', updateError);
+          console.error('Error updating device:', updateError);
         } else {
-          console.log('[SecurityPage] Device updated successfully - no new device created');
+          console.log('Device updated successfully - no new device created');
         }
       } else {
         // Only insert if no device exists with same user_id + name + model
-        console.log('[SecurityPage] No existing device found, inserting new device...');
+        console.log('No existing device found, inserting new device...');
         const { data: insertData, error: insertError } = await supabase
           .from('device_info')
           .insert([deviceData])
           .select();
           
         if (insertError) {
-          console.error('[SecurityPage] Error inserting device:', insertError);
+          console.error('Error inserting device:', insertError);
           // Check if it's a duplicate key error
           if (insertError.code === '23505') {
-            console.log('[SecurityPage] Device already exists (duplicate key), skipping insertion');
+            console.log('Device already exists (duplicate key), skipping insertion');
           }
         } else {
-          console.log('[SecurityPage] New device inserted successfully:', insertData);
+          console.log('New device inserted successfully:', insertData);
         }
       }
     } catch (error) {
-      console.error('[SecurityPage] Error registering device access:', error);
+      console.error('Error registering device access:', error);
     }
   };
 
   const fetchUserDevices = async () => {
     try {
       if (!userSession || !userSession.user) {
-        console.log('[SecurityPage] No user session available for fetching devices');
+        console.log('No user session available for fetching devices');
         setUserDevices([]);
         return;
       }
       
       const currentUserId = userSession.user.id;
-      console.log('[SecurityPage] Fetching ALL devices for user ID:', currentUserId);
+      console.log('Fetching ALL devices for user ID:', currentUserId);
       setLoadingDevices(true);
       
       // Fetch ALL device_info records that match the current user_id
@@ -601,37 +568,48 @@ const SecurityPage = () => {
         .order('last_access', { ascending: false });
 
       if (fetchError) {
-        console.error('[SecurityPage] Error fetching devices:', fetchError);
+        console.error('Error fetching devices:', fetchError);
         showAlert(`Failed to load device information: ${fetchError.message}`, 'error');
         setUserDevices([]);
         return;
       }
 
-      console.log('[SecurityPage] Raw device data from database:', deviceData);
-      console.log('[SecurityPage] Number of devices found:', deviceData ? deviceData.length : 0);
+      console.log('Raw device data from database:', deviceData);
+      console.log('Number of devices found:', deviceData ? deviceData.length : 0);
       
       if (deviceData && deviceData.length > 0) {
         // Process and set the devices
-        console.log('[SecurityPage] Processing device data...');
-        deviceData.forEach((device, index) => {
-          console.log(`[SecurityPage] Device ${index + 1}:`, {
+        console.log('Processing device data...');
+        const processedDevices = deviceData.map((device, index) => {
+          console.log(`Device ${index + 1}:`, {
             id: device.id,
             name: device.name,
             model: device.model,
             authorized: device.authorized,
             last_access: device.last_access
           });
+          return {
+            id: device.id,
+            name: device.name || 'Unknown Device',
+            model: device.model || 'Unknown Model',
+            ip_address: device.ip_address || 'No IP Address',
+            location: device.location || 'Unknown Location',
+            authorized: device.authorized,
+            last_access: device.last_access,
+            created_at: device.created_at,
+            isCurrentDevice: device.name === Device.deviceName && device.model === Device.modelName
+          };
         });
         
-        setUserDevices(deviceData);
-        console.log('[SecurityPage] Devices successfully loaded into state');
+        setUserDevices(processedDevices);
+        console.log('Devices successfully loaded into state');
       } else {
-        console.log('[SecurityPage] No devices found in database for this user');
+        console.log('No devices found in database for this user');
         setUserDevices([]);
       }
       
     } catch (error) {
-      console.error('[SecurityPage] Exception while fetching user devices:', error);
+      console.error('Exception while fetching user devices:', error);
       showAlert('An unexpected error occurred while loading devices', 'error');
       setUserDevices([]);
     } finally {
@@ -647,7 +625,7 @@ const SecurityPage = () => {
         .eq('id', deviceId);
 
       if (error) {
-        console.error('Error updating device authorization:', error);
+        console.error('Error toggling device authorization:', error);
         showAlert('Failed to update device authorization', 'error');
         return;
       }
@@ -1118,13 +1096,9 @@ const SecurityPage = () => {
                 <>
                   {userDevices
                     .filter(device => {
-                      console.log(`[SecurityPage] Filtering device: ${device.name}, authorized: ${device.authorized}, tab: ${devicesTabActive}`);
                       return devicesTabActive === 'authorized' ? device.authorized : !device.authorized;
                     })
                     .map((device, index) => {
-                      console.log(`[SecurityPage] Rendering device ${index + 1}:`, device);
-                      
-                      // Create device item component with clean layout
                       return (
                         <View key={device.id || index} style={styles.deviceItem}>
                           {/* Header Section - Icon, Name, and Status Badge */}
@@ -1190,7 +1164,6 @@ const SecurityPage = () => {
                                 device.authorized ? styles.blockDeviceButton : styles.authorizeButton
                               ]}
                               onPress={() => {
-                                console.log(`[SecurityPage] Toggling authorization for device: ${device.id}`);
                                 toggleDeviceAuthorization(device.id, device.authorized);
                               }}
                               activeOpacity={0.8}

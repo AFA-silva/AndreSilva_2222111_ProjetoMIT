@@ -47,7 +47,6 @@ export const isAuthenticated = async () => {
 export const clearAuthData = async () => {
   try {
     await supabase.auth.signOut();
-    console.log('Authentication data cleared');
   } catch (error) {
     console.error('Error clearing auth data:', error);
   }
@@ -62,8 +61,6 @@ export const forceLogout = async () => {
       await AsyncStorage.removeItem('remembered_email');
       await AsyncStorage.removeItem('remember_me');
     }
-    
-    console.log('Forced logout - all data cleared');
   } catch (error) {
     console.error('Error during forced logout:', error);
   }

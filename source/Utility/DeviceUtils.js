@@ -17,15 +17,12 @@ export const getPublicIP = async () => {
 export const getCityFromIP = async (ip) => {
   try {
     if (!ip || ip === 'Unknown') {
-      console.log('No valid IP provided to getCityFromIP:', ip);
       return 'Unknown';
     }
-    console.log('Fetching location for IP:', ip);
     // Try ip-api.com first
     try {
       const response = await fetch(`http://ip-api.com/json/${ip}`);
       const data = await response.json();
-      console.log('🌍 ip-api.com Response:', data);
       if (data && data.country) {
         return data.country;
       }
@@ -37,12 +34,10 @@ export const getCityFromIP = async (ip) => {
     try {
       const response = await fetch(`https://api.ipinfo.io/${ip}?token=5cf62a68ea1917`);
       infoData = await response.json();
-      console.log('🌍 IPINFO Response:', infoData);
       if (infoData && infoData.country && infoData.country !== '') {
         try {
           const restResponse = await fetch(`https://restcountries.com/v3.1/alpha/${infoData.country}`);
           const restData = await restResponse.json();
-          console.log('🌍 RESTCountries Response:', restData);
           if (Array.isArray(restData) && restData[0] && restData[0].name && restData[0].name.common) {
             return restData[0].name.common;
           }

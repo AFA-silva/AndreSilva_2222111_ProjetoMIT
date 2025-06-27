@@ -8,10 +8,8 @@ export const getSession = async () => {
     if (error) throw error;
 
     if (session) {
-      console.log('Session fetched successfully:', session);
       return session;
     } else {
-      console.log('No active session found.');
       return null;
     }
   } catch (err) {
@@ -26,12 +24,10 @@ export const fetchUserCurrencyPreference = async () => {
     // Check if user is authenticated
     const { data: { session } } = await supabase.auth.getSession();
     if (!session || !session.user) {
-      console.log('No authenticated user to fetch currency preference');
       return null;
     }
 
     const userId = session.user.id;
-    console.log('Fetching currency preference for user:', userId);
     
     // Try to get user currency preference
     const { data, error } = await supabase
@@ -46,7 +42,6 @@ export const fetchUserCurrencyPreference = async () => {
     }
 
     if (data && data.actual_currency) {
-      console.log('User currency preference fetched:', data.actual_currency);
       // Return the actual currency preference from database
       return {
         code: data.actual_currency,
@@ -56,7 +51,6 @@ export const fetchUserCurrencyPreference = async () => {
     } else {
       // No preference found, create one with EUR as default
       // ONLY if the user doesn't have a preference yet
-      console.log('No currency preference found, creating with default (EUR)');
       const { error: insertError } = await supabase
         .from('user_currency_preferences')
         .insert([
@@ -98,7 +92,6 @@ export const fetchUserById = async (userId) => {
 
     if (error) throw error;
 
-    console.log('User fetched successfully:', data);
     return data;
   } catch (err) {
     console.error('Error fetching user by ID:', err);
@@ -117,7 +110,6 @@ export const fetchUserByEmail = async (email) => {
 
     if (error) throw error;
 
-    console.log('User fetched successfully:', data);
     return data;
   } catch (err) {
     console.error('Error fetching user by email:', err);
@@ -134,7 +126,6 @@ export const createUser = async (userDetails) => {
 
     if (error) throw error;
 
-    console.log('User created successfully:', data);
     return data;
   } catch (err) {
     console.error('Error creating user:', err);
@@ -144,8 +135,6 @@ export const createUser = async (userDetails) => {
 
 // Update an existing user's data
 export const updateUser = async (userId, updates) => {
-  console.log('updateUser called with:', { userId, updates });
-
   try {
     const { data, error } = await supabase
       .from('users')
@@ -158,11 +147,9 @@ export const updateUser = async (userId, updates) => {
     }
 
     if (!data || data.length === 0) {
-      console.log(`No rows updated. The user ID ${userId} may not exist or the update conditions did not match.`);
       return { data: null, error: null }; // Removed warning and considered it a no-op.
     }
 
-    console.log('User updated successfully:', data);
     return { data, error: null };
   } catch (err) {
     console.error('Unexpected error in updateUser:', err);
@@ -180,7 +167,6 @@ export const deleteUserById = async (userId) => {
 
     if (error) throw error;
 
-    console.log('User deleted successfully:', data);
     return data;
   } catch (err) {
     console.error('Error deleting user:', err);
@@ -198,7 +184,6 @@ export const fetchIncomesByUser = async (userId) => {
 
     if (error) throw error;
 
-    console.log('Incomes fetched successfully:', data);
     return data;
   } catch (err) {
     console.error('Error fetching incomes:', err);
@@ -216,7 +201,6 @@ export const fetchExpensesByUser = async (userId) => {
 
     if (error) throw error;
 
-    console.log('Expenses fetched successfully:', data);
     return data;
   } catch (err) {
     console.error('Error fetching expenses:', err);
@@ -235,7 +219,6 @@ export const fetchGoalsByUser = async (userId) => {
 
     if (error) throw error;
 
-    console.log('Goals fetched successfully:', data);
     return data;
   } catch (err) {
     console.error('Error fetching goals:', err);
@@ -318,7 +301,6 @@ export const fetchFrequenciesByUser = async (userId) => {
 
     if (error) throw error;
 
-    console.log('Frequencies fetched successfully:', data);
     return data;
   } catch (err) {
     console.error('Error fetching frequencies:', err);
@@ -336,7 +318,6 @@ export const fetchCategoriesByUser = async (userId) => {
 
     if (error) throw error;
 
-    console.log('Categories fetched successfully:', data);
     return data;
   } catch (err) {
     console.error('Error fetching categories:', err);
@@ -350,7 +331,6 @@ export const updateUserCurrencyPreference = async (currencyInfo) => {
     // Check if user is authenticated
     const { data: { session } } = await supabase.auth.getSession();
     if (!session || !session.user) {
-      console.log('No authenticated user to update currency preference');
       return false;
     }
 
@@ -436,8 +416,6 @@ export const cleanupDuplicateCurrencyPreferences = async () => {
 // Update all incomes for a user with converted values when currency changes
 export const updateIncomesWithConvertedValues = async (userId, conversionRates, fromCurrency, toCurrency) => {
   try {
-    console.log(`Converting all income values from ${fromCurrency} to ${toCurrency}`);
-    
     // Get current incomes
     const { data: incomes, error: fetchError } = await supabase
       .from('income')
@@ -450,13 +428,9 @@ export const updateIncomesWithConvertedValues = async (userId, conversionRates, 
     }
     
     if (!incomes || incomes.length === 0) {
-      console.log('No incomes to convert');
       return true;
     }
     
-    console.log(`Found ${incomes.length} income records to convert`);
-    
-    // Convert and update each income
     let successCount = 0;
     for (const income of incomes) {
       try {
@@ -473,20 +447,17 @@ export const updateIncomesWithConvertedValues = async (userId, conversionRates, 
         const conversionRate = conversionRates[toCurrency] || 1;
         const convertedAmount = originalAmount * conversionRate;
         
-        console.log(`Converting income: ${originalAmount} ${fromCurrency} → ${convertedAmount.toFixed(2)} ${toCurrency}`);
-        
-        // Only update the amount field - don't try to update non-existent columns
         const { error: updateError } = await supabase
           .from('income')
           .update({ 
-            amount: convertedAmount
+            amount: convertedAmount.toFixed(2),
+            last_currency: fromCurrency
           })
           .eq('id', income.id);
           
         if (updateError) {
           console.error(`Error updating income ${income.id}:`, updateError);
         } else {
-          console.log(`Income ${income.id} updated successfully`);
           successCount++;
         }
       } catch (conversionError) {
@@ -494,7 +465,6 @@ export const updateIncomesWithConvertedValues = async (userId, conversionRates, 
       }
     }
     
-    console.log(`Successfully converted ${successCount} of ${incomes.length} incomes`);
     return successCount > 0;
   } catch (error) {
     console.error('Error in updateIncomesWithConvertedValues:', error);
@@ -505,8 +475,6 @@ export const updateIncomesWithConvertedValues = async (userId, conversionRates, 
 // Update all expenses for a user with converted values when currency changes
 export const updateExpensesWithConvertedValues = async (userId, conversionRates, fromCurrency, toCurrency) => {
   try {
-    console.log(`Converting all expense values from ${fromCurrency} to ${toCurrency}`);
-    
     // Get current expenses
     const { data: expenses, error: fetchError } = await supabase
       .from('expenses')
@@ -519,13 +487,9 @@ export const updateExpensesWithConvertedValues = async (userId, conversionRates,
     }
     
     if (!expenses || expenses.length === 0) {
-      console.log('No expenses to convert');
       return true;
     }
     
-    console.log(`Found ${expenses.length} expense records to convert`);
-    
-    // Convert and update each expense
     let successCount = 0;
     for (const expense of expenses) {
       try {
@@ -542,20 +506,17 @@ export const updateExpensesWithConvertedValues = async (userId, conversionRates,
         const conversionRate = conversionRates[toCurrency] || 1;
         const convertedAmount = originalAmount * conversionRate;
         
-        console.log(`Converting expense: ${originalAmount} ${fromCurrency} → ${convertedAmount.toFixed(2)} ${toCurrency}`);
-        
-        // Only update the amount field - don't try to update non-existent columns
         const { error: updateError } = await supabase
           .from('expenses')
           .update({ 
-            amount: convertedAmount
+            amount: convertedAmount.toFixed(2),
+            last_currency: fromCurrency
           })
           .eq('id', expense.id);
           
         if (updateError) {
           console.error(`Error updating expense ${expense.id}:`, updateError);
         } else {
-          console.log(`Expense ${expense.id} updated successfully`);
           successCount++;
         }
       } catch (conversionError) {
@@ -563,7 +524,6 @@ export const updateExpensesWithConvertedValues = async (userId, conversionRates,
       }
     }
     
-    console.log(`Successfully converted ${successCount} of ${expenses.length} expenses`);
     return successCount > 0;
   } catch (error) {
     console.error('Error in updateExpensesWithConvertedValues:', error);
@@ -574,8 +534,6 @@ export const updateExpensesWithConvertedValues = async (userId, conversionRates,
 // Update all goals for a user with converted values when currency changes
 export const updateGoalsWithConvertedValues = async (userId, conversionRates, fromCurrency, toCurrency) => {
   try {
-    console.log(`Converting all goal values from ${fromCurrency} to ${toCurrency}`);
-    
     // Get current goals
     const { data: goals, error: fetchError } = await supabase
       .from('goals')
@@ -588,13 +546,9 @@ export const updateGoalsWithConvertedValues = async (userId, conversionRates, fr
     }
     
     if (!goals || goals.length === 0) {
-      console.log('No goals to convert');
       return true;
     }
     
-    console.log(`Found ${goals.length} goal records to convert`);
-    
-    // Convert and update each goal
     let successCount = 0;
     for (const goal of goals) {
       try {
@@ -611,20 +565,17 @@ export const updateGoalsWithConvertedValues = async (userId, conversionRates, fr
         const conversionRate = conversionRates[toCurrency] || 1;
         const convertedAmount = originalAmount * conversionRate;
         
-        console.log(`Converting goal: ${originalAmount} ${fromCurrency} → ${convertedAmount.toFixed(2)} ${toCurrency}`);
-        
-        // Only update the amount field - don't try to update non-existent columns
         const { error: updateError } = await supabase
           .from('goals')
           .update({ 
-            amount: convertedAmount
+            amount: convertedAmount.toFixed(2),
+            last_currency: fromCurrency
           })
           .eq('id', goal.id);
           
         if (updateError) {
           console.error(`Error updating goal ${goal.id}:`, updateError);
         } else {
-          console.log(`Goal ${goal.id} updated successfully`);
           successCount++;
         }
       } catch (conversionError) {
@@ -632,7 +583,6 @@ export const updateGoalsWithConvertedValues = async (userId, conversionRates, fr
       }
     }
     
-    console.log(`Successfully converted ${successCount} of ${goals.length} goals`);
     return successCount > 0;
   } catch (error) {
     console.error('Error in updateGoalsWithConvertedValues:', error);
@@ -643,98 +593,58 @@ export const updateGoalsWithConvertedValues = async (userId, conversionRates, fr
 // Main function to convert all financial data when currency changes
 export const convertAllFinancialData = async (fromCurrency, toCurrency) => {
   try {
-    console.log(`Starting conversion of all financial data from ${fromCurrency} to ${toCurrency}`);
-    
-    // If currencies are the same, no conversion needed
+    // Check if conversion is needed
     if (fromCurrency === toCurrency) {
-      console.log('Source and target currencies are the same, no conversion needed');
       return true;
     }
     
-    // Check if user is authenticated
+    // Get current user
     const { data: { session } } = await supabase.auth.getSession();
     if (!session || !session.user) {
-      console.log('No authenticated user for currency conversion');
       return false;
     }
     
     const userId = session.user.id;
-    console.log('User authenticated for conversion:', userId);
-    
+
     // Get conversion rates from exchange rate API
-    console.log('Fetching conversion rates...');
-    let conversionRates = null;
+    let conversionRates = {};
     
     try {
       const response = await fetch(`https://v6.exchangerate-api.com/v6/de3d3cc388a2679655798ec7/latest/${fromCurrency}`);
-      if (!response.ok) {
-        throw new Error(`HTTP error! Status: ${response.status}`);
-      }
-      
       const data = await response.json();
       
       if (data.result === 'success') {
         conversionRates = data.conversion_rates;
-        
-        // Verify target currency is available in rates
-        if (!conversionRates[toCurrency]) {
-          console.error(`Conversion rate not available for ${toCurrency}`);
-          return false;
-        }
-        
-        console.log(`Conversion rate: 1 ${fromCurrency} = ${conversionRates[toCurrency]} ${toCurrency}`);
       } else {
         throw new Error(`API error: ${data.error_type || 'Unknown error'}`);
       }
     } catch (apiError) {
-      console.error('API error fetching exchange rates:', apiError);
+      console.error('Primary API failed, trying alternative...', apiError);
       
-      // Try alternative API as backup
       try {
-        console.log('Trying alternative exchange rate API...');
         const altResponse = await fetch(`https://open.er-api.com/v6/latest/${fromCurrency}`);
-        
-        if (!altResponse.ok) {
-          throw new Error(`Alternative API HTTP error! Status: ${altResponse.status}`);
-        }
-        
         const altData = await altResponse.json();
         
-        if (altData.rates && altData.rates[toCurrency]) {
+        if (altData.rates) {
           conversionRates = altData.rates;
-          console.log(`Alternative API rate: 1 ${fromCurrency} = ${conversionRates[toCurrency]} ${toCurrency}`);
         } else {
-          throw new Error('Alternative API missing target currency rate');
+          throw new Error('Alternative API also failed');
         }
       } catch (altApiError) {
-        console.error('Alternative API also failed:', altApiError);
+        console.error('Both APIs failed:', altApiError);
         return false;
       }
     }
     
-    if (!conversionRates || !conversionRates[toCurrency]) {
-      console.error('Failed to obtain valid conversion rates');
-      return false;
-    }
-    
-    console.log('Conversion rates obtained successfully. Starting data updates...');
-    
-    // Convert all financial data in parallel for efficiency
+    // Update all financial data
     const [incomesUpdated, expensesUpdated, goalsUpdated] = await Promise.all([
       updateIncomesWithConvertedValues(userId, conversionRates, fromCurrency, toCurrency),
       updateExpensesWithConvertedValues(userId, conversionRates, fromCurrency, toCurrency),
       updateGoalsWithConvertedValues(userId, conversionRates, fromCurrency, toCurrency)
     ]);
-    
-    console.log('Data update results:');
-    console.log('- Incomes updated:', incomesUpdated);
-    console.log('- Expenses updated:', expensesUpdated);
-    console.log('- Goals updated:', goalsUpdated);
-    
-    // Consider conversion successful if at least one type of data was updated
-    const isSuccessful = incomesUpdated || expensesUpdated || goalsUpdated;
-    
-    console.log(`Financial data conversion ${isSuccessful ? 'completed successfully' : 'failed'}`);
+
+    const isSuccessful = incomesUpdated && expensesUpdated && goalsUpdated;
+
     return isSuccessful;
   } catch (error) {
     console.error('Error in convertAllFinancialData:', error);
@@ -749,7 +659,6 @@ export const testUpdateCurrency = async (currencyCode) => {
     // Check if user is authenticated
     const { data: { session } } = await supabase.auth.getSession();
     if (!session || !session.user) {
-      console.log('No authenticated user to update currency preference');
       return false;
     }
 
@@ -791,7 +700,6 @@ export const testUpdateCurrency = async (currencyCode) => {
       return false;
     }
 
-    console.log(`Currency preference set to ${currencyCode} successfully (previous was ${previousCurrency})`);
     return true;
   } catch (err) {
     console.error('Error in testUpdateCurrency:', err);

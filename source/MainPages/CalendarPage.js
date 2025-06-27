@@ -116,75 +116,65 @@ const CalendarPage = () => {
     ]).start();
   };
 
+  // Helper function to validate if a date is valid
+  const isValidDate = (date) => {
+    return date instanceof Date && !isNaN(date.getTime());
+  };
+
   // Helper function to generate recurring dates based on frequency and count
-  const generateRecurringDates = (startDateStr, frequencyInfo, occurrenceCount) => {
-    console.log('📅 generateRecurringDates called with:', {
-      startDateStr,
-      frequencyInfo,
-      occurrenceCount
-    });
-    
-    const dates = [];
-    const startDate = new Date(startDateStr);
-    
-    console.log('📅 Parsed start date:', {
-      startDate: startDate.toISOString(),
-      isValidStartDate: !isNaN(startDate.getTime())
-    });
-    
-    if (isNaN(startDate.getTime())) {
-      console.log('❌ Invalid start date, returning empty array');
+  const generateRecurringDates = (startDate, frequencyDays, maxLimit = 12) => {
+    try {
+      if (!startDate) {
+        console.error('No start date provided');
+        return [];
+      }
+
+      const start = new Date(startDate);
+      if (!isValidDate(start)) {
+        console.error('Invalid start date:', startDate);
+        return [];
+      }
+
+      const dates = [];
+      let currentDate = new Date(start);
+
+      // Validate frequency days
+      const frequencyDaysToUse = frequencyDays && frequencyDays > 0 ? frequencyDays : 30;
+
+      // Generate dates up to maxLimit
+      for (let i = 0; i < maxLimit; i++) {
+        if (isValidDate(currentDate)) {
+          dates.push(new Date(currentDate));
+        } else {
+          console.error('Invalid date generated during iteration:', currentDate);
+          break;
+        }
+        
+        // Add frequency days to current date
+        currentDate.setDate(currentDate.getDate() + frequencyDaysToUse);
+        
+        // Safety check to prevent infinite loops with very large dates
+        if (currentDate.getFullYear() > 2030) {
+          console.warn('Date exceeded reasonable bounds, stopping generation');
+          break;
+        }
+      }
+
+      return dates;
+    } catch (error) {
+      console.error('Error generating recurring dates:', error);
       return [];
     }
-    
-    // Default to monthly if no frequency info
-    let frequencyDays = 30;
-    
-    // If we have frequency info with days, use that
-    if (frequencyInfo && frequencyInfo.days) {
-      frequencyDays = frequencyInfo.days;
-      console.log('✅ Using frequency from info:', frequencyDays, 'days');
-    } else {
-      console.log('⚠️ No frequency info, using default:', frequencyDays, 'days');
-    }
-    
-    let currentDate = new Date(startDate);
-    
-    // Add the start date
-    dates.push(startDate.toISOString().split('T')[0]);
-    console.log('📅 Added start date:', startDate.toISOString().split('T')[0]);
-    
-    // Generate the specified number of additional occurrences
-    for (let i = 1; i < occurrenceCount; i++) {
-      // Calculate next date by adding frequency days
-      const millisecondsInDay = 24 * 60 * 60 * 1000;
-      const nextDate = new Date(currentDate.getTime() + (frequencyDays * millisecondsInDay));
-      currentDate = nextDate;
-      
-      // Add the date to our list
-      const dateStr = currentDate.toISOString().split('T')[0];
-      dates.push(dateStr);
-      
-      if (i <= 3) { // Log first few dates
-        console.log(`📅 Added occurrence ${i + 1}: ${dateStr}`);
-      }
-    }
-    
-    console.log(`✅ generateRecurringDates completed: ${dates.length} dates generated`);
-    return dates;
   };
 
   const fetchEvents = async (selectedMonth = null) => {
     setLoading(true);
-    console.log('🔄 Starting fetchEvents with selectedMonth:', selectedMonth);
     
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        console.log('❌ No user found in fetchEvents');
         return;
       }
-      console.log('✅ User found in fetchEvents:', user.id);
 
       // Inicializar a data atual ou usar o mês selecionado se fornecido
       const now = selectedMonth ? new Date(selectedMonth) : new Date();
@@ -194,7 +184,6 @@ const CalendarPage = () => {
       today.setHours(0, 0, 0, 0);
       
       // Buscar eventos básicos do calendário
-      console.log('📊 Fetching calendar events from database...');
       const { data: calendarEvents, error } = await supabase
         .from('calendar_events')
         .select(`
@@ -207,11 +196,9 @@ const CalendarPage = () => {
         .eq('user_id', user.id);
 
       if (error) {
-        console.error('❌ Error fetching calendar events:', error);
+        console.error('Error fetching calendar events:', error);
         throw error;
       }
-      
-      console.log(`✅ Found ${calendarEvents?.length || 0} calendar events`);
 
       // Arrays para armazenar IDs de income e expense para busca posterior
       const incomeIds = [];
@@ -229,12 +216,6 @@ const CalendarPage = () => {
             goalIds.push(event.event_id);
           }
         }
-      });
-
-      console.log('📊 Event IDs to fetch:', {
-        income: incomeIds.length,
-        expense: expenseIds.length,
-        goal: goalIds.length
       });
 
       // Buscar detalhes de income e expense
@@ -260,7 +241,6 @@ const CalendarPage = () => {
         if (incomeError) {
           console.error('Erro ao buscar income:', incomeError);
         } else if (incomeData) {
-          console.log('Income data:', incomeData);
           // Criar um mapa de ID para detalhes para fácil acesso
           incomeDetails = incomeData.reduce((acc, income) => {
             acc[income.id] = income;
@@ -287,7 +267,6 @@ const CalendarPage = () => {
         if (expenseError) {
           console.error('Erro ao buscar expenses:', expenseError);
         } else if (expenseData) {
-          console.log('Expense data:', expenseData);
           // Criar um mapa de ID para detalhes para fácil acesso
           expenseDetails = expenseData.reduce((acc, expense) => {
             acc[expense.id] = expense;
@@ -310,7 +289,6 @@ const CalendarPage = () => {
         if (goalError) {
           console.error('Erro ao buscar goals:', goalError);
         } else if (goalData) {
-          console.log('Goal data:', goalData);
           // Criar um mapa de ID para detalhes para fácil acesso
           goalDetails = goalData.reduce((acc, goal) => {
             acc[goal.id] = goal;
@@ -540,8 +518,6 @@ const CalendarPage = () => {
 
       if (error) throw error;
       
-      console.log(`Registros de ${type} encontrados:`, data);
-      
       // Filtrar registros que já estão associados à data selecionada
       const alreadyAssignedIds = new Set();
       
@@ -554,8 +530,6 @@ const CalendarPage = () => {
           }
         });
       }
-      
-      console.log('IDs já associados:', Array.from(alreadyAssignedIds));
       
       // Filtrar registros que não estão associados
       const filteredData = data?.filter(item => !alreadyAssignedIds.has(item.id.toString())) || [];
@@ -632,238 +606,115 @@ const CalendarPage = () => {
     setShowExistingRecords(true);
   };
 
-  const addExistingToCalendar = async (record) => {
-    setLoading(true);
-    console.log('🔄 Starting addExistingToCalendar with:', {
-      recordType,
-      recordId: record.id,
-      selectedDate,
-      isRecurring,
-      recurrenceCount,
-      record
-    });
-    
+  const addExistingToCalendar = async (record, type) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
+      
       if (!user) {
-        console.log('❌ No user found');
         return;
       }
-      console.log('✅ User found:', user.id);
-
-      // Define eventKey at function scope level so it can be used throughout
-      const eventKey = `${recordType}-${record.id}`;
-
-      // Update max recurrence limit based on selected record's frequency
-      if (isRecurring && record.frequencies) {
-        const maxLimit = getMaxRecurrenceLimit(record.frequencies.days);
-        setMaxRecurrenceAllowed(maxLimit);
-        // Ensure current count doesn't exceed the limit
-        if (recurrenceCount > maxLimit) {
-          setRecurrenceCount(maxLimit);
-        }
-        console.log(`📊 Frequency: ${getFrequencyDisplayName(record.frequencies.days)} (${record.frequencies.days} days), Max limit: ${maxLimit}`);
+      
+      // Get frequency information
+      let frequencyDays = 30; // Default
+      if (record.frequencies && record.frequencies.days) {
+        frequencyDays = record.frequencies.days;
       }
 
-      // Enhanced duplicate prevention - check if any of the dates would conflict
-      let conflictingDates = [];
-      
-      if (isRecurring) {
-        // For recurring events, generate the dates first and check each one
-        const frequencyDays = (record.frequencies && record.frequencies.days) ? record.frequencies.days : 30;
-        const testDates = generateRecurringDates(
-          selectedDate, 
-          record.frequencies || { days: frequencyDays },
-          recurrenceCount
-        );
-        
-        // Check each generated date for conflicts
-        for (const testDate of testDates) {
-          // Check in assigned records tracking
-          if (assignedRecords[testDate] && assignedRecords[testDate].has(eventKey)) {
-            conflictingDates.push(testDate);
-          }
-          
-          // Check in database
-          const { data: existingEvents, error: checkError } = await supabase
-            .from('calendar_events')
-            .select('id, date')
-            .eq('user_id', user.id)
-            .eq('type', recordType)
-            .eq('event_id', record.id)
-            .eq('date', testDate);
-            
-          if (checkError) {
-            console.error('❌ Error checking existing events for date', testDate, ':', checkError);
-          } else if (existingEvents && existingEvents.length > 0) {
-            conflictingDates.push(testDate);
-          }
-        }
-      } else {
-        // For single events, check only the selected date
-        if (assignedRecords[selectedDate] && assignedRecords[selectedDate].has(eventKey)) {
-          conflictingDates.push(selectedDate);
-        }
-        
-        const { data: existingEvents, error: checkError } = await supabase
-          .from('calendar_events')
-          .select('id, date')
-          .eq('user_id', user.id)
-          .eq('type', recordType)
-          .eq('event_id', record.id)
-          .eq('date', selectedDate);
+      // Calculate max limit based on frequency
+      const maxLimit = Math.min(12, Math.ceil(365 / frequencyDays));
 
-        if (checkError) {
-          console.error('❌ Error checking existing events:', checkError);
-        } else if (existingEvents && existingEvents.length > 0) {
-          conflictingDates.push(selectedDate);
-        }
+      // Check for existing calendar events to avoid conflicts
+      const { data: existingEvents, error: existingError } = await supabase
+        .from('calendar_events')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('event_id', record.id)
+        .eq('type', type);
+
+      if (existingError) {
+        console.error('Error checking existing events:', existingError);
+        return;
       }
+
+      if (existingEvents && existingEvents.length > 0) {
+        return;
+      }
+
+      // Generate recurring dates starting from today or selected date
+      const startDate = selectedDate || new Date().toISOString().split('T')[0];
       
-      // If there are any conflicts, show error and stop
-      if (conflictingDates.length > 0) {
-        const uniqueConflicts = [...new Set(conflictingDates)];
-        if (uniqueConflicts.length === 1) {
-          showError(`This ${recordType} is already scheduled for ${uniqueConflicts[0]}`);
+      if (!startDate) {
+        console.error('No start date available');
+        showError('Unable to determine start date');
+        return;
+      }
+
+      let dates = generateRecurringDates(startDate, frequencyDays, maxLimit);
+
+      if (dates.length === 0) {
+        // Fallback to a single date if generation failed
+        const fallbackDate = new Date(startDate);
+        if (isValidDate(fallbackDate)) {
+          dates = [fallbackDate];
         } else {
-          showError(`This ${recordType} is already scheduled for ${uniqueConflicts.length} of the selected dates`);
+          console.error('Invalid fallback date:', startDate);
+          showError('Invalid date format');
+          return;
         }
-        setLoading(false);
-        return;
       }
-      
-      console.log('✅ No conflicts found for any dates');
 
-      // Array para armazenar todos os eventos a serem criados
+      // Prepare events to insert with proper error handling
       const eventsToCreate = [];
-      
-      // Se for recorrente, criar eventos individuais para cada data
-      if (isRecurring) {
-        console.log('📅 Creating recurring events...');
-        
-        // Determinar a frequência em dias
-        let frequencyDays = 30; // Padrão mensal
-        
-        if (record.frequencies && record.frequencies.days) {
-          frequencyDays = record.frequencies.days;
-          console.log('✅ Using frequency from record:', frequencyDays, 'days');
-        } else {
-          console.log('⚠️ No frequency found, using default 30 days');
-        }
-        
-        console.log(`📅 Generating ${recurrenceCount} occurrences starting from ${selectedDate}`);
-        
-        // Gerar todas as datas baseado na frequência e quantidade especificada
-        const dates = generateRecurringDates(
-          selectedDate, 
-          record.frequencies || { days: frequencyDays },
-          recurrenceCount
-        );
-        
-        console.log(`✅ Generated ${dates.length} dates:`, dates.slice(0, 5), '...');
-        
-        if (dates.length === 0) {
-          console.log('❌ No dates generated! Falling back to single event');
+      for (const date of dates) {
+        try {
+          if (!isValidDate(date)) {
+            console.error('Invalid date in dates array:', date);
+            continue;
+          }
+
+          const dateString = date.toISOString().split('T')[0];
           eventsToCreate.push({
             user_id: user.id,
-            type: recordType,
-            date: selectedDate,
             event_id: record.id,
-            is_recurring: false
+            type: type,
+            date: dateString,
+            is_recurring: dates.length > 1,
+            created_at: new Date().toISOString()
           });
-        } else {
-          // Criar um evento individual para cada data
-          dates.forEach((date, index) => {
-            eventsToCreate.push({
-              user_id: user.id,
-              type: recordType,
-              date: date,
-              event_id: record.id,
-              is_recurring: true
-            });
-            
-            if (index < 3) { // Log apenas os primeiros 3 para não poluir
-              console.log(`📅 Event ${index + 1}: ${date}`);
-            }
-          });
+        } catch (dateError) {
+          console.error('Error processing date:', date, dateError);
+          continue;
         }
-        
-        console.log(`✅ Total recurring events to create: ${eventsToCreate.length}`);
-      } else {
-        console.log('📅 Creating single event...');
-        // Evento único (não recorrente)
-        eventsToCreate.push({
-          user_id: user.id,
-          type: recordType,
-          date: selectedDate,
-          event_id: record.id,
-          is_recurring: false
-        });
-        console.log('✅ Single event prepared');
       }
 
-      console.log('💾 Inserting events into database...', {
-        count: eventsToCreate.length,
-        sample: eventsToCreate[0]
-      });
+      if (eventsToCreate.length === 0) {
+        console.error('No valid events to create');
+        showError('Failed to generate valid dates');
+        return;
+      }
 
-      // Insert all events into database
-      const { error, data: newEvents } = await supabase
+      // Insert events
+      const { data: insertedEvents, error: insertError } = await supabase
         .from('calendar_events')
         .insert(eventsToCreate)
         .select();
 
-      if (error) {
-        console.error('❌ Database insert error:', error);
-        throw error;
+      if (insertError) {
+        console.error('Error inserting calendar events:', insertError);
+        showError('Failed to add events to calendar');
+        return;
       }
-      
-      console.log('✅ Events inserted successfully:', {
-        insertedCount: newEvents?.length || 0,
-        sample: newEvents?.[0]
-      });
-      
-      // Update the assigned records tracking para o evento atual
-      const updatedAssigned = {...assignedRecords};
-      if (!updatedAssigned[selectedDate]) {
-        updatedAssigned[selectedDate] = new Set();
-      }
-      updatedAssigned[selectedDate].add(eventKey);
-      setAssignedRecords(updatedAssigned);
-      
-      // Remove the added record from the existing records list
-      setExistingRecords(prev => prev.filter(item => item.id !== record.id));
-      
-      // Refresh events
-      console.log('🔄 Refreshing calendar events...');
-      await fetchEvents();
-      
-      // Update the selectedEvents array with the newly fetched data for this date
-      setSelectedEvents(events[selectedDate]?.events || []);
-      
-      // Close the record selector and go back to the event list
-      setShowExistingRecords(false);
-      
-      // Resetar o estado isRecurring
-      setIsRecurring(false);
 
-      // Mostrar mensagem de sucesso com informação de recorrência
-      const successMessage = isRecurring 
-        ? `Recurring ${recordType} added: ${eventsToCreate.length} occurrences created` 
-        : `${recordType.charAt(0).toUpperCase() + recordType.slice(1)} added to calendar`;
-      
-      showSuccess(successMessage);
-      console.log('✅ addExistingToCalendar completed successfully');
+      // Refresh events
+      await fetchEvents();
+      showSuccess(`${eventsToCreate.length} events added to calendar`);
     } catch (error) {
-      console.error('❌ Error in addExistingToCalendar:', error);
-      showError('Failed to add record to calendar');
-    } finally {
-      setLoading(false);
+      console.error('Error adding existing to calendar:', error);
+      showError('Failed to add events to calendar');
     }
   };
 
   const handleDeleteEvent = async (eventId) => {
-    console.log("🗑️ Starting delete process for event ID:", eventId);
     try {
       // Encontrar o evento nos eventos selecionados
       const eventToBeDeleted = selectedEvents.find(event => event.id === eventId) || 
@@ -883,7 +734,7 @@ const CalendarPage = () => {
       setIsRecurringDelete(eventToBeDeleted.is_recurring);
       setDeleteModalVisible(true);
     } catch (error) {
-      console.error('🗑️ Error in handleDeleteEvent:', error);
+      console.error('Error in handleDeleteEvent:', error);
       showError('Failed to delete event');
     }
   };
@@ -891,7 +742,6 @@ const CalendarPage = () => {
   // Função simplificada para excluir evento individual
   const deleteCurrentEvent = async (eventToDelete, eventId) => {
     try {
-      console.log("🗑️ deleteCurrentEvent - Starting deletion for:", eventId);
       
       // Delete event from database
       const { error } = await supabase
@@ -900,11 +750,9 @@ const CalendarPage = () => {
         .eq('id', eventId);
       
       if (error) {
-        console.error('🗑️ deleteCurrentEvent - Error deleting event:', error);
+        console.error('Error deleting event:', error);
         throw error;
       }
-      
-      console.log("🗑️ deleteCurrentEvent - Event deleted successfully");
       
       // Atualizar estado local para remover o evento
       if (showFilteredEvents) {
@@ -929,7 +777,6 @@ const CalendarPage = () => {
   // Função para excluir todos os eventos recorrentes com o mesmo event_id
   const deleteAllRecurringEvents = async (eventToDelete, eventId) => {
     try {
-      console.log("🗑️ deleteAllRecurringEvents - Starting for:", eventId, "with event_id:", eventToDelete.event_id);
       
       const { error } = await supabase
         .from('calendar_events')
@@ -939,11 +786,9 @@ const CalendarPage = () => {
         .eq('is_recurring', true);
         
       if (error) {
-        console.error('🗑️ deleteAllRecurringEvents - Error:', error);
+        console.error('Error deleting recurring events:', error);
         throw error;
       }
-      
-      console.log("🗑️ deleteAllRecurringEvents - Successfully deleted all occurrences");
       
       // Atualizar os eventos do calendário
       await fetchEvents();
@@ -1120,7 +965,7 @@ const CalendarPage = () => {
               setRecurrenceCount(maxLimit);
             }
           }
-          addExistingToCalendar(item);
+          addExistingToCalendar(item, recordType);
         }}
       >
         {/* Nome do registro */}
@@ -1432,8 +1277,6 @@ const CalendarPage = () => {
 
   // Função para mostrar eventos por tipo
   const showEventsByType = (type) => {
-    console.log(`Mostrando eventos do tipo: ${type}`);
-    
     // Verificar o mês atual sendo visualizado
     const year = currentViewMonth.getFullYear();
     const month = currentViewMonth.getMonth();
@@ -1452,8 +1295,6 @@ const CalendarPage = () => {
         filteredEventsList.push(...eventsOfType);
       }
     });
-    
-    console.log(`${filteredEventsList.length} eventos encontrados`);
     
     // Atualizar estados
     setFilteredEvents(filteredEventsList);
@@ -1512,7 +1353,7 @@ const CalendarPage = () => {
               const displayText = getEventDisplayText(item);
               const eventDate = new Date(item.date);
               const day = eventDate.getDate();
-              const month = eventDate.toLocaleString('en-US', { month: 'short' });
+              const month = eventDate.toLocaleString('en-US', { month: 'short' }).toUpperCase();
               
               return (
                 <View style={[
@@ -1657,13 +1498,6 @@ const CalendarPage = () => {
               const day = eventDate.getDate();
               const month = eventDate.toLocaleString('en-US', { month: 'short' }).toUpperCase();
               
-              // Log para debug
-              console.log('Upcoming event:', { 
-                displayText, 
-                amount: event.amount,
-                date: event.date
-              });
-              
               return (
                 <View key={`upcoming-${event.id}-${event.date}`} style={styles.upcomingEvent}>
                   <View style={styles.upcomingDate}>
@@ -1721,7 +1555,6 @@ const CalendarPage = () => {
         }
         
         if (data && data.actual_currency) {
-          console.log('Moeda do usuário encontrada:', data.actual_currency);
           setUserCurrency(data.actual_currency);
         }
       } catch (error) {
@@ -1764,7 +1597,6 @@ const CalendarPage = () => {
             disableAllTouchEventsForDisabledDays={true}
             onMonthChange={(month) => {
               // Quando o mês é alterado no calendário, buscar eventos para esse mês
-              console.log('Month changed to:', month.dateString);
               fetchEvents(month.dateString);
             }}
             theme={{

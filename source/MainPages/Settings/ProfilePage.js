@@ -279,10 +279,37 @@ const ProfilePage = ({ navigation }) => {
         .from('user_profile')
         .select('account_age, goals_created, expenses_created, income_created')
         .eq('user_id', userId)
-        .single();
+        .maybeSingle(); // Use maybeSingle() instead of single() to handle 0 rows
 
       if (error) {
         console.error('Error fetching user statistics:', error);
+        return;
+      }
+
+      // If no profile exists, create one with default values
+      if (!data) {
+        const { error: insertError } = await supabase
+          .from('user_profile')
+          .insert([{ 
+            user_id: userId,
+            account_age: 0,
+            goals_created: 0,
+            expenses_created: 0,
+            income_created: 0
+          }]);
+          
+        if (insertError) {
+          console.error('Error creating user profile:', insertError);
+        }
+        
+        // Set default statistics
+        const defaultStats = {
+          account_age: 0,
+          goals_created: 0,
+          expenses_created: 0,
+          income_created: 0,
+        };
+        setStatistics(defaultStats);
         return;
       }
 
@@ -294,7 +321,6 @@ const ProfilePage = ({ navigation }) => {
       };
       
       setStatistics(stats);
-      console.log('Statistics refreshed:', stats);
     } catch (error) {
       console.error('Error refreshing statistics:', error);
     }
@@ -351,7 +377,7 @@ const ProfilePage = ({ navigation }) => {
           .from('user_profile')
           .select('birthdate, image, account_age, goals_created, expenses_created, income_created')
           .eq('user_id', userId)
-          .single()
+          .maybeSingle() // Use maybeSingle() instead of single() to handle 0 rows
       ]);
       
       if (userError) throw userError;
@@ -365,15 +391,30 @@ const ProfilePage = ({ navigation }) => {
           income_created: profileData.income_created || 0,
         };
         setStatistics(stats);
-      }
-
-      // If no profile exists, create default
-      if (profileError && profileError.code === 'PGRST116') {
+      } else {
+        // If no profile exists or there was an error, create default profile
         const { error: insertError } = await supabase
           .from('user_profile')
-          .insert([{ user_id: userId }]);
+          .insert([{ 
+            user_id: userId,
+            account_age: 0,
+            goals_created: 0,
+            expenses_created: 0,
+            income_created: 0
+          }]);
           
-        if (insertError) throw insertError;
+        if (insertError) {
+          console.error('Error creating user profile:', insertError);
+        }
+        
+        // Set default statistics
+        const defaultStats = {
+          account_age: 0,
+          goals_created: 0,
+          expenses_created: 0,
+          income_created: 0,
+        };
+        setStatistics(defaultStats);
       }
       
       // Format birthdate for display

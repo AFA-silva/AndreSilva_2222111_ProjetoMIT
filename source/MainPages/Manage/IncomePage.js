@@ -84,7 +84,6 @@ const IncomePage = ({ navigation }) => {
         throw new Error('Failed to load currency preference');
       }
       
-              console.log('[IncomePage] Currency loaded directly from database:', data.actual_currency);
       setOriginalCurrency(data.actual_currency);
       return data.actual_currency;
     } catch (error) {
@@ -135,13 +134,10 @@ const IncomePage = ({ navigation }) => {
       }
       
       const sourceCurrency = origCurrency || originalCurrency || 'EUR';
-      console.log(`[IncomePage] Convertendo ${data.length} receitas de ${sourceCurrency}`);
       
       const convertedIncomes = await Promise.all(data.map(async (income, index) => {
         try {
-          console.log(`[Income ${index+1}] Convertendo ${income.amount} ${sourceCurrency}`);
           const convertedAmount = await convertValueToCurrentCurrency(income.amount, sourceCurrency);
-          console.log(`[Income ${index+1}] Resultado: ${convertedAmount}`);
           
           return {
             ...income,
@@ -153,7 +149,6 @@ const IncomePage = ({ navigation }) => {
         }
       }));
       
-      console.log('[IncomePage] Receitas convertidas com sucesso');
       setIncomes(convertedIncomes);
     } catch (error) {
       console.error('[IncomePage] Erro ao converter valores:', error);
@@ -164,11 +159,8 @@ const IncomePage = ({ navigation }) => {
   // Ouvinte para mudanças na moeda
   const handleCurrencyChange = async (newCurrency) => {
     try {
-      console.log('Moeda alterada para:', newCurrency?.code);
-      
       // Verificar se devemos converter os valores
       const shouldConvert = shouldConvertCurrencyValues();
-      console.log('Converter valores?', shouldConvert);
       
       if (shouldConvert) {
         // Converter valores usando a moeda original
@@ -774,7 +766,6 @@ const IncomePage = ({ navigation }) => {
       // Update statistics only when adding new income (not editing)
       if (!selectedIncome) {
         await incrementIncomeCreated(userId);
-        console.log('Statistics updated: income count incremented');
       }
 
       // Exibe mensagem de sucesso em um alerta
@@ -883,7 +874,7 @@ const IncomePage = ({ navigation }) => {
             <TouchableOpacity
               style={beautifulStyles.editButton}
               onPress={() => {
-                console.log('Edit button clicked for:', item.name); // Debug
+                // Removed console.log - not essential
                 openEditModal(item);
               }}
             >
@@ -892,7 +883,7 @@ const IncomePage = ({ navigation }) => {
             <TouchableOpacity
               style={beautifulStyles.deleteButton}
               onPress={() => {
-                console.log('Delete button clicked for:', item.name); // Debug
+                // Removed console.log - not essential
                 openDeleteModal(item);
               }}
             >

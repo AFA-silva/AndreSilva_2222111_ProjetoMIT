@@ -51,7 +51,6 @@ export class StatisticsService {
           return false;
         }
 
-        console.log(`StatisticsService: Created new profile and incremented ${type}_created to ${increment}`);
         return true;
       }
 
@@ -69,7 +68,6 @@ export class StatisticsService {
         return false;
       }
 
-      console.log(`StatisticsService: Updated ${type}_created from ${currentValue} to ${newValue}`);
       return true;
 
     } catch (error) {
@@ -77,8 +75,6 @@ export class StatisticsService {
       return false;
     }
   }
-
-
 
   /**
    * Get all statistics for a user
@@ -185,7 +181,6 @@ export class StatisticsService {
         }
       }
 
-      console.log('StatisticsService: Batch updated statistics:', finalUpdates);
       return true;
 
     } catch (error) {

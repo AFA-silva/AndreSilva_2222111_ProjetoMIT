@@ -202,169 +202,180 @@ export const setUserCurrency = async (currencyCode) => {
 
 export const convertCurrencyForUserData = async (fromCurrency, toCurrency) => {
   try {
-    // Não converter se as moedas forem iguais
-    if (fromCurrency === toCurrency) {
-      console.log('Moedas iguais, conversão não necessária');
-      return { success: true, skipped: true };
-    }
-    
-    // 1. Obter a sessão do usuário
+    // Check if user is authenticated
     const { data: { session } } = await supabase.auth.getSession();
     if (!session || !session.user) return { success: false, error: 'Usuário não autenticado' };
-    
+
     const userId = session.user.id;
-    console.log(`Iniciando conversão de ${fromCurrency} para ${toCurrency} para usuário ${userId}`);
-    
-    // 2. Obter taxa de conversão
-    let rate = null;
-    try {
-      const response = await fetch(`https://v6.exchangerate-api.com/v6/de3d3cc388a2679655798ec7/latest/${fromCurrency}`);
-      if (!response.ok) throw new Error('Resposta da API inválida');
-      
-      const data = await response.json();
-      if (data.result !== 'success') throw new Error('API retornou erro');
-      
-      rate = data.conversion_rates[toCurrency];
-      if (!rate) throw new Error(`Taxa para ${toCurrency} não disponível`);
-      
-      console.log(`Taxa obtida: 1 ${fromCurrency} = ${rate} ${toCurrency}`);
-    } catch (apiError) {
-      console.error('Erro ao obter taxa de câmbio:', apiError);
-      // Em caso de falha, manter moeda atual e informar o erro
-      return { 
-        success: false, 
-        error: 'Não foi possível obter taxa de câmbio. Mantendo moeda atual.'
-      };
+
+    // If currencies are the same, no conversion needed
+    if (fromCurrency === toCurrency) {
+      // Removed console.log - not essential
+      return { success: true, message: 'Moedas iguais, conversão não necessária' };
     }
-    
-    // 3. Converter receitas e despesas com controle de versão
-    await Promise.all([
-      convertIncomes(userId, fromCurrency, toCurrency, rate),
-      convertExpenses(userId, fromCurrency, toCurrency, rate)
-    ]);
-    
-    // 4. Update user currency preference
-    await updateUserCurrencyPreference(userId, toCurrency, fromCurrency);
-    
-    return { success: true };
+
+    // Get conversion rate
+    const rate = await getConversionRate(fromCurrency, toCurrency);
+    if (!rate) {
+      return { success: false, error: 'Não foi possível obter taxa de conversão' };
+    }
+
+    // Convert incomes
+    const incomesResult = await convertIncomes(userId, fromCurrency, toCurrency, rate);
+    if (!incomesResult.success) {
+      console.error('Error converting incomes:', incomesResult.error);
+    }
+
+    // Convert expenses
+    const expensesResult = await convertExpenses(userId, fromCurrency, toCurrency, rate);
+    if (!expensesResult.success) {
+      console.error('Error converting expenses:', expensesResult.error);
+    }
+
+    return { 
+      success: true, 
+      message: `Conversão concluída: ${incomesResult.converted} receitas, ${expensesResult.converted} despesas` 
+    };
   } catch (error) {
-    console.error('Erro na conversão de moeda:', error);
+    console.error('Error in convertCurrencyForUserData:', error);
     return { success: false, error: error.message };
   }
 };
 
 // Função para converter receitas
 async function convertIncomes(userId, fromCurrency, toCurrency, rate) {
-  // Buscar receitas
-  const { data: incomes, error } = await supabase
-    .from('income')
-    .select('*')
-    .eq('user_id', userId);
-  
-  if (error || !incomes) {
-    console.error('Erro ao buscar receitas:', error);
-    return;
-  }
-  
-  // Converter cada receita usando a meta de última moeda para prevenir conversões em cascata
-  for (const income of incomes) {
-    // Verificar flag de última moeda para evitar conversões em cascata
-    const lastCurrency = income.last_converted_currency || fromCurrency;
-    let newAmount;
-    
-    if (lastCurrency === fromCurrency) {
-      // Conversão direta
-      newAmount = parseFloat(income.amount) * rate;
-    } else {
-      // Se última moeda for diferente, precisamos fazer correção para evitar cascata
-      console.log(`Atenção: Receita ${income.id} foi previamente convertida de ${lastCurrency}`);
-      // Usar valor original se disponível, ou fazer melhor estimativa
-      newAmount = income.original_amount ? 
-        parseFloat(income.original_amount) * rate : 
-        parseFloat(income.amount) * rate;
-    }
-    
-    // Atualizar receita com novo valor e flags de controle
-    await supabase
+  try {
+    const { data: incomes, error } = await supabase
       .from('income')
-      .update({
-        amount: newAmount,
-        last_converted_currency: toCurrency,
-        original_amount: income.original_amount || income.amount // Preserva o valor original
-      })
-      .eq('id', income.id);
+      .select('*')
+      .eq('user_id', userId);
+
+    if (error) {
+      console.error('Error fetching incomes for conversion:', error);
+      return { success: false, error: error.message };
+    }
+
+    if (!incomes || incomes.length === 0) {
+      return { success: true, converted: 0 };
+    }
+
+    let convertedCount = 0;
+    for (const income of incomes) {
+      try {
+        // Check if this income was already converted from the same currency
+        if (income.last_currency === fromCurrency) {
+          // Removed console.log - not essential
+          continue;
+        }
+
+        const originalAmount = parseFloat(income.amount);
+        const convertedAmount = originalAmount * rate;
+
+        const { error: updateError } = await supabase
+          .from('income')
+          .update({ 
+            amount: convertedAmount.toFixed(2),
+            last_currency: fromCurrency
+          })
+          .eq('id', income.id);
+
+        if (updateError) {
+          console.error(`Error updating income ${income.id}:`, updateError);
+        } else {
+          convertedCount++;
+        }
+      } catch (incomeError) {
+        console.error(`Error processing income ${income.id}:`, incomeError);
+      }
+    }
+
+    return { success: true, converted: convertedCount };
+  } catch (error) {
+    console.error('Error in convertIncomes:', error);
+    return { success: false, error: error.message };
   }
 }
 
 // Função para converter despesas
 async function convertExpenses(userId, fromCurrency, toCurrency, rate) {
-  // Buscar despesas
-  const { data: expenses, error } = await supabase
-    .from('expenses')
-    .select('*')
-    .eq('user_id', userId);
-  
-  if (error || !expenses) {
-    console.error('Erro ao buscar despesas:', error);
-    return;
-  }
-  
-  // Converter cada despesa
-  for (const expense of expenses) {
-    // Verificar flag de última moeda para evitar conversões em cascata
-    const lastCurrency = expense.last_converted_currency || fromCurrency;
-    let newAmount;
-    
-    if (lastCurrency === fromCurrency) {
-      // Conversão direta
-      newAmount = parseFloat(expense.amount) * rate;
-    } else {
-      // Se última moeda for diferente, precisamos fazer correção para evitar cascata
-      console.log(`Atenção: Despesa ${expense.id} foi previamente convertida de ${lastCurrency}`);
-      // Usar valor original se disponível, ou fazer melhor estimativa
-      newAmount = expense.original_amount ? 
-        parseFloat(expense.original_amount) * rate : 
-        parseFloat(expense.amount) * rate;
-    }
-    
-    // Atualizar despesa com novo valor e flags de controle
-    await supabase
+  try {
+    const { data: expenses, error } = await supabase
       .from('expenses')
-      .update({
-        amount: newAmount,
-        last_converted_currency: toCurrency,
-        original_amount: expense.original_amount || expense.amount // Preserva o valor original
-      })
-      .eq('id', expense.id);
+      .select('*')
+      .eq('user_id', userId);
+
+    if (error) {
+      console.error('Error fetching expenses for conversion:', error);
+      return { success: false, error: error.message };
+    }
+
+    if (!expenses || expenses.length === 0) {
+      return { success: true, converted: 0 };
+    }
+
+    let convertedCount = 0;
+    for (const expense of expenses) {
+      try {
+        // Check if this expense was already converted from the same currency
+        if (expense.last_currency === fromCurrency) {
+          // Removed console.log - not essential
+          continue;
+        }
+
+        const originalAmount = parseFloat(expense.amount);
+        const convertedAmount = originalAmount * rate;
+
+        const { error: updateError } = await supabase
+          .from('expenses')
+          .update({ 
+            amount: convertedAmount.toFixed(2),
+            last_currency: fromCurrency
+          })
+          .eq('id', expense.id);
+
+        if (updateError) {
+          console.error(`Error updating expense ${expense.id}:`, updateError);
+        } else {
+          convertedCount++;
+        }
+      } catch (expenseError) {
+        console.error(`Error processing expense ${expense.id}:`, expenseError);
+      }
+    }
+
+    return { success: true, converted: convertedCount };
+  } catch (error) {
+    console.error('Error in convertExpenses:', error);
+    return { success: false, error: error.message };
   }
 }
 
 // Update currency preference
-async function updateUserCurrencyPreference(userId, newCurrency, previousCurrency) {
+export const updateUserCurrencyPreference = async (userId, newCurrency, previousCurrency) => {
   try {
-    // Limpar preferências existentes para evitar duplicatas
-    await supabase
+    // Update in database
+    const { error } = await supabase
       .from('user_currency_preferences')
-      .delete()
-      .eq('user_id', userId);
-      
-    // Criar nova preferência
-    await supabase
-      .from('user_currency_preferences')
-      .insert({
-        user_id: userId,
-        actual_currency: newCurrency,
-        previous_currency: previousCurrency,
-        updated_at: new Date().toISOString()
-      });
-      
-    // Atualizar AsyncStorage também para redundância
+      .upsert([
+        {
+          user_id: userId,
+          actual_currency: newCurrency,
+          previous_currency: previousCurrency
+        }
+      ]);
+
+    if (error) {
+      console.error('Error updating currency preference in database:', error);
+      return false;
+    }
+
+    // Update AsyncStorage also for redundancy
     await AsyncStorage.setItem('user_preferred_currency', newCurrency);
-    
-          console.log(`Currency preference updated: ${newCurrency} (previous: ${previousCurrency})`);
+
+    // Removed console.log - not essential
     return true;
   } catch (error) {
-          console.error('Error updating currency preference:', error);
+    console.error('Error in updateUserCurrencyPreference:', error);
     return false;
   }
-} 
+}; 

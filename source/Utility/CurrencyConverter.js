@@ -10,85 +10,93 @@ let exchangeRatesCache = {
   baseCurrency: null
 };
 
+// Fixed exchange rates as fallback when API fails
+const getFixedRate = (fromCurrency, toCurrency) => {
+  const fixedRates = {
+    'EUR': { 'USD': 1.1, 'GBP': 0.85, 'JPY': 130 },
+    'USD': { 'EUR': 0.91, 'GBP': 0.77, 'JPY': 118 },
+    'GBP': { 'EUR': 1.18, 'USD': 1.30, 'JPY': 153 },
+    'JPY': { 'EUR': 0.0077, 'USD': 0.0085, 'GBP': 0.0065 }
+  };
+  
+  return fixedRates[fromCurrency]?.[toCurrency] || null;
+};
+
 // Função para converter valores automaticamente com base na moeda atual
-export const convertValueToCurrentCurrency = async (value, originalCurrency) => {
+export const convertCurrency = async (value, fromCurrency, toCurrency, shouldConvert = true) => {
   try {
-    // Se não há valor, retornar o valor original
-    if (!value) return value;
-    
-    // Garantir que o valor seja um número
-    const numValue = parseFloat(value);
-    if (isNaN(numValue)) return value;
-    
-    // Verificar se a conversão deve ser realizada
-    const shouldConvert = shouldConvertCurrencyValues();
-    console.log(`Should convert? ${shouldConvert ? 'YES' : 'NO'}`);
-    
+    // Check if conversion is enabled
     if (!shouldConvert) {
-              console.log('Conversion disabled by user configuration. Keeping original value:', numValue);
-      return numValue;
-    }
-    
-    const currentCurrency = getCurrentCurrency();
-    console.log('Moeda atual:', currentCurrency);
-    
-    // We must have an explicit original currency
-    if (!originalCurrency) {
-      throw new Error('Original currency must be specified for conversion');
-    }
-    const fromCurrency = originalCurrency;
-    console.log(`Moeda original: ${fromCurrency}`);
-    
-    // Se já está na moeda atual, retornar o valor sem conversão
-    if (fromCurrency === currentCurrency.code) {
-      console.log(`Moedas iguais (${fromCurrency}), não precisa converter`);
-      return numValue;
+      // Removed console.log - not essential
+      return value;
     }
 
-    console.log(`** CONVERTENDO ${numValue} de ${fromCurrency} para ${currentCurrency.code}`);
+    const numValue = parseFloat(value);
+    if (isNaN(numValue)) {
+      console.error('Invalid value for conversion:', value);
+      return value;
+    }
+
+    // Get current currency
+    const currentCurrency = getCurrentCurrency();
+    if (!currentCurrency || !currentCurrency.code) {
+      console.error('No current currency available');
+      return value;
+    }
+
+    // If fromCurrency is not provided, use current currency
+    if (!fromCurrency) {
+      fromCurrency = currentCurrency.code;
+    }
+
+    // If currencies are the same, no conversion needed
+    if (fromCurrency === currentCurrency.code) {
+      // Removed console.log - not essential
+      return value;
+    }
+
+    // Try to get conversion rate
+    let rate = null;
     
-    // Buscar taxas de câmbio diretamente, ignorando o cache para este teste
-    try {
-      const rates = await fetchExchangeRates(fromCurrency);
-      
-      if (!rates || !rates[currentCurrency.code]) {
-        console.error(`Taxa não encontrada para conversão de ${fromCurrency} para ${currentCurrency.code}`);
-        // Utilizar uma taxa fixa para teste se a API não retornar
-        const fixedRate = fromCurrency === 'GBP' && currentCurrency.code === 'EUR' ? 1.17 : 
-                        (fromCurrency === 'EUR' && currentCurrency.code === 'GBP' ? 0.85 : 1);
-        
-        console.log(`Usando taxa fixa: ${fixedRate}`);
+    // First try to get from cache
+    if (exchangeRatesCache && exchangeRatesCache.rates && exchangeRatesCache.rates[fromCurrency]) {
+      rate = exchangeRatesCache.rates[fromCurrency];
+      // Removed console.log - not essential
+    } else {
+      // Try to fetch from API
+      try {
+        const rates = await fetchExchangeRates(fromCurrency);
+        if (rates && rates[currentCurrency.code]) {
+          rate = rates[currentCurrency.code];
+          // Removed console.log - not essential
+        }
+      } catch (apiError) {
+        console.error('Error fetching exchange rates:', apiError);
+      }
+    }
+
+    // If still no rate, try fixed rates as fallback
+    if (!rate) {
+      const fixedRate = getFixedRate(fromCurrency, currentCurrency.code);
+      if (fixedRate) {
+        // Removed console.log - not essential
         const result = numValue * fixedRate;
-        console.log(`Resultado com taxa fixa: ${numValue} * ${fixedRate} = ${result}`);
-        return result;
+        // Removed console.log - not essential
+        return result.toFixed(2);
       }
       
-      // Usar a taxa da API
-      const rate = rates[currentCurrency.code];
-      console.log(`Taxa obtida: ${rate}`);
-      
-      // Converter e retornar o valor
-      const convertedValue = numValue * rate;
-      console.log(`RESULTADO: ${numValue} * ${rate} = ${convertedValue}`);
-      
-      // Atualizar cache
-      exchangeRatesCache = {
-        rates,
-        lastUpdated: new Date(),
-        baseCurrency: fromCurrency
-      };
-      
-      return convertedValue;
-    } catch (apiError) {
-              console.error('Error fetching exchange rates:', apiError);
-      
-      // Não há mais fallbacks - simplesmente lançar erro
-      console.error('Currency exchange services are unavailable');
-      throw new Error('Currently our currency exchange services are unavailable. Try again later!');
+      console.error(`No conversion rate available for ${fromCurrency} to ${currentCurrency.code}`);
+      return value;
     }
+
+    // Removed console.log - not essential
+    const convertedValue = numValue * rate;
+    // Removed console.log - not essential
+    
+    return convertedValue.toFixed(2);
   } catch (error) {
-    console.error('Erro geral ao converter para moeda atual:', error);
-    throw error; // Propagar o erro em vez de usar fallback
+    console.error('Error in convertCurrency:', error);
+    return value;
   }
 };
 
@@ -353,5 +361,26 @@ const styles = StyleSheet.create({
     color: '#666',
   },
 });
+
+// Helper function to convert a value from a source currency to the current currency
+export const convertValueToCurrentCurrency = async (value, fromCurrency) => {
+  try {
+    // Get current currency
+    const currentCurrency = getCurrentCurrency();
+    if (!currentCurrency || !currentCurrency.code) {
+      console.error('No current currency available');
+      return value;
+    }
+
+    // Check if conversion should be performed
+    const shouldConvert = shouldConvertCurrencyValues();
+    
+    // Use the existing convertCurrency function
+    return await convertCurrency(value, fromCurrency, currentCurrency.code, shouldConvert);
+  } catch (error) {
+    console.error('Error in convertValueToCurrentCurrency:', error);
+    return value;
+  }
+};
 
 export default CurrencyConverterField; 

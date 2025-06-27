@@ -23,7 +23,6 @@ const fallbackCountries = [
 
 export const fetchCountries = async () => {
   try {
-    console.log('Fetching countries from API...');
     const response = await fetch('https://restcountries.com/v3.1/all?fields=name,cca2,currencies');
     
     // Check if response is ok
@@ -38,8 +37,6 @@ export const fetchCountries = async () => {
       console.error('API returned invalid data format:', typeof data);
       throw new Error('Invalid data format from API');
     }
-    
-    console.log(`Successfully fetched ${data.length} countries from API`);
     
     const countryList = data
       .filter(country => country && country.name && country.name.common) // Filter out invalid entries
@@ -60,11 +57,9 @@ export const fetchCountries = async () => {
       .filter(country => country !== null) // Remove null entries
       .sort((a, b) => a.name.localeCompare(b.name));
     
-    console.log(`Processed ${countryList.length} valid countries`);
     return countryList;
   } catch (error) {
     console.error('Error fetching countries from API:', error);
-    console.log('Using fallback countries data');
     return fallbackCountries.sort((a, b) => a.name.localeCompare(b.name));
   }
 };
@@ -72,7 +67,6 @@ export const fetchCountries = async () => {
 // Função para obter moeda pelo código ou nome do país
 export const getCurrencyByCountryCode = async (countryCodeOrName) => {
   try {
-    console.log(`Looking for currency info for: ${countryCodeOrName}`);
     const countries = await fetchCountries();
     
     if (!Array.isArray(countries) || countries.length === 0) {
@@ -93,18 +87,12 @@ export const getCurrencyByCountryCode = async (countryCodeOrName) => {
     );
     
     if (country && country.currency) {
-      console.log(`Found currency for ${countryCodeOrName}:`, {
-        code: country.currency,
-        name: country.currencyName,
-        symbol: country.currencySymbol
-      });
       return {
         code: country.currency,
         name: country.currencyName,
         symbol: country.currencySymbol
       };
     } else {
-      console.log(`Currency not found for country: ${countryCodeOrName}, using EUR as default`);
       // Return EUR as default when country is not found
       return {
         code: 'EUR',
@@ -178,7 +166,6 @@ export const setCurrentCurrency = async (countryCodeOrName) => {
     
     // Se ainda não temos dados de moeda válidos, usar EUR como padrão
     if (!currencyData || !currencyData.code) {
-      console.log('No valid currency data found, using EUR as default');
       currencyData = {
         code: 'EUR',
         name: 'Euro',
@@ -200,7 +187,6 @@ export const setCurrentCurrency = async (countryCodeOrName) => {
     try {
       // Atualizar na Supabase (única fonte de verdade)
       await updateUserCurrencyPreference(currencyData);
-      console.log('Currency saved to database:', currencyData.code);
     } catch (dbError) {
       console.error('Error saving currency to database:', dbError);
       // Continue with local update even if database fails
@@ -236,8 +222,6 @@ export const loadSavedCurrency = async () => {
     // Carregar diretamente do Supabase
     const currencyInfo = await fetchUserCurrencyPreference();
     
-          console.log('Currency loaded from Supabase:', currencyInfo);
-    
     // Verificar se a moeda já está definida e é a mesma
     // Isso evita notificações desnecessárias que podem causar loops
     const isSameCurrency = currentCurrencyInfo && 
@@ -272,7 +256,6 @@ export const getCurrentCurrency = () => {
         try {
           currentCurrencyInfo = await fetchUserCurrencyPreference();
           notifyCurrencyChange();
-          console.log('Currency updated based on Supabase:', currentCurrencyInfo);
         } catch (error) {
           console.error('Erro ao buscar moeda do Supabase:', error);
         } finally {
@@ -349,8 +332,6 @@ const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 horas em milissegundos
 // Função para buscar taxas de câmbio atualizadas
 export const fetchExchangeRates = async (baseCurrency = 'EUR') => {
   try {
-    console.log(`Buscando taxas para ${baseCurrency}...`);
-    
     // Verificar cache primeiro
     const now = new Date();
     if (
@@ -358,12 +339,10 @@ export const fetchExchangeRates = async (baseCurrency = 'EUR') => {
       exchangeRatesCache.baseCurrency === baseCurrency &&
       now - exchangeRatesCache.lastUpdated < CACHE_DURATION
     ) {
-      console.log('Usando taxas de câmbio em cache');
       return exchangeRatesCache.rates;
     }
 
     // Se não houver cache válido, buscar da API
-    console.log(`Buscando taxas de câmbio da API para ${baseCurrency}`);
     try {
       const response = await fetch(`https://v6.exchangerate-api.com/v6/${EXCHANGE_API_KEY}/latest/${baseCurrency}`);
       const data = await response.json();
@@ -375,8 +354,6 @@ export const fetchExchangeRates = async (baseCurrency = 'EUR') => {
           lastUpdated: now,
           baseCurrency
         };
-        console.log(`Taxas recebidas da API: ${Object.keys(data.conversion_rates).length} moedas`);
-        console.log(`Exemplos: 1 ${baseCurrency} = ${data.conversion_rates.USD} USD, ${data.conversion_rates.GBP} GBP`);
         return data.conversion_rates;
       } else {
         console.error(`Erro na API: ${data.error_type}`);
@@ -480,7 +457,6 @@ export const setCurrencyConversionPreference = async (shouldConvert, userId) => 
       if (currentCurrency.code !== previousCurrency) {
         // Convert all financial data in database
         await convertCurrencyForUserData(previousCurrency, currentCurrency.code);
-        console.log('Converted all financial data to', currentCurrency.code);
       }
     }
     
