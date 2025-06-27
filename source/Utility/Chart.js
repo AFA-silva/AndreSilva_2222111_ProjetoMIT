@@ -621,6 +621,30 @@ const SimplePie3D = ({
   
   // Função para criar o path para uma fatia
   const createArcPath = (startAngle, endAngle, innerRadius, outerRadius) => {
+    // Handle full circle case (single slice covering 100%)
+    if (Math.abs(endAngle - startAngle) >= Math.PI * 2 - 0.001) {
+      // For full circle, create two semicircle arcs
+      const midAngle = startAngle + Math.PI;
+      const midX = center.x + Math.cos(midAngle) * outerRadius;
+      const midY = center.y + Math.sin(midAngle) * outerRadius;
+      const startX = center.x + Math.cos(startAngle) * outerRadius;
+      const startY = center.y + Math.sin(startAngle) * outerRadius;
+      const midX2 = center.x + Math.cos(midAngle) * innerRadius;
+      const midY2 = center.y + Math.sin(midAngle) * innerRadius;
+      const startX2 = center.x + Math.cos(startAngle) * innerRadius;
+      const startY2 = center.y + Math.sin(startAngle) * innerRadius;
+      
+      return `
+        M ${startX} ${startY}
+        A ${outerRadius} ${outerRadius} 0 1 1 ${midX} ${midY}
+        A ${outerRadius} ${outerRadius} 0 1 1 ${startX} ${startY}
+        L ${startX2} ${startY2}
+        A ${innerRadius} ${innerRadius} 0 1 0 ${midX2} ${midY2}
+        A ${innerRadius} ${innerRadius} 0 1 0 ${startX2} ${startY2}
+        Z
+      `;
+    }
+    
     const startX = center.x + Math.cos(startAngle) * outerRadius;
     const startY = center.y + Math.sin(startAngle) * outerRadius;
     const endX = center.x + Math.cos(endAngle) * outerRadius;
@@ -644,17 +668,39 @@ const SimplePie3D = ({
   
   // Função para criar o caminho da lateral (side) da fatia
   const createSidePath = (startAngle, endAngle, radius, depth) => {
+    // Handle full circle case (single slice covering 100%)
+    if (Math.abs(endAngle - startAngle) >= Math.PI * 2 - 0.001) {
+      // For full circle, create a cylinder side
+      const startX = center.x + Math.cos(startAngle) * radius;
+      const startY = center.y + Math.sin(startAngle) * radius;
+      const midAngle = startAngle + Math.PI;
+      const midX = center.x + Math.cos(midAngle) * radius;
+      const midY = center.y + Math.sin(midAngle) * radius;
+      
+      return `
+        M ${startX} ${startY}
+        L ${startX} ${startY + depth}
+        A ${radius} ${radius} 0 1 1 ${midX} ${midY + depth}
+        A ${radius} ${radius} 0 1 1 ${startX} ${startY + depth}
+        L ${startX} ${startY}
+        A ${radius} ${radius} 0 1 0 ${midX} ${midY}
+        A ${radius} ${radius} 0 1 0 ${startX} ${startY}
+      `;
+    }
+    
     const startX = center.x + Math.cos(startAngle) * radius;
     const startY = center.y + Math.sin(startAngle) * radius;
     const endX = center.x + Math.cos(endAngle) * radius;
     const endY = center.y + Math.sin(endAngle) * radius;
     
+    const largeArcFlag = endAngle - startAngle > Math.PI ? 1 : 0;
+    
     return `
       M ${startX} ${startY}
       L ${startX} ${startY + depth}
-      A ${radius} ${radius} 0 0 1 ${endX} ${endY + depth}
+      A ${radius} ${radius} 0 ${largeArcFlag} 1 ${endX} ${endY + depth}
       L ${endX} ${endY}
-      A ${radius} ${radius} 0 0 0 ${startX} ${startY}
+      A ${radius} ${radius} 0 ${largeArcFlag} 0 ${startX} ${startY}
     `;
   };
   
@@ -817,10 +863,8 @@ const SimplePie3D = ({
             );
           })}
           
-          {/* Renderizar as fatias em ordem inversa para sobrepor corretamente */}
-          {[...slices].reverse().map((slice, i) => {
-            const index = slices.length - 1 - i;
-            const actualSlice = slices[index];
+          {/* Renderizar as fatias em ordem normal para evitar sobreposição incorreta */}
+          {slices.map((actualSlice, index) => {
             
             // Restaurar o deslocamento radial para o comportamento original
             const offsetX = actualSlice.isSelected ? Math.cos(actualSlice.midAngle) * 14 : 0;
@@ -868,14 +912,16 @@ const SimplePie3D = ({
                 <Path
                   d={createArcPath(actualSlice.startAngle, actualSlice.endAngle, 0, radius)}
                   fill={`url(#gradient-bottom-${index})`}
-                  y={sliceDepth}
+                  transform={`translate(0, ${sliceDepth})`}
                 />
                 
-                {/* Lateral da fatia (profundidade) */}
-                <Path
-                  d={createSidePath(actualSlice.startAngle, actualSlice.endAngle, radius, sliceDepth)}
-                  fill={`url(#gradient-side-${index})`}
-                />
+                {/* Lateral da fatia (profundidade) - apenas para fatias que não são círculo completo */}
+                {Math.abs(actualSlice.endAngle - actualSlice.startAngle) < Math.PI * 2 - 0.001 && (
+                  <Path
+                    d={createSidePath(actualSlice.startAngle, actualSlice.endAngle, radius, sliceDepth)}
+                    fill={`url(#gradient-side-${index})`}
+                  />
+                )}
                 
                 {/* Face superior da fatia (topo) */}
                 <Path
