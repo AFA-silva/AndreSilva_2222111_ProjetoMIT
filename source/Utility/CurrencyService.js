@@ -141,7 +141,6 @@ export const convertCurrency = (amount, fromCurrency, toCurrency, rates) => {
     }
     
     const convertedAmount = numAmount * parseFloat(rate);
-    console.log(`Converted ${numAmount} ${fromCurrency} to ${convertedAmount.toFixed(2)} ${toCurrency} (rate: ${rate})`);
     return convertedAmount;
   }
   

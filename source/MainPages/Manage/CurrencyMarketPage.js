@@ -30,6 +30,7 @@ import { supabase } from '../../../Supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { fetchUserCurrencyPreference, updateUserCurrencyPreference, convertAllFinancialData } from '../../Utility/MainQueries';
 import SkeletonLoading, { CardSkeleton, TextRowSkeleton } from '../../Utility/SkeletonLoading';
+import { ConfirmModal } from '../../Utility/Alerts';
 
 // Helper function to apply box shadows in a cross-platform way
 const applyBoxShadow = (params) => {
@@ -151,6 +152,37 @@ const CurrencyListSkeleton = ({ count = 5 }) => {
   }
   return <>{skeletons}</>;
 };
+
+// Full page skeleton for initial loading
+const FullPageSkeleton = () => (
+  <ScrollView style={styles.contentContainer} showsVerticalScrollIndicator={false}>
+    {/* Converter Section Skeleton */}
+    <View style={styles.converterContainer}>
+      <TextRowSkeleton lines={1} style={{ width: '60%', marginBottom: 12 }} />
+      <TextRowSkeleton lines={1} style={{ width: '80%', marginBottom: 12 }} />
+      <CurrencyConverterSkeleton />
+    </View>
+    
+    {/* Currency List Section Skeleton */}
+    <View style={styles.listContainer}>
+      <View style={styles.listHeader}>
+        <View style={styles.listHeaderTitles}>
+          <TextRowSkeleton lines={1} style={{ width: '50%', marginBottom: 8 }} />
+          <TextRowSkeleton lines={1} style={{ width: '70%' }} />
+        </View>
+        <SkeletonLoading 
+          variant="rounded"
+          width={48}
+          height={48}
+          style={{ borderRadius: 10 }}
+        />
+      </View>
+      
+      {/* Currency List Items Skeleton */}
+      <CurrencyListSkeleton count={8} />
+    </View>
+  </ScrollView>
+);
 
 // Add new styles to the existing styles object
 Object.assign(styles, {
@@ -286,7 +318,7 @@ Object.assign(styles, {
   popularCurrencyChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F7FAFC',
+    backgroundColor: 'transparent',
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: 20,
@@ -294,18 +326,13 @@ Object.assign(styles, {
     marginBottom: 8,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    shadowColor: '#718096',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 1,
   },
   
   clickableCurrencyChip: {
     borderStyle: 'dashed',
     borderWidth: 1.5,
     borderColor: '#FF9800',
-    backgroundColor: 'rgba(255, 152, 0, 0.05)',
+    backgroundColor: 'transparent',
   },
   
   selectedPopularCurrency: {
@@ -375,7 +402,7 @@ const ITEM_HEIGHT = 90; // Altura aproximada de cada item de moeda
 const CARD_HEIGHT = 220; // Altura do card do conversor
 
 const CurrencyMarketPage = ({ navigation }) => {
-  const [baseCurrency, setBaseCurrency] = useState('USD');
+  const [baseCurrency, setBaseCurrency] = useState(null); // Start with null to prevent initial API call
   const [targetCurrency, setTargetCurrency] = useState('EUR');
   const [amount, setAmount] = useState('1');
   const [rates, setRates] = useState(null);
@@ -383,15 +410,19 @@ const CurrencyMarketPage = ({ navigation }) => {
   const [allCurrencies, setAllCurrencies] = useState([]); // Add this state for full currency list
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [searching, setSearching] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [modalSearchQuery, setModalSearchQuery] = useState(''); // Search for modal
+  const [currencyListModalVisible, setCurrencyListModalVisible] = useState(false); // New modal for currency list
   const [selectedCurrency, setSelectedCurrency] = useState(null);
   const [userCurrencyName, setUserCurrencyName] = useState('');
   const [isUpdatingGlobal, setIsUpdatingGlobal] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [currencySelectionType, setCurrencySelectionType] = useState('base'); // 'base' ou 'target'
+  const [isInitialized, setIsInitialized] = useState(false); // Track if user preferences are loaded
+  
+  // Add ref to track component mount status
+  const isMountedRef = useRef(true);
   const [convertedResult, setConvertedResult] = useState({
-    from: { code: 'USD', amount: 1, symbol: '$' },
+    from: { code: '', amount: 1, symbol: '' },
     to: { code: 'EUR', amount: 0, symbol: '€' }
   });
   const [userPreferredCurrency, setUserPreferredCurrency] = useState(null);
@@ -409,11 +440,18 @@ const CurrencyMarketPage = ({ navigation }) => {
   const [savedCurrencies, setSavedCurrencies] = useState([]);
   const [saveModalVisible, setSaveModalVisible] = useState(false);
   
+  // Custom alert modal states
+  const [alertModalVisible, setAlertModalVisible] = useState(false);
+  const [alertConfig, setAlertConfig] = useState({
+    type: 'info',
+    title: '',
+    message: '',
+    buttons: []
+  });
+  
   // Refs para animações
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const converterScaleAnim = useRef(new Animated.Value(0.95)).current;
-  const slideUpAnim = useRef(new Animated.Value(50)).current;
-  const searchExpandAnim = useRef(new Animated.Value(0)).current;
   const spinAnim = useRef(new Animated.Value(0)).current;
   const successAnim = useRef(new Animated.Value(0)).current;
 
@@ -425,6 +463,8 @@ const CurrencyMarketPage = ({ navigation }) => {
 
   // Carregar a moeda preferida do usuário ao montar
   useEffect(() => {
+    let isMounted = true;
+    
     const loadUserPreferences = async () => {
       try {
         // Tentar carregar a moeda do usuário apenas do Supabase
@@ -433,7 +473,7 @@ const CurrencyMarketPage = ({ navigation }) => {
         try {
           const { data: { user } } = await supabase.auth.getUser();
           
-          if (user) {
+          if (user && isMounted) {
             // Buscar preferências do usuário do banco de dados
             const { data, error } = await supabase
               .from('user_currency_preferences')
@@ -450,7 +490,7 @@ const CurrencyMarketPage = ({ navigation }) => {
               console.log('Nenhuma preferência de moeda encontrada, usando padrão:', userCurrency);
               
               // Criar registro com valor padrão
-              if (user) {
+              if (user && isMounted) {
                 const { error: insertError } = await supabase
                   .from('user_currency_preferences')
                   .upsert({ 
@@ -474,37 +514,45 @@ const CurrencyMarketPage = ({ navigation }) => {
         }
         
         // Definir a moeda base com a preferência do usuário
-        if (userCurrency) {
+        if (userCurrency && isMounted) {
           setBaseCurrency(userCurrency);
           setUserPreferredCurrency(userCurrency);
           // Guardar para comparação quando sair da página
           initialUserCurrency.current = userCurrency;
+          // Mark as initialized to allow data loading
+          setIsInitialized(true);
         }
 
         // Inicializar moedas salvas do AsyncStorage
-        try {
-          const savedCurrenciesData = await AsyncStorage.getItem('user_saved_currencies');
-          if (savedCurrenciesData) {
-            const parsedCurrencies = JSON.parse(savedCurrenciesData);
-            setSavedCurrencies(Array.isArray(parsedCurrencies) ? parsedCurrencies : []);
-          } else {
+        if (isMounted) {
+          try {
+            const savedCurrenciesData = await AsyncStorage.getItem('user_saved_currencies');
+            if (savedCurrenciesData) {
+              const parsedCurrencies = JSON.parse(savedCurrenciesData);
+              setSavedCurrencies(Array.isArray(parsedCurrencies) ? parsedCurrencies : []);
+            } else {
+              setSavedCurrencies([]);
+            }
+          } catch (storageError) {
+            console.error('Erro ao carregar moedas salvas do AsyncStorage:', storageError);
             setSavedCurrencies([]);
           }
-        } catch (storageError) {
-          console.error('Erro ao carregar moedas salvas do AsyncStorage:', storageError);
-          setSavedCurrencies([]);
         }
       } catch (error) {
         console.error("Error loading user preferences:", error);
-        setSavedCurrencies([]);
+        if (isMounted) {
+          setSavedCurrencies([]);
+        }
       }
     };
     
     loadUserPreferences();
     
-    // Verificar se houve mudança de moeda ao sair da página
+    // Cleanup function
     return () => {
-      verifyAndSaveCurrencyChange();
+      isMounted = false;
+      // Don't call async functions in cleanup - they can cause memory leaks
+      // verifyAndSaveCurrencyChange() should be called elsewhere when needed
     };
   }, []);
   
@@ -537,8 +585,27 @@ const CurrencyMarketPage = ({ navigation }) => {
 
   // Carregar taxas de câmbio e moedas suportadas
   useEffect(() => {
-    loadData();
-  }, [baseCurrency]);
+    // Only load data if baseCurrency is set and component is initialized
+    if (!baseCurrency || !isInitialized) return;
+    
+    let isMounted = true;
+    
+    const loadDataSafely = async () => {
+      try {
+        await loadData();
+      } catch (error) {
+        if (isMounted) {
+          console.error('Error loading data:', error);
+        }
+      }
+    };
+    
+    loadDataSafely();
+    
+    return () => {
+      isMounted = false;
+    };
+  }, [baseCurrency, isInitialized]);
 
   // Atualizar moedas populares quando a lista de moedas for carregada
   useEffect(() => {
@@ -600,7 +667,6 @@ const CurrencyMarketPage = ({ navigation }) => {
     // Resetar animações
     fadeAnim.setValue(0);
     converterScaleAnim.setValue(0.95);
-    slideUpAnim.setValue(50);
     
     // Executar sequência de animações
     Animated.parallel([
@@ -615,12 +681,6 @@ const CurrencyMarketPage = ({ navigation }) => {
         duration: 700,
         useNativeDriver: Platform.OS !== 'web',
         easing: Easing.out(Easing.back(1.5)),
-      }),
-      Animated.timing(slideUpAnim, {
-        toValue: 0,
-        duration: 800,
-        useNativeDriver: Platform.OS !== 'web',
-        easing: Easing.out(Easing.cubic),
       }),
     ]).start();
   };
@@ -663,32 +723,63 @@ const CurrencyMarketPage = ({ navigation }) => {
     outputRange: ['0deg', '360deg'],
   });
 
-  const searchWidth = searchExpandAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0%', '100%'],
-  });
-
   const successScale = successAnim.interpolate({
     inputRange: [0, 0.5, 1],
     outputRange: [0, 1.2, 1],
   });
 
+  // Helper function to calculate conversion with minimum value logic
+  const calculateOptimalConversion = (fromAmount, fromCurrency, toCurrency, exchangeRates) => {
+    if (!exchangeRates || !fromCurrency || !toCurrency) return { from: fromAmount, to: 0 };
+    
+    // Calculate normal conversion
+    const normalConversion = convertCurrency(fromAmount, fromCurrency, toCurrency, exchangeRates);
+    
+    // If converted amount is less than 0.01, calculate the minimum "from" amount needed for 0.01 "to"
+    if (normalConversion < 0.01 && normalConversion > 0) {
+      const rate = exchangeRates[toCurrency];
+      if (rate && rate > 0) {
+        // Calculate how much "from" currency is needed to get 0.01 "to" currency
+        const minFromAmount = 0.01 / rate;
+        let adjustedFromAmount = parseFloat(minFromAmount.toFixed(2));
+        
+        // If rounding to 2 decimals results in 0.00, use 0.01 as minimum
+        if (adjustedFromAmount === 0.00) {
+          adjustedFromAmount = 0.01;
+        }
+        
+        return {
+          from: adjustedFromAmount,
+          to: 0.01,
+          adjusted: true // Flag to indicate this was adjusted
+        };
+      }
+    }
+    
+    return {
+      from: fromAmount,
+      to: normalConversion,
+      adjusted: false
+    };
+  };
+
   // Função para calcular o resultado da conversão
   const updateConversion = () => {
     if (!amount || isNaN(parseFloat(amount))) return;
     
-    // No need to reload the whole screen, just update the conversion result
-    // without causing a full re-render
-    const value = parseFloat(amount);
+    const inputValue = parseFloat(amount);
+    const conversion = calculateOptimalConversion(inputValue, baseCurrency, targetCurrency, rates);
+    
     setConvertedResult({
       from: {
         code: baseCurrency,
-        amount: value,
-        symbol: getCurrencySymbol(baseCurrency)
+        amount: conversion.from,
+        symbol: getCurrencySymbol(baseCurrency),
+        adjusted: conversion.adjusted
       },
       to: {
         code: targetCurrency,
-        amount: convertCurrency(value, baseCurrency, targetCurrency, rates) || 0,
+        amount: conversion.to,
         symbol: getCurrencySymbol(targetCurrency)
       }
     });
@@ -707,16 +798,31 @@ const CurrencyMarketPage = ({ navigation }) => {
 
   const loadData = async () => {
     try {
-      if (!isConverterLoading && !isCurrencyListLoading) {
+      // Don't load if baseCurrency is not set yet
+      if (!baseCurrency) {
+        console.log('loadData: baseCurrency not set yet, skipping...');
+        return;
+      }
+      
+      if (!isConverterLoading && !isCurrencyListLoading && isMountedRef.current) {
         setLoading(true);
       }
       
+      console.log('loadData: Loading data for baseCurrency:', baseCurrency);
+      
       // Buscar taxas de câmbio para a moeda base
       const exchangeRates = await fetchLatestRates(baseCurrency);
+      if (!isMountedRef.current) return;
+      
+      // Cache the rates for faster future swaps
+      ratesCache.current[baseCurrency] = exchangeRates;
+      
       setRates(exchangeRates);
       
       // Buscar lista de moedas suportadas
       const supportedCurrencies = await getSupportedCurrencies();
+      if (!isMountedRef.current) return;
+      
       // Store all currencies
       setAllCurrencies(supportedCurrencies);
       // Limitar para currencyLimit moedas para melhor performance
@@ -724,35 +830,42 @@ const CurrencyMarketPage = ({ navigation }) => {
       
       // Encontrar o nome da moeda atual do usuário
       const currencyDetails = supportedCurrencies.find(c => c.code === baseCurrency);
-      if (currencyDetails) {
+      if (currencyDetails && isMountedRef.current) {
         setUserCurrencyName(currencyDetails.name);
       }
       
       // Force initial conversion calculation
-      if (exchangeRates) {
-        const value = parseFloat(amount);
+      if (exchangeRates && isMountedRef.current) {
+        const inputValue = parseFloat(amount);
+        const conversion = calculateOptimalConversion(inputValue, baseCurrency, targetCurrency, exchangeRates);
+        
         setConvertedResult({
           from: {
             code: baseCurrency,
-            amount: value,
-            symbol: getCurrencySymbol(baseCurrency)
+            amount: conversion.from,
+            symbol: getCurrencySymbol(baseCurrency),
+            adjusted: conversion.adjusted
           },
           to: {
             code: targetCurrency,
-            amount: convertCurrency(value, baseCurrency, targetCurrency, exchangeRates) || 0,
+            amount: conversion.to,
             symbol: getCurrencySymbol(targetCurrency)
           }
         });
       }
       
-      setLoading(false);
-      setIsConverterLoading(false);
-      setIsCurrencyListLoading(false);
+      if (isMountedRef.current) {
+        setLoading(false);
+        setIsConverterLoading(false);
+        setIsCurrencyListLoading(false);
+      }
     } catch (error) {
-      setLoading(false);
-      setIsConverterLoading(false);
-      setIsCurrencyListLoading(false);
-      Alert.alert('Error', 'Failed to load currency data. Please try again later.');
+      if (isMountedRef.current) {
+        setLoading(false);
+        setIsConverterLoading(false);
+        setIsCurrencyListLoading(false);
+        Alert.alert('Error', 'Failed to load currency data. Please try again later.');
+      }
       console.error(error);
     }
   };
@@ -826,9 +939,15 @@ const CurrencyMarketPage = ({ navigation }) => {
   };
 
   const handleCurrencySelect = (currency) => {
+    // Allow deselecting if the same currency is clicked again
+    if (selectedCurrency && selectedCurrency.code === currency.code) {
+      setSelectedCurrency(null);
+      return;
+    }
+    
     // Não permitir seleção da moeda base atual
     if (currency.code === baseCurrency) {
-      Alert.alert('Info', `${currency.code} is already your base currency.`);
+      showStyledAlert('info', 'Already Selected', `${currency.code} is already your base currency.`);
       return;
     }
     
@@ -866,7 +985,7 @@ const CurrencyMarketPage = ({ navigation }) => {
       if (currentCurrency.code === pendingCurrencyChange.code) {
         console.log('Same currency selected, no change needed');
         setIsUpdatingGlobal(false);
-        Alert.alert('Info', 'This currency is already selected.');
+        showStyledAlert('info', 'Same Currency', 'This currency is already selected.');
         setPendingCurrencyChange(null);
         return;
       }
@@ -965,31 +1084,14 @@ const CurrencyMarketPage = ({ navigation }) => {
     }
   };
 
-  const toggleSearchMode = () => {
-    if (!searching) {
-      setSearching(true);
-      Animated.timing(searchExpandAnim, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: Platform.OS !== 'web',
-        easing: Easing.out(Easing.cubic),
-      }).start();
-    } else {
-      Animated.timing(searchExpandAnim, {
-        toValue: 0,
-        duration: 250,
-        useNativeDriver: Platform.OS !== 'web',
-        easing: Easing.out(Easing.cubic),
-      }).start(() => {
-        setSearching(false);
-        setSearchQuery('');
-      });
-    }
+  const openCurrencyListModal = () => {
+    setCurrencyListModalVisible(true);
   };
 
   // Abrir modal para selecionar moeda
   const openCurrencySelector = (type) => {
     setCurrencySelectionType(type);
+    setModalSearchQuery(''); // Reset modal search when opening
     setModalVisible(true);
   };
 
@@ -997,10 +1099,12 @@ const CurrencyMarketPage = ({ navigation }) => {
   const selectCurrencyFromModal = (currency) => {
     // Don't reload if selecting the same currency
     if (currencySelectionType === 'base' && currency.code === baseCurrency) {
+      setModalSearchQuery(''); // Reset search
       setModalVisible(false);
       return;
     }
     if (currencySelectionType === 'target' && currency.code === targetCurrency) {
+      setModalSearchQuery(''); // Reset search
       setModalVisible(false);
       return;
     }
@@ -1015,16 +1119,19 @@ const CurrencyMarketPage = ({ navigation }) => {
       
       // Immediately update conversion for target currency changes
       if (rates) {
-        const value = parseFloat(amount);
+        const inputValue = parseFloat(amount);
+        const conversion = calculateOptimalConversion(inputValue, baseCurrency, currency.code, rates);
+        
         setConvertedResult({
           from: {
             code: baseCurrency,
-            amount: value,
-            symbol: getCurrencySymbol(baseCurrency)
+            amount: conversion.from,
+            symbol: getCurrencySymbol(baseCurrency),
+            adjusted: conversion.adjusted
           },
           to: {
             code: currency.code,
-            amount: convertCurrency(value, baseCurrency, currency.code, rates) || 0,
+            amount: conversion.to,
             symbol: getCurrencySymbol(currency.code)
           }
         });
@@ -1036,57 +1143,163 @@ const CurrencyMarketPage = ({ navigation }) => {
       }
     }
     
+    setModalSearchQuery(''); // Reset search when closing
     setModalVisible(false);
   };
 
-  // Trocar as moedas base e alvo
-  const swapCurrencies = () => {
+  // Cache para otimizar swaps
+  const ratesCache = useRef({});
+
+  // Function to format amount input to 2 decimal places
+  const formatAmountInput = (value) => {
+    // Remove any non-numeric characters except decimal point
+    let cleanValue = value.replace(/[^0-9.]/g, '');
+    
+    // Allow only one decimal point
+    const parts = cleanValue.split('.');
+    if (parts.length > 2) {
+      cleanValue = parts[0] + '.' + parts.slice(1).join('');
+    }
+    
+    // Limit to 2 decimal places
+    if (parts[1] && parts[1].length > 2) {
+      cleanValue = parts[0] + '.' + parts[1].substring(0, 2);
+    }
+    
+    return cleanValue;
+  };
+
+  // Trocar as moedas base e alvo - versão otimizada
+  const swapCurrencies = async () => {
     setIsConverterLoading(true);
     
     const tempCode = baseCurrency;
     const tempSymbol = getCurrencySymbol(baseCurrency);
     
-    setBaseCurrency(targetCurrency);
-    setTargetCurrency(tempCode);
+    // Swap the currencies
+    const newBaseCurrency = targetCurrency;
+    const newTargetCurrency = tempCode;
     
-    // Immediately update the conversion result with swapped values
-    if (rates) {
-      const value = parseFloat(amount);
-      const targetRate = rates[tempCode] || 1;
+    setBaseCurrency(newBaseCurrency);
+    setTargetCurrency(newTargetCurrency);
+    
+    try {
+      // Try to get rates from cache first
+      let newRates = ratesCache.current[newBaseCurrency];
       
-      setConvertedResult({
-        from: {
-          code: targetCurrency,
-          amount: value,
-          symbol: getCurrencySymbol(targetCurrency)
-        },
-        to: {
-          code: tempCode,
-          amount: convertCurrency(value, targetCurrency, tempCode, rates) || 0,
-          symbol: tempSymbol
-        }
-      });
+      if (!newRates) {
+        // If not in cache, fetch from API
+        console.log('Fetching rates for swap to:', newBaseCurrency);
+        newRates = await fetchLatestRates(newBaseCurrency);
+        // Cache the rates
+        ratesCache.current[newBaseCurrency] = newRates;
+      } else {
+        console.log('Using cached rates for:', newBaseCurrency);
+      }
+      
+      // Update rates state
+      setRates(newRates);
+      
+      // Immediately calculate and update the conversion with the new rates
+      if (newRates && amount) {
+        const inputValue = parseFloat(amount);
+        const conversion = calculateOptimalConversion(inputValue, newBaseCurrency, newTargetCurrency, newRates);
+        
+        setConvertedResult({
+          from: {
+            code: newBaseCurrency,
+            amount: conversion.from,
+            symbol: getCurrencySymbol(newBaseCurrency),
+            adjusted: conversion.adjusted
+          },
+          to: {
+            code: newTargetCurrency,
+            amount: conversion.to,
+            symbol: getCurrencySymbol(newTargetCurrency)
+          }
+        });
+      }
+      
+      // Set loading to false with minimal delay for visual feedback
+      setTimeout(() => {
+        setIsConverterLoading(false);
+        setIsCurrencyListLoading(false);
+      }, 100); // Much faster than 10 seconds!
+      
+    } catch (error) {
+      console.error('Error during currency swap:', error);
+      // Fallback to full reload if optimized swap fails
+      setIsCurrencyListLoading(true);
+      setTimeout(() => {
+        setIsConverterLoading(false);
+        setIsCurrencyListLoading(false);
+      }, 300);
     }
-    
-    // Don't need to load list for target changes
-    if (tempCode === baseCurrency) {
-      setIsCurrencyListLoading(false);
-    }
-    
-    // Hide loading after a short delay for visual feedback
-    setTimeout(() => {
-      setIsConverterLoading(false);
-    }, 300);
   };
 
   const filteredCurrencies = React.useMemo(() => {
-    // If searching, filter from all currencies, otherwise use the limited list
-    const sourceList = searchQuery ? allCurrencies : currencies;
+    let sourceList = currencies;
+    
+    // If there's a search query, filter the currencies
+    if (modalSearchQuery && modalSearchQuery.trim()) {
+      const query = modalSearchQuery.toLowerCase().trim();
+      
+      sourceList = allCurrencies.filter(currency => {
+        // Special case for common currency names
+        if (query === 'dollar' && currency.code === 'USD') return true;
+        if (query === 'euro' && currency.code === 'EUR') return true;
+        if (query === 'pound' && currency.code === 'GBP') return true;
+        if (query === 'yen' && currency.code === 'JPY') return true;
+        
+        // Check if the currency code or name matches
+        const basicMatch = (
+          currency.code.toLowerCase().includes(query) ||
+          (currency.name && currency.name.toLowerCase().includes(query))
+        );
+        
+        if (basicMatch) return true;
+        
+        // Check if any country matches (if countries array exists)
+        if (currency.countries && currency.countries.length > 0) {
+          return currency.countries.some(country => 
+            country.toLowerCase().includes(query)
+          );
+        }
+        
+        return false;
+      });
+    }
+    
+    return sourceList.sort((a, b) => {
+      // First priority: Saved currencies at the very top
+      const aIsSaved = savedCurrencies.some(c => c.code === a.code);
+      const bIsSaved = savedCurrencies.some(c => c.code === b.code);
+      
+      if (aIsSaved && !bIsSaved) return -1;
+      if (!aIsSaved && bIsSaved) return 1;
+      
+      // Second priority: User preferred currency
+      if (a.code === userPreferredCurrency) return -1;
+      if (b.code === userPreferredCurrency) return 1;
+      
+      // Third priority: Currently selected base currency
+      if (a.code === baseCurrency) return -1;
+      if (b.code === baseCurrency) return 1;
+      
+      // Finally sort alphabetically by name
+      return a.name.localeCompare(b.name);
+    });
+  }, [currencies, allCurrencies, modalSearchQuery, userPreferredCurrency, savedCurrencies, baseCurrency]);
+
+  // Separate filtered currencies for modal
+  const modalFilteredCurrencies = React.useMemo(() => {
+    // Always use all currencies for modal search
+    const sourceList = allCurrencies;
     
     return sourceList.filter(currency => {
-      if (!searchQuery) return true;
+      if (!modalSearchQuery) return true;
       
-      const query = searchQuery.toLowerCase().trim();
+      const query = modalSearchQuery.toLowerCase().trim();
       
       // Special case for common currency names
       if (query === 'dollar' && currency.code === 'USD') return true;
@@ -1112,42 +1325,25 @@ const CurrencyMarketPage = ({ navigation }) => {
       return false;
     })
     .sort((a, b) => {
-      // Colocar a moeda do usuário no topo
-      if (a.code === userPreferredCurrency) return -1;
-      if (b.code === userPreferredCurrency) return 1;
-      
-      // Colocar moedas salvas depois da moeda do usuário
+      // First priority: Saved currencies at the very top
       const aIsSaved = savedCurrencies.some(c => c.code === a.code);
       const bIsSaved = savedCurrencies.some(c => c.code === b.code);
       
       if (aIsSaved && !bIsSaved) return -1;
       if (!aIsSaved && bIsSaved) return 1;
       
-      // Priorizar correspondências exatas para pesquisas
-      if (searchQuery) {
-        const query = searchQuery.toLowerCase().trim();
-        const aExactMatch = a.code.toLowerCase() === query;
-        const bExactMatch = b.code.toLowerCase() === query;
-        
-        if (aExactMatch && !bExactMatch) return -1;
-        if (!aExactMatch && bExactMatch) return 1;
-        
-        // Priorizar correspondências que começam com a consulta
-        const aStartsWithMatch = a.code.toLowerCase().startsWith(query);
-        const bStartsWithMatch = b.code.toLowerCase().startsWith(query);
-        
-        if (aStartsWithMatch && !bStartsWithMatch) return -1;
-        if (!aStartsWithMatch && bStartsWithMatch) return 1;
-      }
+      // Second priority: User preferred currency
+      if (a.code === userPreferredCurrency) return -1;
+      if (b.code === userPreferredCurrency) return 1;
       
-      // Depois colocar a moeda selecionada
+      // Third priority: Currently selected base currency
       if (a.code === baseCurrency) return -1;
       if (b.code === baseCurrency) return 1;
       
-      // Finalmente ordenar pelo nome
+      // Finally sort alphabetically by name
       return a.name.localeCompare(b.name);
     });
-  }, [currencies, allCurrencies, searchQuery, userPreferredCurrency, savedCurrencies, baseCurrency]);
+  }, [allCurrencies, modalSearchQuery, userPreferredCurrency, baseCurrency, targetCurrency, currencySelectionType]);
 
   // Obter símbolo da moeda
   const getCurrencySymbol = (code) => {
@@ -1197,14 +1393,14 @@ const CurrencyMarketPage = ({ navigation }) => {
   // Add a memoized convertedAmount function to prevent recalculations
   const memoizedConvertedAmount = useMemo(() => {
     return (targetCurrencyCode) => {
-      if (!rates || !amount || isNaN(amount)) return '0.00';
+      if (!rates || !amount || isNaN(amount) || !baseCurrency) return '0.00';
       
       const convertedValue = convertCurrency(parseFloat(amount), baseCurrency, targetCurrencyCode, rates);
       return convertedValue ? convertedValue.toFixed(2) : '0.00';
     };
   }, [rates, amount, baseCurrency]);
 
-  // Update the renderCurrencyItem to use the memoized function
+  // Update the renderCurrencyItem to show better visual feedback for selected items
   const renderCurrencyItem = ({ item, index }) => {
     const isSelected = selectedCurrency && selectedCurrency.code === item.code;
     const isBaseCurrency = baseCurrency === item.code;
@@ -1214,19 +1410,8 @@ const CurrencyMarketPage = ({ navigation }) => {
     // Get the primary country if available
     const primaryCountry = item.countries && item.countries.length > 0 ? item.countries[0] : null;
     
-    // Calcular animação de deslocamento para cada item
-    const itemDelayOffset = Math.min(index, 10) * 50; // Limitar a 10 itens para evitar atrasos muito longos
-    
     const itemAnimStyle = {
       opacity: fadeAnim,
-      transform: [
-        { 
-          translateY: slideUpAnim.interpolate({
-            inputRange: [0, 50],
-            outputRange: [0, 50 + itemDelayOffset],
-          })
-        }
-      ]
     };
     
     return (
@@ -1240,7 +1425,7 @@ const CurrencyMarketPage = ({ navigation }) => {
             isSaved && styles.savedCurrencyItem
           ]}
           onPress={() => handleCurrencySelect(item)}
-          disabled={isBaseCurrency}
+          disabled={false} // Remove disabled to allow deselecting
           activeOpacity={0.7}
         >
           <View style={styles.currencyInfo}>
@@ -1275,6 +1460,11 @@ const CurrencyMarketPage = ({ navigation }) => {
             {isSaved && !isBaseCurrency && !isUserPreferred && (
               <View style={[styles.primaryBadge, {backgroundColor: '#2196F3'}]}>
                 <Text style={styles.primaryText}>Saved</Text>
+              </View>
+            )}
+            {isSelected && !isBaseCurrency && (
+              <View style={[styles.primaryBadge, {backgroundColor: '#9C27B0'}]}>
+                <Text style={styles.primaryText}>Selected</Text>
               </View>
             )}
           </View>
@@ -1358,6 +1548,17 @@ const CurrencyMarketPage = ({ navigation }) => {
       }) 
     : 'Loading...';
 
+  // Helper function to show styled alerts
+  const showStyledAlert = (type, title, message, buttons = [{ text: 'OK' }]) => {
+    setAlertConfig({
+      type,
+      title,
+      message,
+      buttons
+    });
+    setAlertModalVisible(true);
+  };
+
   // Function to save a currency to the favorites list
   const saveCurrency = async (currencyToSave) => {
     try {
@@ -1365,7 +1566,7 @@ const CurrencyMarketPage = ({ navigation }) => {
       const alreadySaved = savedCurrencies.some(c => c.code === currencyToSave.code);
       
       let updatedSavedCurrencies;
-      let message;
+      let title, message, alertType;
       
       if (!alreadySaved) {
         // Add currency to favorites
@@ -1374,11 +1575,15 @@ const CurrencyMarketPage = ({ navigation }) => {
           symbol: getCurrencySymbol(currencyToSave.code),
           name: currencyToSave.name
         }];
+        title = 'Currency Saved';
         message = `${currencyToSave.code} has been added to your saved currencies.`;
+        alertType = 'success';
       } else {
         // Remove currency from favorites
         updatedSavedCurrencies = savedCurrencies.filter(c => c.code !== currencyToSave.code);
+        title = 'Currency Removed';
         message = `${currencyToSave.code} has been removed from your saved currencies.`;
+        alertType = 'info';
       }
       
       // Always update local state first to ensure UI is updated
@@ -1388,11 +1593,11 @@ const CurrencyMarketPage = ({ navigation }) => {
       await AsyncStorage.setItem('user_saved_currencies', JSON.stringify(updatedSavedCurrencies));
       console.log('Saved currencies updated in AsyncStorage');
       
-      // Show feedback to the user
-      Alert.alert('Currency ' + (alreadySaved ? 'Removed' : 'Saved'), message);
+      // Show styled feedback to the user
+      showStyledAlert(alertType, title, message);
     } catch (error) {
       console.error('Error saving currency:', error);
-      Alert.alert('Error', 'Could not save the currency. Please try again.');
+      showStyledAlert('error', 'Error', 'Could not save the currency. Please try again.');
     }
   };
 
@@ -1413,37 +1618,12 @@ const CurrencyMarketPage = ({ navigation }) => {
     return colors[code] || '#FF9800'; // Default orange for currencies without specific color
   };
 
-  // Render loading screen
-  if (loading) {
-    return (
-      <View style={styles.container}>
-        <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent={true} />
-        <LinearGradient
-          colors={['rgba(255, 152, 0, 0.15)', 'rgba(255, 255, 255, 0)']}
-          style={styles.gradientBackground}
-        />
-        <Header title="Currency Market" />
-        
-        <View style={styles.loadingContainer}>
-          <View style={styles.loadingCard}>
-            <Animated.View style={[styles.loadingIconContainer, { transform: [{ rotate: spin }] }]}>
-              <Ionicons name="sync" size={40} color="#FF9800" />
-            </Animated.View>
-            <Text style={styles.loadingTitle}>Loading Currency Data</Text>
-            <Animated.Text style={styles.loadingText}>
-              Please wait{loadingDots}
-            </Animated.Text>
-            <LinearGradient
-              colors={['rgba(255, 152, 0, 0.1)', 'rgba(255, 152, 0, 0.3)']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.loadingProgress}
-            />
-          </View>
-        </View>
-      </View>
-    );
-  }
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   return (
     <KeyboardAvoidingView 
@@ -1451,16 +1631,23 @@ const CurrencyMarketPage = ({ navigation }) => {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
     >
-      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent={true} />
-      <LinearGradient
-        colors={['rgba(255, 152, 0, 0.15)', 'rgba(255, 255, 255, 0)']}
-        style={styles.gradientBackground}
-      />
-      <Header title="Currency Market" />
-      
-      <Animated.ScrollView
+    <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent={true} />
+    <LinearGradient
+      colors={['rgba(255, 152, 0, 0.15)', 'rgba(255, 255, 255, 0)']}
+      style={styles.gradientBackground}
+    />
+    <Header title="Currency Market" />
+    
+    {loading && !isInitialized ? (
+      <FullPageSkeleton />
+    ) : (
+    <Animated.FlatList
         style={[styles.contentContainer, { opacity: fadeAnim }]}
+        data={filteredCurrencies}
+        renderItem={renderCurrencyItem}
+        keyExtractor={item => item.code}
         showsVerticalScrollIndicator={false}
+        bounces={true}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -1469,224 +1656,200 @@ const CurrencyMarketPage = ({ navigation }) => {
             tintColor="#FF9800"
           />
         }
-      >
-        <View style={styles.converterContainer}>
-          <Text style={styles.sectionTitle}>Currency Converter</Text>
-          
-          {isConverterLoading ? (
-            <CurrencyConverterSkeleton />
-          ) : (
-            <Animated.View 
-              style={[
-                styles.converterCard,
-                { transform: [{ scale: converterScaleAnim }] }
-              ]}
-            >
-              {/* Input para valor */}
-              <View style={styles.converterInputRow}>
-                <Text style={styles.converterLabel}>Amount</Text>
-                <TextInput
-                  style={styles.converterAmountInput}
-                  value={amount}
-                  onChangeText={setAmount}
-                  keyboardType="numeric"
-                  placeholder="Enter amount"
-                  placeholderTextColor="#A0AEC0"
-                />
-              </View>
-              
-              {/* Seletor de moedas */}
-              <View style={styles.currencySelectionContainer}>
-                <View style={styles.currencySelectionRow}>
-                  <View style={styles.currencySelection}>
-                    <Text style={styles.converterLabel}>From</Text>
-                    <TouchableOpacity 
-                      style={styles.currencySelectorButton}
-                      onPress={() => openCurrencySelector('base')}
-                    >
-                      <Text style={styles.currencySelectorCode}>{baseCurrency}</Text>
-                      <Text style={styles.currencySelectorSymbol}>
-                        {getCurrencySymbol(baseCurrency)}
-                      </Text>
-                      <Ionicons name="chevron-down" size={16} color="#718096" />
-                    </TouchableOpacity>
-                  </View>
-                  
-                  <TouchableOpacity 
-                    style={styles.swapButton}
-                    onPress={swapCurrencies}
+        ListHeaderComponent={
+          <>
+                           <View style={styles.converterContainer}>
+                 <Text style={styles.sectionTitle}>Currency Converter</Text>
+                 <Text style={styles.sectionSubtitle}>Convert between different currencies in real-time</Text>
+                 
+                 {isConverterLoading ? (
+                  <CurrencyConverterSkeleton />
+                ) : (
+                  <Animated.View 
+                    style={[
+                      styles.converterCard,
+                      { transform: [{ scale: converterScaleAnim }] }
+                    ]}
                   >
-                    <Ionicons name="swap-horizontal" size={24} color="#FF9800" />
-                  </TouchableOpacity>
-                  
-                  <View style={styles.currencySelection}>
-                    <Text style={styles.converterLabel}>To</Text>
-                    <TouchableOpacity 
-                      style={styles.currencySelectorButton}
-                      onPress={() => openCurrencySelector('target')}
-                    >
-                      <Text style={styles.currencySelectorCode}>{targetCurrency}</Text>
-                      <Text style={styles.currencySelectorSymbol}>
-                        {getCurrencySymbol(targetCurrency)}
-                      </Text>
-                      <Ionicons name="chevron-down" size={16} color="#718096" />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-                
-                {/* Resultado da conversão */}
-                <View style={styles.conversionResultContainer}>
-                  <Text style={styles.conversionResultText}>
-                    {parseFloat(amount).toFixed(2)} {baseCurrency} = 
-                  </Text>
-                  <Text style={styles.conversionResultValue}>
-                    {convertedResult.to.amount.toFixed(2)} {targetCurrency}
-                  </Text>
-                </View>
-              </View>
-              
-              {/* Moedas salvas */}
-              <View style={styles.popularCurrenciesContainer}>
-                <View style={styles.sectionHeaderRow}>
-                  <Text style={styles.popularCurrenciesTitle}>Saved Currencies</Text>
-                  {savedCurrencies.length === 0 && (
-                    <Text style={styles.saveInstructionText}></Text>
-                  )}
-                </View>
-                {savedCurrencies.length > 0 && (
-                  <View style={styles.tipContainer}>
-                    <Ionicons name="bulb-outline" size={14} color="#FF9800" />
-                    <Text style={styles.currencyTipText}>
-                      Tap any saved currency to quickly use it as your "From" currency
-                    </Text>
-                  </View>
-                )}
-                <View style={styles.chipsContainer}>
-                  {savedCurrencies.length > 0 ? (
-                    savedCurrencies.map(renderPopularCurrency)
-                  ) : (
-                    <Text style={styles.noSavedCurrenciesText}>
-                      Use the bookmark icon to save currencies
-                    </Text>
-                  )}
-                </View>
-              </View>
-              
-              {/* Set as main currency button */}
-              {baseCurrency !== userPreferredCurrency && (
-                <TouchableOpacity 
-                  style={styles.setMainCurrencyButton}
-                  onPress={() => {
-                    const currencyDetails = allCurrencies.find(c => c.code === baseCurrency) || 
-                                          currencies.find(c => c.code === baseCurrency);
-                    if (currencyDetails) {
-                      setPendingCurrencyChange(currencyDetails);
-                      setConfirmModalVisible(true);
-                    } else {
-                      Alert.alert('Error', 'Currency details not found');
-                    }
-                  }}
-                >
-                  <LinearGradient
-                    colors={['#4CAF50', '#388E3C']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={styles.setMainCurrencyGradient}
-                  >
-                    <Ionicons name="star" size={18} color="#FFFFFF" style={{marginRight: 8}} />
-                    <Text style={styles.setMainCurrencyText}>
-                      Use {baseCurrency} as your main currency
-                    </Text>
-                  </LinearGradient>
-                </TouchableOpacity>
-              )}
-              
-              <View style={styles.infoContainer}>
-                <Ionicons name="time-outline" size={14} color="#718096" />
-                <Text style={styles.infoText}>Last updated: {lastUpdated}</Text>
-              </View>
-            </Animated.View>
-          )}
-        </View>
-        
-        <Animated.View 
-          style={[
-            styles.listContainer,
-            { transform: [{ translateY: slideUpAnim }] }
-          ]}
-        >
-          <View style={styles.listHeader}>
-            <View style={styles.listHeaderTitles}>
-              <Text style={styles.sectionTitle}>All Currencies</Text>
-              <Text style={styles.sectionSubtitle}>Tap to select, bookmark to save</Text>
-            </View>
-            <View style={styles.searchContainer}>
-              {searching ? (
-                <Animated.View style={{ width: searchWidth }}>
-                  <View style={styles.searchInputContainer}>
-                    <Ionicons name="search-outline" size={18} color="#A0AEC0" style={styles.searchIcon} />
-                    <TextInput
-                      style={styles.searchInput}
-                      value={searchQuery}
-                      onChangeText={setSearchQuery}
-                      placeholder="Search by currency or country..."
-                      placeholderTextColor="#A0AEC0"
-                      autoFocus
-                    />
-                    <TouchableOpacity onPress={toggleSearchMode}>
-                      <Ionicons name="close-outline" size={22} color="#A0AEC0" />
-                    </TouchableOpacity>
-                  </View>
-                </Animated.View>
-              ) : (
-                <TouchableOpacity onPress={toggleSearchMode} style={styles.searchButton}>
-                  <Ionicons name="search-outline" size={24} color="#FF9800" />
-                </TouchableOpacity>
-              )}
-            </View>
-          </View>
-          
-          {isCurrencyListLoading ? (
-            <CurrencyListSkeleton count={10} />
-          ) : (
-            <FlatList
-              style={{ flex: 1 }}
-              contentContainerStyle={[styles.container, { paddingBottom: 80, flexGrow: 1 }]}
-              data={filteredCurrencies}
-              renderItem={renderCurrencyItem}
-              keyExtractor={item => item.code}
-              showsVerticalScrollIndicator={true}
-              bounces={true}
-              ListEmptyComponent={
-                <View style={styles.emptyContainer}>
-                  <Ionicons name="alert-circle-outline" size={48} color="#CBD5E0" />
-                  <Text style={styles.emptyText}>
-                    {searchQuery ? "No currencies found matching your search." : "No currencies available."}
-                  </Text>
-                </View>
-              }
-              ListFooterComponent={
-                currencies.length >= 10 && !searching ? (
-                  <TouchableOpacity 
-                    style={styles.loadMoreButton}
-                    onPress={loadMoreCurrencies}
-                    disabled={isLoadingMore}
-                  >
-                    {isLoadingMore ? (
-                      <ActivityIndicator size="small" color="#FFFFFF" />
-                    ) : (
-                      <>
-                        <Text style={styles.loadMoreButtonText}>Load More Currencies</Text>
-                        <Ionicons name="chevron-down" size={16} color="#FFFFFF" style={{marginLeft: 5}} />
-                      </>
+                    {/* Input para valor */}
+                    <View style={styles.converterInputRow}>
+                      <Text style={styles.converterLabel}>Amount</Text>
+                      <TextInput
+                        style={styles.converterAmountInput}
+                        value={amount}
+                        onChangeText={(text) => setAmount(formatAmountInput(text))}
+                        keyboardType="numeric"
+                        placeholder="Enter amount"
+                        placeholderTextColor="#A0AEC0"
+                      />
+                    </View>
+                    
+                    {/* Seletor de moedas */}
+                    <View style={styles.currencySelectionContainer}>
+                      <View style={styles.currencySelectionRow}>
+                        <View style={styles.currencySelection}>
+                          <Text style={styles.converterLabel}>From</Text>
+                          <TouchableOpacity 
+                            style={styles.currencySelectorButton}
+                            onPress={() => openCurrencySelector('base')}
+                          >
+                            <Text style={styles.currencySelectorCode}>{baseCurrency}</Text>
+                            <Text style={styles.currencySelectorSymbol}>
+                              {getCurrencySymbol(baseCurrency)}
+                            </Text>
+                            <Ionicons name="chevron-down" size={16} color="#718096" />
+                          </TouchableOpacity>
+                        </View>
+                        
+                        <TouchableOpacity 
+                          style={styles.swapButton}
+                          onPress={swapCurrencies}
+                        >
+                          <Ionicons name="swap-horizontal" size={24} color="#FF9800" />
+                        </TouchableOpacity>
+                        
+                        <View style={styles.currencySelection}>
+                          <Text style={styles.converterLabel}>To</Text>
+                          <TouchableOpacity 
+                            style={styles.currencySelectorButton}
+                            onPress={() => openCurrencySelector('target')}
+                          >
+                            <Text style={styles.currencySelectorCode}>{targetCurrency}</Text>
+                            <Text style={styles.currencySelectorSymbol}>
+                              {getCurrencySymbol(targetCurrency)}
+                            </Text>
+                            <Ionicons name="chevron-down" size={16} color="#718096" />
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                      
+                      {/* Resultado da conversão */}
+                      <View style={styles.conversionResultContainer}>
+                        <Text style={styles.conversionResultText}>
+                          {convertedResult.from.adjusted ? 
+                            `${convertedResult.from.amount.toFixed(2)} ${baseCurrency} = ` : 
+                            `${parseFloat(amount).toFixed(2)} ${baseCurrency} = `
+                          }
+                        </Text>
+                        <Text style={styles.conversionResultValue}>
+                          {convertedResult.to.amount.toFixed(2)} {targetCurrency}
+                        </Text>
+                        {convertedResult.from.adjusted && (
+                          <Text style={[styles.conversionResultText, { fontSize: 11, color: '#FF9800', marginTop: 4 }]}>
+                            ⚡ Adjusted to minimum 0.01 {targetCurrency}
+                          </Text>
+                        )}
+                      </View>
+                    </View>
+                    
+                    {/* Moedas salvas */}
+                    <View style={styles.popularCurrenciesContainer}>
+                      <View style={styles.sectionHeaderRow}>
+                        <Text style={styles.popularCurrenciesTitle}>Saved Currencies</Text>
+                        {savedCurrencies.length === 0 && (
+                          <Text style={styles.saveInstructionText}></Text>
+                        )}
+                      </View>
+                      {savedCurrencies.length > 0 && (
+                        <View style={styles.tipContainer}>
+                          <Ionicons name="bulb-outline" size={14} color="#FF9800" />
+                          <Text style={styles.currencyTipText}>
+                            Tap any saved currency to quickly use it as your "From" currency
+                          </Text>
+                        </View>
+                      )}
+                      <View style={styles.chipsContainer}>
+                        {savedCurrencies.length > 0 ? (
+                          savedCurrencies.map(renderPopularCurrency)
+                        ) : (
+                          <Text style={styles.noSavedCurrenciesText}>
+                            Use the bookmark icon to save currencies
+                          </Text>
+                        )}
+                      </View>
+                    </View>
+                    
+                    {/* Set as main currency button */}
+                    {baseCurrency !== userPreferredCurrency && (
+                      <TouchableOpacity 
+                        style={styles.setMainCurrencyButton}
+                        onPress={() => {
+                          const currencyDetails = allCurrencies.find(c => c.code === baseCurrency) || 
+                                                currencies.find(c => c.code === baseCurrency);
+                          if (currencyDetails) {
+                            setPendingCurrencyChange(currencyDetails);
+                            setConfirmModalVisible(true);
+                          } else {
+                            Alert.alert('Error', 'Currency details not found');
+                          }
+                        }}
+                      >
+                        <LinearGradient
+                          colors={['#4CAF50', '#388E3C']}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 0 }}
+                          style={styles.setMainCurrencyGradient}
+                        >
+                          <Ionicons name="star" size={18} color="#FFFFFF" style={{marginRight: 8}} />
+                          <Text style={styles.setMainCurrencyText}>
+                            Use {baseCurrency} as your main currency
+                          </Text>
+                        </LinearGradient>
+                      </TouchableOpacity>
                     )}
-                  </TouchableOpacity>
-                ) : null
-              }
-            />
-          )}
-        </Animated.View>
-      </Animated.ScrollView>
+                    
+                    <View style={styles.infoContainer}>
+                      <Ionicons name="time-outline" size={14} color="#718096" />
+                      <Text style={styles.infoText}>Last updated: {lastUpdated}</Text>
+                    </View>
+                  </Animated.View>
+                )}
+              </View>
+              
+              <View style={styles.listContainer}>
+                <View style={styles.listHeader}>
+                  <View style={styles.listHeaderTitles}>
+                    <Text style={styles.sectionTitle}>All Currencies</Text>
+                    <Text style={styles.sectionSubtitle}>Tap to select, bookmark to save</Text>
+                  </View>
+                  <View style={styles.searchContainer}>
+                    <TouchableOpacity onPress={openCurrencyListModal} style={styles.searchButton}>
+                      <Ionicons name="search-outline" size={24} color="#FF9800" />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+            </>
+          }
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Ionicons name="alert-circle-outline" size={48} color="#CBD5E0" />
+                              <Text style={styles.emptyText}>
+                  No currencies available.
+                </Text>
+            </View>
+          }
+          ListFooterComponent={
+            currencies.length >= 10 ? (
+              <TouchableOpacity 
+                style={styles.loadMoreButton}
+                onPress={loadMoreCurrencies}
+                disabled={isLoadingMore}
+              >
+                {isLoadingMore ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <>
+                    <Text style={styles.loadMoreButtonText}>Load More Currencies</Text>
+                    <Ionicons name="chevron-down" size={16} color="#FFFFFF" style={{marginLeft: 5}} />
+                  </>
+                )}
+              </TouchableOpacity>
+            ) : null
+          }
+          contentContainerStyle={{ paddingBottom: 80 }}
+        />
+      )}
       
       {selectedCurrency && (
         <Animated.View 
@@ -1695,81 +1858,133 @@ const CurrencyMarketPage = ({ navigation }) => {
             { transform: [{ translateY: isUpdatingGlobal ? 100 : 0 }] }
           ]}
         >
-          <View style={styles.actionButtonsContainer}>
-            <TouchableOpacity
-              style={[styles.actionButton, styles.actionButtonHalf]}
-              onPress={() => {
-                handleBaseCurrencyChange(selectedCurrency.code);
-                setSelectedCurrency(null);
-              }}
-            >
-              <LinearGradient
-                colors={['#FF9800', '#F57C00']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.actionButtonGradient}
+          {/* Currency Selection Info */}
+          <View style={styles.selectedCurrencyInfo}>
+            <View style={styles.selectedCurrencyHeader}>
+              <View style={[
+                styles.selectedCurrencyIcon,
+                { backgroundColor: `${getIconColor(selectedCurrency.code)}22` }
+              ]}>
+                <Text style={[
+                  styles.selectedCurrencySymbol,
+                  { color: getIconColor(selectedCurrency.code) }
+                ]}>
+                  {getCurrencySymbol(selectedCurrency.code)}
+                </Text>
+              </View>
+              <View style={styles.selectedCurrencyDetails}>
+                <Text style={styles.selectedCurrencyCode}>{selectedCurrency.code}</Text>
+                <Text style={styles.selectedCurrencyName}>{selectedCurrency.name}</Text>
+              </View>
+              <TouchableOpacity 
+                style={styles.deselectButton}
+                onPress={() => setSelectedCurrency(null)}
               >
-                <Ionicons name="arrow-up-circle-outline" size={18} color="#FFFFFF" style={styles.actionButtonIcon} />
-                <Text style={styles.actionButtonText}>Set as From Currency</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-            
-            <TouchableOpacity
-              style={[styles.actionButton, styles.actionButtonHalf]}
-              onPress={() => {
-                setIsConverterLoading(true);
-                setTargetCurrency(selectedCurrency.code);
-                
-                // Immediately update conversion
-                if (rates) {
-                  const value = parseFloat(amount);
-                  setConvertedResult({
-                    from: {
-                      code: baseCurrency,
-                      amount: value,
-                      symbol: getCurrencySymbol(baseCurrency)
-                    },
-                    to: {
-                      code: selectedCurrency.code,
-                      amount: convertCurrency(value, baseCurrency, selectedCurrency.code, rates) || 0,
-                      symbol: getCurrencySymbol(selectedCurrency.code)
-                    }
-                  });
-                }
-                
-                setTimeout(() => {
-                  setIsConverterLoading(false);
-                  setSelectedCurrency(null);
-                }, 300);
-              }}
-            >
-              <LinearGradient
-                colors={['#2196F3', '#1976D2']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.actionButtonGradient}
-              >
-                <Ionicons name="arrow-down-circle-outline" size={18} color="#FFFFFF" style={styles.actionButtonIcon} />
-                <Text style={styles.actionButtonText}>Set as To Currency</Text>
-              </LinearGradient>
-            </TouchableOpacity>
+                <Ionicons name="close" size={20} color="#718096" />
+              </TouchableOpacity>
+            </View>
           </View>
-          
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={handleSetAsPrimary}
-            disabled={isUpdatingGlobal}
-          >
-            <LinearGradient
-              colors={['#4CAF50', '#388E3C']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.actionButtonGradient}
-            >
-              <Ionicons name="star-outline" size={18} color="#FFFFFF" style={styles.actionButtonIcon} />
-              <Text style={styles.actionButtonText}>Set as Main Currency</Text>
-            </LinearGradient>
-          </TouchableOpacity>
+
+          {/* Action Options */}
+          <View style={styles.actionOptionsContainer}>
+            <Text style={styles.actionOptionsTitle}>What would you like to do?</Text>
+            
+            <View style={styles.actionGrid}>
+              {/* Set as From Currency */}
+              <TouchableOpacity
+                style={[styles.actionCard, styles.fromCurrencyCard]}
+                onPress={() => {
+                  handleBaseCurrencyChange(selectedCurrency.code);
+                  setSelectedCurrency(null);
+                }}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.actionCardIcon, { backgroundColor: '#FFE0B2' }]}>
+                  <Ionicons name="arrow-up" size={18} color="#FF9800" />
+                </View>
+                <Text style={styles.actionCardTitle}>From Currency</Text>
+                <Text style={styles.actionCardSubtitle}>Use in converter</Text>
+              </TouchableOpacity>
+
+              {/* Set as To Currency */}
+              <TouchableOpacity
+                style={[styles.actionCard, styles.toCurrencyCard]}
+                onPress={() => {
+                  setIsConverterLoading(true);
+                  setTargetCurrency(selectedCurrency.code);
+                  
+                  if (rates) {
+                    const inputValue = parseFloat(amount);
+                    const conversion = calculateOptimalConversion(inputValue, baseCurrency, selectedCurrency.code, rates);
+                    
+                    setConvertedResult({
+                      from: {
+                        code: baseCurrency,
+                        amount: conversion.from,
+                        symbol: getCurrencySymbol(baseCurrency),
+                        adjusted: conversion.adjusted
+                      },
+                      to: {
+                        code: selectedCurrency.code,
+                        amount: conversion.to,
+                        symbol: getCurrencySymbol(selectedCurrency.code)
+                      }
+                    });
+                  }
+                  
+                  setTimeout(() => {
+                    setIsConverterLoading(false);
+                    setSelectedCurrency(null);
+                  }, 300);
+                }}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.actionCardIcon, { backgroundColor: '#BBDEFB' }]}>
+                  <Ionicons name="arrow-down" size={18} color="#2196F3" />
+                </View>
+                <Text style={styles.actionCardTitle}>To Currency</Text>
+                <Text style={styles.actionCardSubtitle}>Convert result</Text>
+              </TouchableOpacity>
+
+              {/* Set as Main Currency */}
+              <TouchableOpacity
+                style={[styles.actionCard, styles.mainCurrencyCard]}
+                onPress={handleSetAsPrimary}
+                disabled={isUpdatingGlobal}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.actionCardIcon, { backgroundColor: '#C8E6C9' }]}>
+                  <Ionicons name="star" size={18} color="#4CAF50" />
+                </View>
+                <Text style={styles.actionCardTitle}>Main Currency</Text>
+                <Text style={styles.actionCardSubtitle}>Set as primary</Text>
+              </TouchableOpacity>
+
+              {/* Save Currency */}
+              <TouchableOpacity
+                style={[styles.actionCard, styles.saveCurrencyCard]}
+                onPress={() => {
+                  saveCurrency(selectedCurrency);
+                  setSelectedCurrency(null);
+                }}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.actionCardIcon, { backgroundColor: '#E1BEE7' }]}>
+                  <Ionicons 
+                    name={savedCurrencies.some(c => c.code === selectedCurrency.code) ? "bookmark" : "bookmark-outline"} 
+                    size={18} 
+                    color="#9C27B0" 
+                  />
+                </View>
+                <Text style={styles.actionCardTitle}>
+                  {savedCurrencies.some(c => c.code === selectedCurrency.code) ? "Remove" : "Save"}
+                </Text>
+                <Text style={styles.actionCardSubtitle}>
+                  {savedCurrencies.some(c => c.code === selectedCurrency.code) ? "From saved" : "For later"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </Animated.View>
       )}
       
@@ -1801,7 +2016,10 @@ const CurrencyMarketPage = ({ navigation }) => {
               </Text>
               <TouchableOpacity 
                 style={styles.modalCloseButton}
-                onPress={() => setModalVisible(false)}
+                onPress={() => {
+                  setModalSearchQuery(''); // Reset search when closing
+                  setModalVisible(false);
+                }}
               >
                 <Ionicons name="close" size={24} color="#718096" />
               </TouchableOpacity>
@@ -1813,14 +2031,96 @@ const CurrencyMarketPage = ({ navigation }) => {
                 style={styles.modalSearchInput}
                 placeholder="Search by currency or country..."
                 placeholderTextColor="#A0AEC0"
-                value={searchQuery}
-                onChangeText={setSearchQuery}
+                value={modalSearchQuery}
+                onChangeText={setModalSearchQuery}
               />
             </View>
             
             <FlatList
-              data={filteredCurrencies}
+              data={modalFilteredCurrencies}
               renderItem={renderModalItem}
+              keyExtractor={item => item.code}
+              style={styles.modalList}
+              showsVerticalScrollIndicator={false}
+            />
+          </View>
+        </View>
+      </Modal>
+      
+      {/* Modal for searching all currencies */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={currencyListModalVisible}
+        onRequestClose={() => setCurrencyListModalVisible(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>
+                Search All Currencies
+              </Text>
+              <TouchableOpacity 
+                style={styles.modalCloseButton}
+                onPress={() => {
+                  setCurrencyListModalVisible(false);
+                }}
+              >
+                <Ionicons name="close" size={24} color="#718096" />
+              </TouchableOpacity>
+            </View>
+            
+            <View style={styles.modalSearchContainer}>
+              <Ionicons name="search" size={20} color="#A0AEC0" style={styles.modalSearchIcon} />
+              <TextInput
+                style={styles.modalSearchInput}
+                placeholder="Search by currency or country..."
+                placeholderTextColor="#A0AEC0"
+                value={modalSearchQuery}
+                onChangeText={setModalSearchQuery}
+              />
+            </View>
+            
+            <FlatList
+              data={modalFilteredCurrencies}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={[
+                    styles.modalCurrencyItem,
+                    item.code === baseCurrency && styles.modalSelectedItem,
+                    item.code === userPreferredCurrency && styles.modalUserPreferredItem
+                  ]}
+                  onPress={() => {
+                    handleCurrencySelect(item);
+                    setCurrencyListModalVisible(false);
+                  }}
+                >
+                  <View style={[
+                    styles.modalCurrencySymbolContainer,
+                    { backgroundColor: `${getIconColor(item.code)}22` }
+                  ]}>
+                    <Text style={[
+                      styles.modalCurrencySymbol,
+                      { color: getIconColor(item.code) }
+                    ]}>
+                      {getCurrencySymbol(item.code)}
+                    </Text>
+                  </View>
+                  <View style={styles.modalCurrencyInfo}>
+                    <Text style={styles.modalCurrencyCode}>{item.code}</Text>
+                    <Text style={styles.modalCurrencyName}>
+                      {item.name}
+                      {item.countries && item.countries.length > 0 ? ` • ${item.countries[0]}` : ''}
+                    </Text>
+                  </View>
+                  {item.code === baseCurrency && (
+                    <Ionicons name="checkmark-circle" size={22} color="#4CAF50" style={styles.modalSelectedIcon} />
+                  )}
+                  {item.code !== baseCurrency && item.code === userPreferredCurrency && (
+                    <Ionicons name="star" size={18} color="#FF9800" style={styles.modalSelectedIcon} />
+                  )}
+                </TouchableOpacity>
+              )}
               keyExtractor={item => item.code}
               style={styles.modalList}
               showsVerticalScrollIndicator={false}
@@ -1906,6 +2206,16 @@ const CurrencyMarketPage = ({ navigation }) => {
           </View>
         </View>
       </Modal>
+      
+      {/* Custom Alert Modal */}
+      <ConfirmModal
+        visible={alertModalVisible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        type={alertConfig.type}
+        buttons={alertConfig.buttons}
+        onClose={() => setAlertModalVisible(false)}
+      />
     </KeyboardAvoidingView>
   );
 };

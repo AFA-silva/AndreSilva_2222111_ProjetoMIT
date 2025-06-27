@@ -217,7 +217,7 @@ const styles = StyleSheet.create({
   popularCurrencyChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F7FAFC',
+    backgroundColor: 'transparent',
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: 20,
@@ -225,15 +225,6 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    ...applyBoxShadow({
-      x: 0,
-      y: 1,
-      blur: 2,
-      spread: 0,
-      color: '#1A365D0D',
-      opacity: 0.05,
-      android: 1
-    }),
   },
   selectedPopularCurrency: {
     backgroundColor: '#FFF3E0',
@@ -249,7 +240,7 @@ const styles = StyleSheet.create({
     }),
   },
   userCurrencyChip: {
-    backgroundColor: '#FFF8E1',
+    backgroundColor: 'transparent',
     borderColor: '#FFB74D',
     borderWidth: 1.5,
   },
@@ -506,7 +497,7 @@ const styles = StyleSheet.create({
   },
   actionBar: {
     backgroundColor: '#FFFFFF',
-    paddingVertical: 12,
+    paddingVertical: 16,
     paddingHorizontal: 16,
     borderTopWidth: 1,
     borderTopColor: '#E2E8F0',
@@ -514,35 +505,206 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
+    maxHeight: '60%',
     ...applyBoxShadow({
       x: 0,
-      y: -3,
-      blur: 8,
+      y: -8,
+      blur: 24,
       spread: 0,
-      color: '#1A365D1A',
-      opacity: 0.1,
-      android: 8
+      color: '#0000001A',
+      opacity: 0.15,
+      android: 12
     }),
   },
-  actionButton: {
-    height: 50,
-    borderRadius: 25,
-    overflow: 'hidden',
+  selectedCurrencyInfo: {
+    marginBottom: 16,
   },
-  actionButtonGradient: {
-    flex: 1,
+  selectedCurrencyHeader: {
     flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  selectedCurrencyIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 16,
+    marginRight: 12,
   },
-  actionButtonIcon: {
-    marginRight: 8,
+  selectedCurrencySymbol: {
+    fontSize: 18,
+    fontWeight: 'bold',
   },
-  actionButtonText: {
+  selectedCurrencyDetails: {
+    flex: 1,
+  },
+  selectedCurrencyCode: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#FFFFFF',
+    color: '#1A202C',
+    marginBottom: 1,
+  },
+  selectedCurrencyName: {
+    fontSize: 13,
+    color: '#718096',
+  },
+  deselectButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#EDF2F7',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  actionOptionsContainer: {
+    marginBottom: 6,
+  },
+  actionOptionsTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#2D3748',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  actionGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  actionCard: {
+    width: '48%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 8,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#F1F5F9',
+    ...applyBoxShadow({
+      x: 0,
+      y: 1,
+      blur: 4,
+      spread: 0,
+      color: '#0000000A',
+      opacity: 0.04,
+      android: 2
+    }),
+  },
+  actionCardIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  actionCardTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#2D3748',
+    textAlign: 'center',
+    marginBottom: 1,
+  },
+  actionCardSubtitle: {
+    fontSize: 10,
+    color: '#718096',
+    textAlign: 'center',
+  },
+  fromCurrencyCard: {
+    borderColor: '#FF9800',
+    backgroundColor: '#FFFAF0',
+  },
+  toCurrencyCard: {
+    borderColor: '#2196F3',
+    backgroundColor: '#F0F9FF',
+  },
+  mainCurrencyCard: {
+    borderColor: '#4CAF50',
+    backgroundColor: '#F0FDF4',
+  },
+  saveCurrencyCard: {
+    borderColor: '#9C27B0',
+    backgroundColor: '#FAF5FF',
+  },
+  actionButtonsContainer: {
+    display: 'none',
+  },
+  actionButton: {
+    display: 'none',
+  },
+  actionButtonHalf: {
+    display: 'none',
+  },
+  primaryActionButtonContent: {
+    display: 'none',
+  },
+  primaryActionButtonIcon: {
+    display: 'none',
+  },
+  primaryActionButtonTextContainer: {
+    display: 'none',
+  },
+  primaryActionButtonText: {
+    display: 'none',
+  },
+  primaryActionButtonSubtext: {
+    display: 'none',
+  },
+  secondaryActionButtonContent: {
+    display: 'none',
+  },
+  secondaryActionButtonIcon: {
+    display: 'none',
+  },
+  secondaryActionButtonTextContainer: {
+    display: 'none',
+  },
+  secondaryActionButtonText: {
+    display: 'none',
+  },
+  secondaryActionButtonSubtext: {
+    display: 'none',
+  },
+  setMainActionButton: {
+    display: 'none',
+  },
+  setMainActionButtonContent: {
+    display: 'none',
+  },
+  setMainActionButtonIcon: {
+    display: 'none',
+  },
+  setMainActionButtonTextContainer: {
+    display: 'none',
+  },
+  setMainActionButtonText: {
+    display: 'none',
+  },
+  setMainActionButtonSubtext: {
+    display: 'none',
+  },
+  cancelActionButton: {
+    display: 'none',
+  },
+  cancelActionButtonContent: {
+    display: 'none',
+  },
+  cancelActionButtonIcon: {
+    display: 'none',
+  },
+  cancelActionButtonTextContainer: {
+    display: 'none',
+  },
+  cancelActionButtonText: {
+    display: 'none',
+  },
+  cancelActionButtonSubtext: {
+    display: 'none',
   },
   listContentContainer: {
     paddingBottom: 80,
