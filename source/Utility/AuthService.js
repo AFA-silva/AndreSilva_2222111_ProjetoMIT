@@ -136,9 +136,16 @@ class AuthService {
           await this.signOut();
           return false;
         } else {
-          const { data: { user } } = await supabase.auth.getUser();
+          // Add additional validation to ensure session is actually valid
+          const { data: { user }, error } = await supabase.auth.getUser();
+          if (error || !user) {
+            console.error('Session validation failed - user not found:', error);
+            await this.signOut();
+            return false;
+          }
+          
           this.currentUser = user;
-          console.log('Valid session with Remember Me enabled');
+          console.log('Valid session with Remember Me enabled for user:', user.email);
           return true;
         }
       }
@@ -146,6 +153,8 @@ class AuthService {
       return false;
     } catch (error) {
       console.error('Error validating existing session:', error);
+      // Clear potentially corrupted session
+      await this.signOut();
       return false;
     }
   }

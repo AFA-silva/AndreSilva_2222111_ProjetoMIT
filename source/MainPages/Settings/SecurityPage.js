@@ -156,11 +156,21 @@ const SecurityPage = () => {
   // Email validation function - same as MainMenuPage
   const userEmailValidation = async () => {
     try {
-      // Fetch current user directly from auth
+      // First check if we have a session
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError || !session || !session.user) {
+        console.log('[SecurityPage-EmailValidation] No valid session found (normal during email refresh)', sessionError);
+        // Don't show error - this is expected during email changes
+        return;
+      }
+
+      // Then fetch current user directly from auth
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       
       if (authError || !user) {
-        console.error('[SecurityPage-EmailValidation] Failed to get current auth user', authError);
+        console.log('[SecurityPage-EmailValidation] Failed to get current auth user (normal during email refresh)', authError);
+        // Don't show alert - this is expected during email changes
         return;
       }
 
@@ -247,31 +257,65 @@ const SecurityPage = () => {
 
   useEffect(() => {
     const fetchSession = async () => {
-      const { data, error } = await supabase.auth.getSession();
-      if (error) {
-        showAlert('Failed to fetch session. Please log in again.', 'error');
-        return;
-      }
-      if (data?.session) {
-        setUserSession(data.session);
-        
-        // Run email validation first (same as MainMenuPage)
-        await userEmailValidation();
-        
-        // Register current device access
-        await registerDeviceAccess();
-      } else {
-        showAlert('No active session found. Please log in again.', 'error');
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        if (error) {
+          console.log('[SecurityPage] Failed to fetch session (normal during email refresh):', error);
+          // Don't show alert - this is expected during email changes
+          return;
+        }
+        if (data?.session) {
+          console.log('[SecurityPage] Session found successfully');
+          setUserSession(data.session);
+          
+          // Run email validation first (same as MainMenuPage)
+          await userEmailValidation();
+          
+          // Register current device access only once per session
+          const lastRegistration = sessionStorage?.getItem('lastDeviceRegistration');
+          const now = Date.now();
+          if (!lastRegistration || (now - parseInt(lastRegistration)) > 300000) { // 5 minutes
+            console.log('[SecurityPage] Registering device access on session load...');
+            await registerDeviceAccess();
+            if (typeof Storage !== 'undefined') {
+              sessionStorage?.setItem('lastDeviceRegistration', now.toString());
+            }
+          }
+        } else {
+          console.log('[SecurityPage] No active session found (normal during email refresh)');
+          // Don't show alert - this is expected during email changes
+        }
+      } catch (error) {
+        console.log('[SecurityPage] Exception during session fetch (normal during email refresh):', error);
+        // Don't show alert - this is expected during email changes
       }
     };
-    fetchSession();
+    
+    // Add a small delay to ensure auth state is properly initialized
+    setTimeout(fetchSession, 100);
   }, []);
 
   // Refresh email whenever the screen comes into focus
   useFocusEffect(
     React.useCallback(() => {
-      console.log('SecurityPage focused - running email validation...');
-      userEmailValidation();
+      console.log('SecurityPage focused - checking authentication and running email validation...');
+      const handleFocus = async () => {
+        const isAuthenticated = await checkAuthenticationStatus(0, true); // Silent check for email refresh
+        if (isAuthenticated) {
+          await userEmailValidation();
+          // Only register device if it hasn't been registered recently
+          const lastRegistration = sessionStorage?.getItem('lastDeviceRegistration');
+          const now = Date.now();
+          if (!lastRegistration || (now - parseInt(lastRegistration)) > 300000) { // 5 minutes
+            console.log('[SecurityPage] Registering device access on focus...');
+            await registerDeviceAccess();
+            if (typeof Storage !== 'undefined') {
+              sessionStorage?.setItem('lastDeviceRegistration', now.toString());
+            }
+          }
+        }
+      };
+      handleFocus();
     }, [])
   );
 
@@ -328,6 +372,43 @@ const SecurityPage = () => {
     setAlerts(alerts.filter((alert) => alert.id !== id));
   };
 
+  // Helper function to check authentication status with retries (silent for email refresh)
+  const checkAuthenticationStatus = async (retryCount = 0, silent = false) => {
+    try {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      
+      if (error) {
+        console.log('[SecurityPage] Authentication check error (expected during email refresh):', error);
+        if (!silent) {
+          showAlert('Authentication error. Please try again.', 'error');
+        }
+        return false;
+      }
+      
+      if (!session || !session.user) {
+        // If no session and we haven't retried much, wait and try again
+        if (retryCount < 3) {
+          console.log(`[SecurityPage] No session found, retrying silently... (attempt ${retryCount + 1}/3)`);
+          await new Promise(resolve => setTimeout(resolve, 500)); // Wait 500ms
+          return await checkAuthenticationStatus(retryCount + 1, silent);
+        }
+        
+        console.log('[SecurityPage] No valid session found after retries (this is normal during email refresh)');
+        // Don't show error for email refresh - it's expected behavior
+        return false;
+      }
+      
+      console.log('[SecurityPage] Authentication check successful');
+      return true;
+    } catch (error) {
+      console.log('[SecurityPage] Exception during auth check (expected during email refresh):', error);
+      if (!silent) {
+        showAlert('Authentication error. Please try again.', 'error');
+      }
+      return false;
+    }
+  };
+
   // Fetch the real public IP address using a public API
   const getPublicIP = async () => {
     try {
@@ -360,96 +441,199 @@ const SecurityPage = () => {
   // It only registers once per device (per user, model, name). If the device exists, only last_access is updated.
   const registerDeviceAccess = async () => {
     try {
-      if (!userSession) return;
-      
-      // Get detailed device information using expo-device (no fallbacks)
-      const deviceName = Device.deviceName;
-      const deviceModel = Device.modelName;
-      const modelCode = Device.modelId;
-      const manufacturer = Device.manufacturer;
-      const brand = Device.brand;
-      const osVersion = Device.osVersion;
-      
-      // Create a more descriptive device model string (include model code)
-      let detailedModel = '';
-      if (brand && deviceModel && modelCode && manufacturer) {
-        detailedModel = `${brand} ${deviceModel} (${modelCode}, ${manufacturer})`;
-      } else if (brand && deviceModel && manufacturer) {
-        detailedModel = `${brand} ${deviceModel} (${manufacturer})`;
-      } else if (deviceModel) {
-        detailedModel = deviceModel;
+      if (!userSession || !userSession.user) {
+        console.log('[SecurityPage] No valid user session for device registration');
+        return;
       }
       
-      // Fetch the real public IP address
-      const realIP = await getPublicIP();
-      // Fetch the city from the IP
-      const city = await getCityFromIP(realIP);
+      console.log('[SecurityPage] Starting device registration...');
       
-      // Build deviceData only with available fields
+      // Get detailed device information using expo-device with fallbacks
+      const deviceName = Device.deviceName || `${Platform.OS} Device`;
+      const deviceModel = Device.modelName || Platform.OS;
+      const modelCode = Device.modelId || '';
+      const manufacturer = Device.manufacturer || 'Unknown';
+      const brand = Device.brand || Platform.OS;
+      const osVersion = Device.osVersion || Platform.Version;
+      
+      console.log('[SecurityPage] Raw device info:', {
+        deviceName,
+        deviceModel,
+        modelCode,
+        manufacturer,
+        brand,
+        osVersion
+      });
+      
+      // Create a more descriptive device model string with fallbacks
+      let detailedModel = '';
+      if (brand && deviceModel && modelCode && manufacturer) {
+        detailedModel = `${brand} ${deviceModel} (${modelCode})`;
+      } else if (brand && deviceModel) {
+        detailedModel = `${brand} ${deviceModel}`;
+      } else if (deviceModel) {
+        detailedModel = deviceModel;
+      } else {
+        detailedModel = `${Platform.OS} Device`;
+      }
+      
+      console.log('[SecurityPage] Generated detailed model:', detailedModel);
+      
+      // Fetch the real public IP address
+      let realIP = null;
+      try {
+        realIP = await getPublicIP();
+        console.log('[SecurityPage] Fetched IP:', realIP);
+      } catch (ipError) {
+        console.log('[SecurityPage] Failed to fetch IP:', ipError);
+      }
+      
+      // Fetch the city from the IP
+      let city = 'Unknown';
+      try {
+        if (realIP) {
+          city = await getCityFromIP(realIP);
+        }
+        console.log('[SecurityPage] Fetched location:', city);
+      } catch (cityError) {
+        console.log('[SecurityPage] Failed to fetch location:', cityError);
+      }
+      
+      // Build deviceData with required fields and fallbacks
       const deviceData = {
         user_id: userSession.user.id,
+        name: deviceName,
+        model: detailedModel,
         authorized: true,
         last_access: new Date().toISOString(),
         created_at: new Date().toISOString()
       };
-      if (detailedModel) deviceData.model = detailedModel;
-      if (deviceName) deviceData.name = deviceName;
-      if (realIP) deviceData.ip_address = realIP;
-      if (city) deviceData.location = city;
       
-      // Check if device already exists (should already be registered from MainPage)
-      const { data: existingDevice, error: checkError } = await supabase
+      if (realIP) deviceData.ip_address = realIP;
+      if (city && city !== 'Unknown') deviceData.location = city;
+      
+      console.log('[SecurityPage] Device data to register:', deviceData);
+      
+      // Check if device already exists - be more specific to avoid duplicates
+      const { data: existingDevices, error: checkError } = await supabase
         .from('device_info')
         .select('*')
         .eq('user_id', userSession.user.id)
-        .eq('model', detailedModel)
         .eq('name', deviceName)
-        .single();
+        .eq('model', detailedModel);
 
-      if (checkError && checkError.code !== 'PGRST116') {
-        console.error('Error checking existing device:', checkError);
-        return;
+      if (checkError) {
+        console.error('[SecurityPage] Error checking existing device:', checkError);
+        return; // Don't continue if we can't check for duplicates
       }
 
-      if (existingDevice) {
-        // Update last access
-        await supabase
+      console.log('[SecurityPage] Existing devices found:', existingDevices);
+
+      if (existingDevices && existingDevices.length > 0) {
+        // Update last access for the existing device
+        const deviceToUpdate = existingDevices[0];
+        console.log('[SecurityPage] Updating existing device:', deviceToUpdate.id);
+        
+        const { error: updateError } = await supabase
           .from('device_info')
-          .update({ last_access: deviceData.last_access })
-          .eq('id', existingDevice.id);
+          .update({ 
+            last_access: deviceData.last_access,
+            ip_address: deviceData.ip_address || deviceToUpdate.ip_address,
+            location: deviceData.location || deviceToUpdate.location
+          })
+          .eq('id', deviceToUpdate.id);
+          
+        if (updateError) {
+          console.error('[SecurityPage] Error updating device:', updateError);
+        } else {
+          console.log('[SecurityPage] Device updated successfully - no new device created');
+        }
       } else {
-        // Insert new device (with created_at)
-        await supabase
+        // Only insert if no device exists with same user_id + name + model
+        console.log('[SecurityPage] No existing device found, inserting new device...');
+        const { data: insertData, error: insertError } = await supabase
           .from('device_info')
-          .insert([deviceData]);
+          .insert([deviceData])
+          .select();
+          
+        if (insertError) {
+          console.error('[SecurityPage] Error inserting device:', insertError);
+          // Check if it's a duplicate key error
+          if (insertError.code === '23505') {
+            console.log('[SecurityPage] Device already exists (duplicate key), skipping insertion');
+          }
+        } else {
+          console.log('[SecurityPage] New device inserted successfully:', insertData);
+        }
       }
     } catch (error) {
-      console.error('Error registering device access:', error);
+      console.error('[SecurityPage] Error registering device access:', error);
     }
   };
 
   const fetchUserDevices = async () => {
     try {
-      if (!userSession) return;
+      if (!userSession || !userSession.user) {
+        console.log('[SecurityPage] No user session available for fetching devices');
+        setUserDevices([]);
+        return;
+      }
       
+      const currentUserId = userSession.user.id;
+      console.log('[SecurityPage] Fetching ALL devices for user ID:', currentUserId);
       setLoadingDevices(true);
-      const { data, error } = await supabase
+      
+      // Fetch ALL device_info records that match the current user_id
+      const { data: deviceData, error: fetchError } = await supabase
         .from('device_info')
-        .select('*')
-        .eq('user_id', userSession.user.id)
+        .select(`
+          id,
+          user_id,
+          name,
+          model,
+          ip_address,
+          location,
+          authorized,
+          last_access,
+          created_at
+        `)
+        .eq('user_id', currentUserId)
         .order('last_access', { ascending: false });
 
-      if (error) {
-        console.error('Error fetching devices:', error);
-        showAlert('Failed to load device information', 'error');
+      if (fetchError) {
+        console.error('[SecurityPage] Error fetching devices:', fetchError);
+        showAlert(`Failed to load device information: ${fetchError.message}`, 'error');
+        setUserDevices([]);
         return;
       }
 
-      console.log('Fetched devices:', data);
-      setUserDevices(data || []);
+      console.log('[SecurityPage] Raw device data from database:', deviceData);
+      console.log('[SecurityPage] Number of devices found:', deviceData ? deviceData.length : 0);
+      
+      if (deviceData && deviceData.length > 0) {
+        // Process and set the devices
+        console.log('[SecurityPage] Processing device data...');
+        deviceData.forEach((device, index) => {
+          console.log(`[SecurityPage] Device ${index + 1}:`, {
+            id: device.id,
+            name: device.name,
+            model: device.model,
+            authorized: device.authorized,
+            last_access: device.last_access
+          });
+        });
+        
+        setUserDevices(deviceData);
+        console.log('[SecurityPage] Devices successfully loaded into state');
+      } else {
+        console.log('[SecurityPage] No devices found in database for this user');
+        setUserDevices([]);
+      }
+      
     } catch (error) {
-      console.error('Error fetching user devices:', error);
-      showAlert('An error occurred while loading devices', 'error');
+      console.error('[SecurityPage] Exception while fetching user devices:', error);
+      showAlert('An unexpected error occurred while loading devices', 'error');
+      setUserDevices([]);
     } finally {
       setLoadingDevices(false);
     }
@@ -930,65 +1114,101 @@ const SecurityPage = () => {
                 <View style={styles.loadingContainer}>
                   <Text style={styles.loadingText}>Loading devices...</Text>
                 </View>
-              ) : (
-                userDevices
-                  .filter(device => 
-                    devicesTabActive === 'authorized' ? device.authorized : !device.authorized
-                  )
-                  .map((device, index) => (
-                                           <View key={device.id} style={styles.deviceItem}>
-                         <View style={styles.deviceIcon}>
-                           <Ionicons 
-                             name={
-                               device.model.toLowerCase().includes('ios') 
-                                 ? 'phone-portrait' 
-                                 : device.model.toLowerCase().includes('web')
-                                   ? 'desktop'
-                                   : device.name.toLowerCase().includes('tablet')
-                                     ? 'tablet-portrait'
-                                     : 'phone-portrait'
-                             } 
-                             size={24} 
-                             color="#FF9800" 
-                           />
-                         </View>
+                              ) : (
+                <>
+                  {userDevices
+                    .filter(device => {
+                      console.log(`[SecurityPage] Filtering device: ${device.name}, authorized: ${device.authorized}, tab: ${devicesTabActive}`);
+                      return devicesTabActive === 'authorized' ? device.authorized : !device.authorized;
+                    })
+                    .map((device, index) => {
+                      console.log(`[SecurityPage] Rendering device ${index + 1}:`, device);
                       
-                      <View style={styles.deviceDetails}>
-                        <Text style={styles.deviceName}>{device.name}</Text>
-                        <Text style={styles.deviceModel}>{device.model}</Text>
-                        <Text style={styles.deviceLocation}>
-                          {device.location} • {device.ip_address}
-                        </Text>
-                        <Text style={styles.deviceLastAccess}>
-                          Last access: {new Date(device.last_access).toLocaleDateString()} at{' '}
-                          {new Date(device.last_access).toLocaleTimeString()}
-                        </Text>
-                      </View>
+                      // Create device item component with clean layout
+                      return (
+                        <View key={device.id || index} style={styles.deviceItem}>
+                          {/* Header Section - Icon, Name, and Status Badge */}
+                          <View style={styles.deviceHeader}>
+                            <View style={styles.deviceIcon}>
+                              <Ionicons 
+                                name="phone-portrait" 
+                                size={26} 
+                                color="#FF9800" 
+                              />
+                            </View>
+                            
+                            <View style={styles.deviceTitleSection}>
+                              <Text 
+                                style={styles.deviceName}
+                                numberOfLines={1}
+                                ellipsizeMode="tail"
+                              >
+                                {device.name || 'Unknown Device'}
+                              </Text>
+                              
+                              <Text style={styles.deviceModel}>
+                                {device.model || 'Unknown Model'}
+                              </Text>
+                            </View>
+                          </View>
 
-                      <View style={styles.deviceActions}>
-                        <TouchableOpacity
-                          style={[
-                            styles.deviceActionButton,
-                            { backgroundColor: device.authorized ? '#F44336' : '#00B894' }
-                          ]}
-                          onPress={() => toggleDeviceAuthorization(device.id, device.authorized)}
-                        >
-                          <Ionicons 
-                            name={device.authorized ? 'ban' : 'checkmark'} 
-                            size={18} 
-                            color="#FFFFFF" 
-                          />
-                        </TouchableOpacity>
+                          {/* Details Section */}
+                          <View style={styles.deviceDetailsSection}>
+                            <View style={styles.deviceDetailRow}>
+                              <Ionicons 
+                                name="location-outline" 
+                                size={16} 
+                                color="#718096" 
+                                style={styles.deviceDetailIcon} 
+                              />
+                              <Text style={styles.deviceDetailText}>
+                                {device.location || 'Unknown Location'} • {device.ip_address || 'No IP Address'}
+                              </Text>
+                            </View>
+                            
+                            <View style={styles.deviceDetailRow}>
+                              <Ionicons 
+                                name="time-outline" 
+                                size={16} 
+                                color="#718096" 
+                                style={styles.deviceDetailIcon} 
+                              />
+                              <Text style={styles.deviceDetailText}>
+                                Last access: {device.last_access 
+                                  ? `${new Date(device.last_access).toLocaleDateString()} at ${new Date(device.last_access).toLocaleTimeString()}`
+                                  : 'Never accessed'
+                                }
+                              </Text>
+                            </View>
+                          </View>
 
-                        <TouchableOpacity
-                          style={[styles.deviceActionButton, { backgroundColor: '#718096' }]}
-                          onPress={() => deleteDevice(device.id)}
-                        >
-                          <Ionicons name="trash" size={18} color="#FFFFFF" />
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  ))
+                          {/* Action Section */}
+                          <View style={styles.deviceActionSection}>
+                            <TouchableOpacity
+                              style={[
+                                styles.actionButton,
+                                device.authorized ? styles.blockDeviceButton : styles.authorizeButton
+                              ]}
+                              onPress={() => {
+                                console.log(`[SecurityPage] Toggling authorization for device: ${device.id}`);
+                                toggleDeviceAuthorization(device.id, device.authorized);
+                              }}
+                              activeOpacity={0.8}
+                            >
+                              <Ionicons 
+                                name={device.authorized ? 'ban' : 'checkmark-circle'} 
+                                size={18} 
+                                color="#FFFFFF" 
+                              />
+                              <Text style={styles.actionButtonText}>
+                                {device.authorized ? 'Block Device' : 'Authorize Device'}
+                              </Text>
+                            </TouchableOpacity>
+                          </View>
+                        </View>
+                      );
+                    })}
+                </>
               )}
 
               {!loadingDevices && userDevices.filter(device => 

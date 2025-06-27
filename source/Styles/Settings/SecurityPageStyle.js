@@ -628,6 +628,7 @@ const styles = StyleSheet.create({
 
   // Devices Modal Styles
   devicesModalContainer: {
+    flex: 1,
     width: '95%',
     maxHeight: '85%',
     backgroundColor: '#FFFFFF',
@@ -640,6 +641,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(228, 230, 239, 0.4)',
     maxWidth: 600,
+    minHeight: 400,
   },
   devicesModalHeader: {
     flexDirection: 'row',
@@ -655,6 +657,14 @@ const styles = StyleSheet.create({
     color: '#161722',
     letterSpacing: -0.6,
   },
+  closeIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F1F3F9',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   
   // Tabs Styles
   tabsContainer: {
@@ -668,8 +678,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
     marginHorizontal: 4,
     borderRadius: 12,
     backgroundColor: '#F1F3F9',
@@ -686,10 +696,10 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   tabText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
     color: '#4A5568',
-    marginLeft: 8,
+    marginLeft: 6,
   },
   activeTabText: {
     color: '#FFFFFF',
@@ -701,70 +711,139 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 24,
     paddingTop: 16,
+    paddingBottom: 24,
+    minHeight: 200,
   },
   deviceItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
+    padding: 20,
+    marginBottom: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255, 152, 0, 0.2)',
+    borderColor: 'rgba(255, 152, 0, 0.12)',
     shadowColor: '#FF9800',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 5,
+  },
+  
+  // New clean layout structure
+  deviceHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
   },
   deviceIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
+    width: 50,
+    height: 50,
+    borderRadius: 14,
     backgroundColor: 'rgba(255, 152, 0, 0.15)',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 16,
   },
-  deviceDetails: {
+  deviceTitleSection: {
     flex: 1,
   },
   deviceName: {
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 18,
+    fontWeight: '800',
     color: '#2D3748',
+    lineHeight: 22,
     marginBottom: 4,
+  },
+  deviceStatusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 10,
+    alignSelf: 'flex-start',
+    flexShrink: 0,
+    minWidth: 80,
+  },
+  authorizedBadge: {
+    backgroundColor: '#E8F5E8',
+    borderWidth: 1,
+    borderColor: '#4CAF50',
+  },
+  blockedBadge: {
+    backgroundColor: '#FFEBEE',
+    borderWidth: 1,
+    borderColor: '#F44336',
+  },
+  badgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
+    textAlign: 'center',
+  },
+  authorizedBadgeText: {
+    color: '#2E7D32',
+  },
+  blockedBadgeText: {
+    color: '#C62828',
   },
   deviceModel: {
     fontSize: 14,
     color: '#718096',
-    marginBottom: 4,
+    fontWeight: '500',
   },
-  deviceLocation: {
-    fontSize: 12,
-    color: '#A0AEC0',
-    marginBottom: 4,
+  
+  // Device details section
+  deviceDetailsSection: {
+    marginBottom: 16,
   },
-  deviceLastAccess: {
-    fontSize: 12,
-    color: '#A0AEC0',
-  },
-  deviceActions: {
+  deviceDetailRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginBottom: 8,
+    paddingVertical: 2,
   },
-  deviceActionButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    justifyContent: 'center',
+  deviceDetailIcon: {
+    width: 18,
+    marginRight: 10,
+  },
+  deviceDetailText: {
+    fontSize: 13,
+    color: '#718096',
+    fontWeight: '500',
+    flex: 1,
+  },
+  
+  // Action section
+  deviceActionSection: {
+    borderTopWidth: 1,
+    borderTopColor: '#F1F3F4',
+    paddingTop: 16,
     alignItems: 'center',
-    marginLeft: 8,
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 12,
+    minWidth: 140,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  authorizeButton: {
+    backgroundColor: '#4CAF50',
+  },
+  blockDeviceButton: {
+    backgroundColor: '#F44336',
+  },
+  actionButtonText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginLeft: 6,
+    letterSpacing: 0.3,
   },
   
   // Empty States
