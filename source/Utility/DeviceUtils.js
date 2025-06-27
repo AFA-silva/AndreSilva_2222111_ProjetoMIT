@@ -13,7 +13,7 @@ export const getPublicIP = async () => {
   }
 };
 
-// Fetch the city/country from the public IP using ipinfo.io, with fallback to ip-api.com
+// Fetch the city/country from the public IP using ip-api.com, with fallback to ipinfo.io
 export const getCityFromIP = async (ip) => {
   try {
     if (!ip || ip === 'Unknown') {
@@ -21,45 +21,39 @@ export const getCityFromIP = async (ip) => {
       return 'Unknown';
     }
     console.log('Fetching location for IP:', ip);
-    // Try ipinfo.io first
-    let data;
+    // Try ip-api.com first
+    try {
+      const response = await fetch(`http://ip-api.com/json/${ip}`);
+      const data = await response.json();
+      console.log('🌍 ip-api.com Response:', data);
+      if (data && data.country) {
+        return data.country;
+      }
+    } catch (ipApiError) {
+      console.error('Error fetching from ip-api.com:', ipApiError);
+    }
+    // Fallback: Try ipinfo.io
+    let infoData;
     try {
       const response = await fetch(`https://api.ipinfo.io/${ip}?token=5cf62a68ea1917`);
-      data = await response.json();
-      console.log('🌍 IPINFO Response:', data);
-      if (data.error) {
-        console.error('ipinfo.io error:', data.error);
-        data = null;
+      infoData = await response.json();
+      console.log('🌍 IPINFO Response:', infoData);
+      if (infoData && infoData.country && infoData.country !== '') {
+        try {
+          const restResponse = await fetch(`https://restcountries.com/v3.1/alpha/${infoData.country}`);
+          const restData = await restResponse.json();
+          console.log('🌍 RESTCountries Response:', restData);
+          if (Array.isArray(restData) && restData[0] && restData[0].name && restData[0].name.common) {
+            return restData[0].name.common;
+          }
+        } catch (restError) {
+          console.error('Error fetching country name from RESTCountries:', restError);
+        }
+        // Fallback to country code if full name not found
+        return infoData.country;
       }
     } catch (ipinfoError) {
       console.error('Error fetching from ipinfo.io:', ipinfoError);
-      data = null;
-    }
-    // If ipinfo.io worked and has a country code
-    if (data && data.country && data.country !== '') {
-      try {
-        const restResponse = await fetch(`https://restcountries.com/v3.1/alpha/${data.country}`);
-        const restData = await restResponse.json();
-        console.log('🌍 RESTCountries Response:', restData);
-        if (Array.isArray(restData) && restData[0] && restData[0].name && restData[0].name.common) {
-          return restData[0].name.common;
-        }
-      } catch (restError) {
-        console.error('Error fetching country name from RESTCountries:', restError);
-      }
-      // Fallback to country code if full name not found
-      return data.country;
-    }
-    // Fallback: Try ip-api.com
-    try {
-      const fallbackResponse = await fetch(`http://ip-api.com/json/${ip}`);
-      const fallbackData = await fallbackResponse.json();
-      console.log('🌍 ip-api.com Response:', fallbackData);
-      if (fallbackData && fallbackData.country) {
-        return fallbackData.country;
-      }
-    } catch (fallbackError) {
-      console.error('Error fetching from ip-api.com:', fallbackError);
     }
     return 'Unknown';
   } catch (error) {

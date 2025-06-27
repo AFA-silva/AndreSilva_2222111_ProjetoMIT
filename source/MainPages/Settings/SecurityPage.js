@@ -818,50 +818,31 @@ const SecurityPage = () => {
               </View>
               
               {showDeviceInfo && (
-                <View style={styles.deviceDetails}>
-                  <View style={styles.deviceDetailRow}>
-                    <Text style={styles.deviceDetailLabel}>Device Name:</Text>
-                    <Text style={styles.deviceDetailValue}>{deviceInfo.deviceName}</Text>
+                <View style={[styles.deviceDetails, { backgroundColor: '#FFFFFF', borderRadius: 16, padding: 20, marginTop: 10, shadowColor: '#FF9800', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 3 }]}> 
+                  <View style={{ alignItems: 'center', marginBottom: 18 }}>
+                    <Ionicons name="phone-portrait-outline" size={36} color="#FF9800" style={{ marginBottom: 6 }} />
+                    <Text style={{ fontWeight: '700', fontSize: 18, color: '#FF9800', marginBottom: 2 }}>Current Device</Text>
                   </View>
-                  <View style={styles.deviceDetailRow}>
-                    <Text style={styles.deviceDetailLabel}>Model:</Text>
-                    <Text style={styles.deviceDetailValue}>{deviceInfo.deviceModel}</Text>
-                  </View>
-                  <View style={styles.deviceDetailRow}>
-                    <Text style={styles.deviceDetailLabel}>Manufacturer:</Text>
-                    <Text style={styles.deviceDetailValue}>{deviceInfo.manufacturer}</Text>
-                  </View>
-                  <View style={styles.deviceDetailRow}>
-                    <Text style={styles.deviceDetailLabel}>Brand:</Text>
-                    <Text style={styles.deviceDetailValue}>{deviceInfo.brand}</Text>
-                  </View>
-                  <View style={styles.deviceDetailRow}>
-                    <Text style={styles.deviceDetailLabel}>Platform:</Text>
-                    <Text style={styles.deviceDetailValue}>{deviceInfo.platform}</Text>
-                  </View>
-                  <View style={styles.deviceDetailRow}>
-                    <Text style={styles.deviceDetailLabel}>OS Version:</Text>
-                    <Text style={styles.deviceDetailValue}>{deviceInfo.osVersion}</Text>
-                  </View>
-                  <View style={styles.deviceDetailRow}>
-                    <Text style={styles.deviceDetailLabel}>Device Type:</Text>
-                    <Text style={styles.deviceDetailValue}>{deviceInfo.deviceType}</Text>
-                  </View>
-                  <View style={styles.deviceDetailRow}>
-                    <Text style={styles.deviceDetailLabel}>Memory:</Text>
-                    <Text style={styles.deviceDetailValue}>{deviceInfo.totalMemory}</Text>
-                  </View>
-                  <View style={styles.deviceDetailRow}>
-                    <Text style={styles.deviceDetailLabel}>Screen Size:</Text>
-                    <Text style={styles.deviceDetailValue}>
-                      {Math.round(deviceInfo.screenWidth)}x{Math.round(deviceInfo.screenHeight)}
-                    </Text>
-                  </View>
-                  <View style={styles.deviceDetailRow}>
-                    <Text style={styles.deviceDetailLabel}>Last Access:</Text>
-                    <Text style={styles.deviceDetailValue}>
-                      {new Date().toLocaleDateString()} at {new Date().toLocaleTimeString()}
-                    </Text>
+                  <View style={{ borderTopWidth: 1, borderTopColor: '#FFE0B2', paddingTop: 10 }}>
+                    <View style={[styles.deviceDetailRow, { marginBottom: 12 }]}> 
+                      <Text style={[styles.deviceDetailLabel, { color: '#C2410C' }]}>Device Name</Text>
+                      <Text style={styles.deviceDetailValue}>{deviceInfo.deviceName}</Text>
+                    </View>
+                    <View style={{ height: 1, backgroundColor: '#FFE0B2', marginVertical: 2 }} />
+                    <View style={[styles.deviceDetailRow, { marginBottom: 12, marginTop: 8 }]}> 
+                      <Text style={[styles.deviceDetailLabel, { color: '#C2410C' }]}>Model</Text>
+                      <Text style={styles.deviceDetailValue}>{deviceInfo.deviceModel}</Text>
+                    </View>
+                    <View style={{ height: 1, backgroundColor: '#FFE0B2', marginVertical: 2 }} />
+                    <View style={[styles.deviceDetailRow, { marginBottom: 12, marginTop: 8 }]}> 
+                      <Text style={[styles.deviceDetailLabel, { color: '#C2410C' }]}>Manufacturer</Text>
+                      <Text style={styles.deviceDetailValue}>{deviceInfo.manufacturer}</Text>
+                    </View>
+                    <View style={{ height: 1, backgroundColor: '#FFE0B2', marginVertical: 2 }} />
+                    <View style={[styles.deviceDetailRow, { marginTop: 8 }]}> 
+                      <Text style={[styles.deviceDetailLabel, { color: '#C2410C' }]}>Platform</Text>
+                      <Text style={styles.deviceDetailValue}>{deviceInfo.platform}</Text>
+                    </View>
                   </View>
                 </View>
               )}
