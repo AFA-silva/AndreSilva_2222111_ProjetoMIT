@@ -48,6 +48,12 @@ const SecurityPage = () => {
   
   // Input focus states
   const [focusedInput, setFocusedInput] = useState(null);
+  // Password visibility states
+  const [showOldPassword, setShowOldPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
+  // Loading state for password change
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
   
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -417,48 +423,89 @@ const SecurityPage = () => {
   };
 
   const handlePasswordChange = async () => {
+    console.log('🔐 Starting password change process...');
+    
+    if (isChangingPassword) {
+      console.log('⏳ Password change already in progress, ignoring...');
+      return;
+    }
+    
     if (!userSession) {
+      console.log('❌ No user session found');
       showAlert('No active session. Please log in again.', 'error');
       return;
     }
+    
     if (oldPassword.length < 6) {
+      console.log('❌ Old password too short');
       showAlert('Old password must be at least 6 characters long.', 'error');
       return;
     }
+    
     if (newPassword.length < 6) {
+      console.log('❌ New password too short');
       showAlert('New password must be at least 6 characters long.', 'error');
       return;
     }
+    
     if (newPassword !== confirmNewPassword) {
+      console.log('❌ Passwords do not match');
       showAlert('New password and confirmation do not match.', 'error');
       return;
     }
+    
+    setIsChangingPassword(true);
+    console.log('⏳ Setting loading state...');
+    
     try {
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: userSession.user.email,
-        password: oldPassword,
-      });
-      if (signInError) {
-        showAlert('Old password is incorrect.', 'error');
+      console.log('🔄 Updating password in database...');
+      console.log('📧 User email:', userSession.user.email);
+      console.log('🆔 User ID:', userSession.user.id);
+      
+      // Update password directly in the users table
+      const dbResult = await supabase
+        .from('users')
+        .update({ password: newPassword })
+        .eq('id', userSession.user.id);
+        
+      console.log('📤 Database result received:', dbResult);
+      console.log('📤 Database data:', dbResult.data);
+      console.log('📤 Database error:', dbResult.error);
+        
+      if (dbResult.error) {
+        console.error('❌ Database update error:', dbResult.error);
+        showAlert(`Failed to update password in database: ${dbResult.error.message}`, 'error');
+        setIsChangingPassword(false);
         return;
       }
-      const { error: updateError } = await supabase.auth.updateUser({
-        password: newPassword,
-      });
-      if (updateError) {
-        showAlert(`Failed to update password: ${updateError.message}`, 'error');
-        return;
-      }
-      // Update password in the database
-      await supabase.from('users').update({ password: newPassword }).eq('id', userSession.user.id);
-      showAlert('Password updated successfully.', 'success');
-      setPasswordModalVisible(false);
-      // Clear password fields
+      
+      console.log('✅ Database password updated successfully');
+      
+      // Success - show alert and close modal
+      console.log('🎉 Password change completed successfully');
+      showAlert('Password updated successfully', 'success');
+      
+      // Clear all password fields and visibility states
+      console.log('🧹 Clearing form fields...');
       setOldPassword('');
       setNewPassword('');
       setConfirmNewPassword('');
+      setShowOldPassword(false);
+      setShowNewPassword(false);
+      setShowConfirmNewPassword(false);
+      
+      // Close the modal
+      console.log('🚪 Closing modal...');
+      setPasswordModalVisible(false);
+      
     } catch (error) {
+      console.error('❌ Unexpected error in handlePasswordChange:', error);
+      console.error('❌ Error details:', error.message);
+      console.error('❌ Error stack:', error.stack);
       showAlert('An unexpected error occurred. Please try again.', 'error');
+    } finally {
+      console.log('🏁 Clearing loading state...');
+      setIsChangingPassword(false);
     }
   };
 
@@ -894,36 +941,52 @@ const SecurityPage = () => {
             <View style={styles.modalContent}>
               <View style={styles.inputContainer}>
                 <Text style={styles.inputLabel}>Current Password</Text>
-                <TextInput
-                  style={[
-                    styles.input,
-                    focusedInput === 'oldPassword' && styles.focusedInput
-                  ]}
-                  placeholder="Enter your current password"
-                  placeholderTextColor="#9CA3AF"
-                  secureTextEntry
-                  value={oldPassword}
-                  onChangeText={setOldPassword}
-                  onFocus={() => setFocusedInput('oldPassword')}
-                  onBlur={() => setFocusedInput(null)}
-                />
+                <View style={{ position: 'relative', width: '100%' }}>
+                  <TextInput
+                    style={[
+                      styles.input,
+                      focusedInput === 'oldPassword' && styles.focusedInput
+                    ]}
+                    placeholder="Enter your current password"
+                    placeholderTextColor="#9CA3AF"
+                    secureTextEntry={!showOldPassword}
+                    value={oldPassword}
+                    onChangeText={setOldPassword}
+                    onFocus={() => setFocusedInput('oldPassword')}
+                    onBlur={() => setFocusedInput(null)}
+                  />
+                  <TouchableOpacity
+                    style={{ position: 'absolute', right: 16, top: 18 }}
+                    onPress={() => setShowOldPassword(v => !v)}
+                  >
+                    <Ionicons name={showOldPassword ? 'eye-off' : 'eye'} size={20} color="#9CA3AF" />
+                  </TouchableOpacity>
+                </View>
               </View>
               
               <View style={styles.inputContainer}>
                 <Text style={styles.inputLabel}>New Password</Text>
-                <TextInput
-                  style={[
-                    styles.input,
-                    focusedInput === 'newPassword' && styles.focusedInput
-                  ]}
-                  placeholder="Enter your new password"
-                  placeholderTextColor="#9CA3AF"
-                  secureTextEntry
-                  value={newPassword}
-                  onChangeText={setNewPassword}
-                  onFocus={() => setFocusedInput('newPassword')}
-                  onBlur={() => setFocusedInput(null)}
-                />
+                <View style={{ position: 'relative', width: '100%' }}>
+                  <TextInput
+                    style={[
+                      styles.input,
+                      focusedInput === 'newPassword' && styles.focusedInput
+                    ]}
+                    placeholder="Enter your new password"
+                    placeholderTextColor="#9CA3AF"
+                    secureTextEntry={!showNewPassword}
+                    value={newPassword}
+                    onChangeText={setNewPassword}
+                    onFocus={() => setFocusedInput('newPassword')}
+                    onBlur={() => setFocusedInput(null)}
+                  />
+                  <TouchableOpacity
+                    style={{ position: 'absolute', right: 16, top: 18 }}
+                    onPress={() => setShowNewPassword(v => !v)}
+                  >
+                    <Ionicons name={showNewPassword ? 'eye-off' : 'eye'} size={20} color="#9CA3AF" />
+                  </TouchableOpacity>
+                </View>
                 <Text style={styles.inputHelpText}>
                   Password must be at least 6 characters long
                 </Text>
@@ -931,32 +994,48 @@ const SecurityPage = () => {
               
               <View style={styles.inputContainer}>
                 <Text style={styles.inputLabel}>Confirm New Password</Text>
-                <TextInput
-                  style={[
-                    styles.input,
-                    focusedInput === 'confirmNewPassword' && styles.focusedInput
-                  ]}
-                  placeholder="Confirm your new password"
-                  placeholderTextColor="#9CA3AF"
-                  secureTextEntry
-                  value={confirmNewPassword}
-                  onChangeText={setConfirmNewPassword}
-                  onFocus={() => setFocusedInput('confirmNewPassword')}
-                  onBlur={() => setFocusedInput(null)}
-                />
+                <View style={{ position: 'relative', width: '100%' }}>
+                  <TextInput
+                    style={[
+                      styles.input,
+                      focusedInput === 'confirmNewPassword' && styles.focusedInput
+                    ]}
+                    placeholder="Confirm your new password"
+                    placeholderTextColor="#9CA3AF"
+                    secureTextEntry={!showConfirmNewPassword}
+                    value={confirmNewPassword}
+                    onChangeText={setConfirmNewPassword}
+                    onFocus={() => setFocusedInput('confirmNewPassword')}
+                    onBlur={() => setFocusedInput(null)}
+                  />
+                  <TouchableOpacity
+                    style={{ position: 'absolute', right: 16, top: 18 }}
+                    onPress={() => setShowConfirmNewPassword(v => !v)}
+                  >
+                    <Ionicons name={showConfirmNewPassword ? 'eye-off' : 'eye'} size={20} color="#9CA3AF" />
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
             
             <View style={styles.modalButtons}>
-              <TouchableOpacity style={styles.submitButton} onPress={handlePasswordChange} activeOpacity={0.8}>
+              <TouchableOpacity 
+                style={[styles.submitButton, isChangingPassword && { opacity: 0.6 }]} 
+                onPress={handlePasswordChange} 
+                activeOpacity={0.8}
+                disabled={isChangingPassword}
+              >
                 <Ionicons name="shield-checkmark" size={18} color="#FFFFFF" style={styles.submitIcon} />
-                <Text style={styles.submitButtonText}>Update Password</Text>
+                <Text style={styles.submitButtonText}>
+                  {isChangingPassword ? 'Updating...' : 'Update Password'}
+                </Text>
               </TouchableOpacity>
               
               <TouchableOpacity
                 style={styles.goBackButton}
                 onPress={() => setPasswordModalVisible(false)}
                 activeOpacity={0.7}
+                disabled={isChangingPassword}
               >
                 <Ionicons name="close-circle-outline" size={18} color="#6B7280" style={{ marginRight: 6 }} />
                 <Text style={styles.goBackButtonText}>Cancel</Text>
