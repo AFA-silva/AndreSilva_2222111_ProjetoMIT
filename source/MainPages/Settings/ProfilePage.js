@@ -1041,7 +1041,6 @@ const ProfilePage = ({ navigation }) => {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
-            <Text style={styles.modalTitle}>Sign Out</Text>
             <Text style={styles.modalDescription}>
               Are you sure you want to sign out? You will need to log in again.
             </Text>
