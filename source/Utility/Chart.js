@@ -156,7 +156,7 @@ const AnimatedPath = Animated.createAnimatedComponent(Path);
 
 const AnimatedText = Animated.createAnimatedComponent(SvgText);
 
-// AnimatedView component for chart container animations
+// Componente AnimatedView para animações do contenedor do gráfico
 const AnimatedView = Animated.createAnimatedComponent(View);
 
 // Componente simplificado com interatividade de clique
@@ -314,9 +314,9 @@ const AnimatedBar3D = ({
         onPress={handlePress}
       />
 
-      {/* Category label with improved style */}
+      {/* Label da categoria com estilo melhorado */}
       <G onPress={handlePress}>
-        {/* Label background */}
+        {/* Fundo do label */}
         <Rect
           x={x + width / 2 - 20}
           y={y + height + 8}
@@ -330,7 +330,7 @@ const AnimatedBar3D = ({
           opacity={0.95}
         />
         
-        {/* Label text */}
+        {/* Texto do label */}
         <SvgText
           x={x + width / 2}
           y={y + height + 20}
@@ -366,15 +366,15 @@ const renderCustomBarChart = ({
   const chartHeight = height - 50;
   
   const barColors = [
-    ['#FF9800', '#FFB74D'], // Orange
-    ['#F44336', '#EF5350'], // Red 
-    ['#FFC107', '#FFD54F'], // Yellow
-    ['#FF5722', '#FF8A65'], // Deep red-orange
-    ['#FF6F00', '#FFA726'], // Dark amber
-    ['#D84315', '#FF7043'], // Brick red
+    ['#FF9800', '#FFB74D'], // Laranja
+    ['#F44336', '#EF5350'], // Vermelho 
+    ['#FFC107', '#FFD54F'], // Amarelo
+    ['#FF5722', '#FF8A65'], // Vermelho-laranja profundo
+    ['#FF6F00', '#FFA726'], // Âmbar escuro
+    ['#D84315', '#FF7043'], // Vermelho tijolo
   ];
 
-  // Function to handle bar click
+  // Função para lidar com clique na barra
   const handleBarPress = (label, index) => {
     const categoryData = {
       name: label,
@@ -496,14 +496,14 @@ const SimplePie3D = ({
   const initialRender = useRef(true);
   const animationProgress = useSharedValue(0);
 
-  // Animated values for initial rotation and entry scale
-  const rotation = useSharedValue(0);
-  const scale = useSharedValue(0.8);
+  // Valores animados para rotação inicial e escala de entrada
+  const entryAnimation = useSharedValue(0);
+  const rotationValue = useSharedValue(0);
   
-  // EDIT HERE: Vertical position of pie center (lower = more up, higher = more down)
-  const centerY = 120;
-  // EDIT HERE: Pie size (lower number = larger pie, higher number = smaller pie)
-  const radius = 80;
+  // EDITAR AQUI: Posição vertical do centro da torta (menor = mais para cima, maior = mais para baixo)
+  const center = { x: width / 2, y: height / 2 };
+  // EDITAR AQUI: Tamanho da torta (menor número = torta maior, maior número = torta menor)
+  const radius = Math.min(width, height) / 2.7;
   
   // Paleta de cores melhorada para maior harmonia e contraste
   const colors = [
@@ -515,144 +515,168 @@ const SimplePie3D = ({
     '#D84315', // Vermelho tijolo
   ];
   
-  // Entry animation when component mounts
+  // Animação de entrada ao montar o componente
   useEffect(() => {
-    // Smooth rotation effect on entry
-    rotation.value = withTiming(360, { duration: 1000, easing: Easing.out(Easing.cubic) });
-    scale.value = withTiming(1, { duration: 800, easing: Easing.out(Easing.back(1.2)) });
+    if (initialRender.current) {
+      // Efeito de rotação suave na entrada
+      rotationValue.value = withSequence(
+        withTiming(-0.1, { duration: 400, easing: Easing.out(Easing.quad) }),
+        withTiming(0, { duration: 500, easing: Easing.inOut(Easing.quad) })
+      );
+      
+      // Efeito de escala na entrada
+      entryAnimation.value = withTiming(1, { 
+        duration: 800, 
+        easing: Easing.out(Easing.back(1.5)) 
+      });
+      
+      // Animação de "pulsar" levemente ao final
+      animationProgress.value = withSequence(
+        withDelay(800,
+          withTiming(1.02, { duration: 200, easing: Easing.out(Easing.quad) })
+        ),
+        withTiming(1, { duration: 300, easing: Easing.inOut(Easing.quad) })
+      );
+      
+      initialRender.current = false;
+    }
   }, []);
   
-  // Slight "pulse" animation at the end
-  useEffect(() => {
-    animationProgress.value = withSequence(
-      withDelay(800,
-        withTiming(1.02, { duration: 200, easing: Easing.out(Easing.quad) })
-      ),
-      withTiming(1, { duration: 300, easing: Easing.inOut(Easing.quad) })
-    );
-  }, []);
-  
-  // Calculate slice data with memoization
-  const sliceData = useMemo(() => {
+  // Calcular os dados das fatias com memorizаção
+  const slices = useMemo(() => {
     if (!data || data.length === 0) return [];
     
-    const total = data.reduce((sum, item) => sum + item.value, 0);
-    let currentAngle = 0;
+    const total = data.reduce((sum, item) => sum + (item.value || 0), 0);
+    let startAngle = 0;
     
-    return data.map((item, index) => {
-      const percentage = total > 0 ? (item.value / total) * 100 : 0;
-      const angle = (percentage / 100) * 360;
-      const startAngle = currentAngle;
-      const endAngle = currentAngle + angle;
-      
-      // Determine if this slice is selected
-      const isSelected = selectedSlice === index;
-      
-      // Calculate label position with specific spacing
-      // Special positioning for investments and prizes to avoid overlap
-      let labelRadius = radius * 1.25; // Base - increased distance for better readability
-      
-      // Special adjustment for specific categories to avoid overlap
-      if (item.name === 'Investments' || item.name === 'Prizes') {
-        labelRadius = radius * 1.45; // Further away to avoid overlap
-      }
-      
-      // If it's Prizes, adjust to the left
-      if (item.name === 'Prizes') {
-        labelRadius = radius * 1.35;
-      }
-      
-      const labelAngle = startAngle + angle / 2;
-      const labelX = centerX + labelRadius * Math.cos((labelAngle - 90) * Math.PI / 180);
-      const labelY = centerY + labelRadius * Math.sin((labelAngle - 90) * Math.PI / 180);
-      
-      // Determine text alignment based on position
-      const textAnchor = labelX > centerX ? 'start' : 'end';
-      const alignmentBaseline = labelY > centerY ? 'hanging' : 'auto';
-      
-      currentAngle = endAngle;
-      
-      return {
-        ...item,
-        startAngle,
-        endAngle,
-        percentage,
-        labelX,
-        labelY,
-        textAnchor,
-        alignmentBaseline,
-        isSelected
-      };
-    });
-  }, [data, selectedSlice, centerX, centerY, radius]);
+    return data
+      .filter(item => item.name && item.value > 0) // Filtrar apenas categorias com valor > 0
+      .map((item, index) => {
+        const percentage = total > 0 ? (item.value / total) : 0;
+        const angle = percentage * Math.PI * 2;
+        const endAngle = startAngle + angle;
+        const midAngle = startAngle + angle / 2;
+        
+        // Determinar se esta fatia é a selecionada
+        const isSelected = index === selectedSlice;
+        const isHovered = index === hoveredSlice;
+        
+        // Calcular a posição do rótulo com espaçamento específico
+        // Posicionamento especial para investimentos e prêmios para evitar sobreposição
+        let labelRadius = radius * 1.25; // Base - distância aumentada para melhor legibilidade
+        let labelAdjustment = 0;
+        
+        // Ajuste especial para categorias específicas para evitar sobreposição
+        if (item.name === "Investments" || item.name === "Premiums") {
+          labelRadius = radius * 1.45; // Mais distante para evitar sobreposição
+          
+          // Se for Investimentos, ajustar para cima e direita
+          if (item.name === "Investments") {
+            labelAdjustment = Math.PI * -0.025; // Mover para cima e direita
+          }
+          // Se for Prêmios, ajustar para a esquerda
+          if (item.name === "Premiums") {
+            labelAdjustment = -Math.PI * 0.08; // Deslocar para a esquerda
+          }
+        }
+        
+        const labelX = center.x + Math.cos(midAngle + labelAdjustment) * labelRadius;
+        const labelY = center.y + Math.sin(midAngle + labelAdjustment) * labelRadius;
+        
+        // Determinar alinhamento do texto baseado na posição
+        const textAnchor = Math.cos(midAngle + labelAdjustment) > 0 ? 'start' : 'end';
+        
+        // Criar resultado para esta fatia
+        const slice = {
+          ...item,
+          startAngle,
+          endAngle,
+          angle,
+          midAngle,
+          percentage,
+          color: item.color || colors[index % colors.length],
+          labelX,
+          labelY,
+          textAnchor,
+          isSelected,
+          isHovered,
+          index
+        };
+        
+        // Atualizar o ângulo inicial para a próxima fatia
+        startAngle = endAngle;
+        
+        return slice;
+      });
+  }, [data, radius, selectedSlice, hoveredSlice, colors, center]);
   
-  // Animated style for rotation
+  // Estilo animado para rotação
   const animatedStyle = useAnimatedStyle(() => {
     return {
       transform: [
-        { rotate: `${rotation.value}deg` },
-        { scale: scale.value }
+        { rotate: `${rotationValue.value * Math.PI}rad` },
+        { scale: entryAnimation.value }
       ],
     };
   });
   
-  // Function to create path for a slice
-  const createSlicePath = (startAngle, endAngle, radius, depth = 20) => {
+  // Função para criar o path para uma fatia
+  const createArcPath = (startAngle, endAngle, innerRadius, outerRadius) => {
     // Handle full circle case (single slice covering 100%)
     if (Math.abs(endAngle - startAngle) >= Math.PI * 2 - 0.001) {
       // For full circle, create two semicircle arcs
       const midAngle = startAngle + Math.PI;
-      const midX = centerX + Math.cos(midAngle) * radius;
-      const midY = centerY + Math.sin(midAngle) * radius;
-      const startX = centerX + Math.cos(startAngle) * radius;
-      const startY = centerY + Math.sin(startAngle) * radius;
-      const midX2 = centerX + Math.cos(midAngle) * (radius - depth);
-      const midY2 = centerY + Math.sin(midAngle) * (radius - depth);
-      const startX2 = centerX + Math.cos(startAngle) * (radius - depth);
-      const startY2 = centerY + Math.sin(startAngle) * (radius - depth);
+      const midX = center.x + Math.cos(midAngle) * outerRadius;
+      const midY = center.y + Math.sin(midAngle) * outerRadius;
+      const startX = center.x + Math.cos(startAngle) * outerRadius;
+      const startY = center.y + Math.sin(startAngle) * outerRadius;
+      const midX2 = center.x + Math.cos(midAngle) * innerRadius;
+      const midY2 = center.y + Math.sin(midAngle) * innerRadius;
+      const startX2 = center.x + Math.cos(startAngle) * innerRadius;
+      const startY2 = center.y + Math.sin(startAngle) * innerRadius;
       
       return `
         M ${startX} ${startY}
-        A ${radius} ${radius} 0 1 1 ${midX} ${midY}
-        A ${radius} ${radius} 0 1 1 ${startX} ${startY}
+        A ${outerRadius} ${outerRadius} 0 1 1 ${midX} ${midY}
+        A ${outerRadius} ${outerRadius} 0 1 1 ${startX} ${startY}
         L ${startX2} ${startY2}
-        A ${radius - depth} ${radius - depth} 0 1 0 ${midX2} ${midY2}
-        A ${radius - depth} ${radius - depth} 0 1 0 ${startX2} ${startY2}
+        A ${innerRadius} ${innerRadius} 0 1 0 ${midX2} ${midY2}
+        A ${innerRadius} ${innerRadius} 0 1 0 ${startX2} ${startY2}
         Z
       `;
     }
     
-    const startX = centerX + Math.cos(startAngle) * radius;
-    const startY = centerY + Math.sin(startAngle) * radius;
-    const endX = centerX + Math.cos(endAngle) * radius;
-    const endY = centerY + Math.sin(endAngle) * radius;
+    const startX = center.x + Math.cos(startAngle) * outerRadius;
+    const startY = center.y + Math.sin(startAngle) * outerRadius;
+    const endX = center.x + Math.cos(endAngle) * outerRadius;
+    const endY = center.y + Math.sin(endAngle) * outerRadius;
     
-    const startX2 = centerX + Math.cos(endAngle) * (radius - depth);
-    const startY2 = centerY + Math.sin(endAngle) * (radius - depth);
-    const endX2 = centerX + Math.cos(startAngle) * (radius - depth);
-    const endY2 = centerY + Math.sin(startAngle) * (radius - depth);
+    const startX2 = center.x + Math.cos(endAngle) * innerRadius;
+    const startY2 = center.y + Math.sin(endAngle) * innerRadius;
+    const endX2 = center.x + Math.cos(startAngle) * innerRadius;
+    const endY2 = center.y + Math.sin(startAngle) * innerRadius;
     
     const largeArcFlag = endAngle - startAngle > Math.PI ? 1 : 0;
     
     return `
       M ${startX} ${startY}
-      A ${radius} ${radius} 0 ${largeArcFlag} 1 ${endX} ${endY}
+      A ${outerRadius} ${outerRadius} 0 ${largeArcFlag} 1 ${endX} ${endY}
       L ${startX2} ${startY2}
-      A ${radius - depth} ${radius - depth} 0 ${largeArcFlag} 0 ${endX2} ${endY2}
+      A ${innerRadius} ${innerRadius} 0 ${largeArcFlag} 0 ${endX2} ${endY2}
       Z
     `;
   };
   
-  // Function to create the side path of the slice
-  const createSidePath = (startAngle, endAngle, radius, depth = 20) => {
+  // Função para criar o caminho da lateral (side) da fatia
+  const createSidePath = (startAngle, endAngle, radius, depth) => {
     // Handle full circle case (single slice covering 100%)
     if (Math.abs(endAngle - startAngle) >= Math.PI * 2 - 0.001) {
       // For full circle, create a cylinder side
-      const startX = centerX + Math.cos(startAngle) * radius;
-      const startY = centerY + Math.sin(startAngle) * radius;
+      const startX = center.x + Math.cos(startAngle) * radius;
+      const startY = center.y + Math.sin(startAngle) * radius;
       const midAngle = startAngle + Math.PI;
-      const midX = centerX + Math.cos(midAngle) * radius;
-      const midY = centerY + Math.sin(midAngle) * radius;
+      const midX = center.x + Math.cos(midAngle) * radius;
+      const midY = center.y + Math.sin(midAngle) * radius;
       
       return `
         M ${startX} ${startY}
@@ -665,10 +689,10 @@ const SimplePie3D = ({
       `;
     }
     
-    const startX = centerX + Math.cos(startAngle) * radius;
-    const startY = centerY + Math.sin(startAngle) * radius;
-    const endX = centerX + Math.cos(endAngle) * radius;
-    const endY = centerY + Math.sin(endAngle) * radius;
+    const startX = center.x + Math.cos(startAngle) * radius;
+    const startY = center.y + Math.sin(startAngle) * radius;
+    const endX = center.x + Math.cos(endAngle) * radius;
+    const endY = center.y + Math.sin(endAngle) * radius;
     
     const largeArcFlag = endAngle - startAngle > Math.PI ? 1 : 0;
     
@@ -681,32 +705,38 @@ const SimplePie3D = ({
     `;
   };
   
-  // Handle touch/click on a slice with selection animation
+  // Lidar com toque/clique em uma fatia com animação de seleção
   const handleSlicePress = (index) => {
-    // Animated "pulse" effect on selection (removed sequenceWithTiming that caused shake)
-    scale.value = withSequence(
-      withTiming(1.05, { duration: 150 }),
-      withTiming(1, { duration: 150 })
-    );
+    // Efeito de "pulse" animado na seleção (removido o sequenceWithTiming que causava o shake)
+    animationProgress.value = withTiming(1, { 
+      duration: 300, 
+      easing: Easing.inOut(Easing.quad)
+    });
     
+    // Remover rotação que causava shake
+    rotationValue.value = 0;
+    
+    setSelectedSlice(selectedSlice === index ? null : index);
     if (onSelectSlice) {
-      onSelectSlice(data[index]);
+      // Passar o objeto completo da categoria para o callback
+      const selectedCategory = index !== null && index < data.length ? data[index] : null;
+      onSelectSlice(selectedCategory);
     }
   };
   
-  // Handle hover (simulated with quick press and release on mobile)
+  // Lidar com hover (simulado com pressionar e soltar rapidamente em mobile)
   const handleSliceHover = (index) => {
     setHoveredSlice(index);
   };
   
-  // Render 3D pie chart
+  // Renderizar o gráfico de pizza 3D
   return (
     <View style={{ width, height, backgroundColor: backgroundColor }}>
-      {/* EDIT HERE: SVG size (height + pieDepth) */}
+      {/* EDITAR AQUI: Tamanho do SVG (height + pieDepth) */}
       <AnimatedView style={[{ width, height: height + pieDepth }, animatedStyle]}>
         <Svg width={width} height={height + pieDepth}>
           <Defs>
-            {/* Radial gradient for shadow with smooth transition */}
+            {/* Gradiente radial para a sombra com transição suave */}
             <RadialGradient
               id="shadow-gradient"
               cx="50%"
@@ -721,7 +751,7 @@ const SimplePie3D = ({
               <Stop offset="100%" stopColor="#000000" stopOpacity="0.05" />
             </RadialGradient>
             
-            {/* Projected shadow gradient for elevated slices */}
+            {/* Gradiente de sombra projetada para fatias elevadas */}
             <RadialGradient
               id="elevation-shadow"
               cx="50%"
@@ -736,10 +766,10 @@ const SimplePie3D = ({
               <Stop offset="100%" stopColor="#000000" stopOpacity="0.0" />
             </RadialGradient>
             
-            {/* Gradients for each slice */}
-            {sliceData.map((slice, index) => (
+            {/* Gradientes para cada fatia */}
+            {slices.map((slice, index) => (
               <React.Fragment key={`gradients-${index}`}>
-                {/* Main gradient for slice top */}
+                {/* Gradiente principal para o topo da fatia */}
                 <LinearGradient
                   id={`gradient-top-${index}`}
                   x1="0%"
@@ -751,7 +781,7 @@ const SimplePie3D = ({
                   <Stop offset="100%" stopColor={slice.color} stopOpacity={slice.isSelected ? 0.95 : 0.8} />
                 </LinearGradient>
                 
-                {/* Gradient for side part */}
+                {/* Gradiente para a parte lateral */}
                 <LinearGradient
                   id={`gradient-side-${index}`}
                   x1="0%"
@@ -763,7 +793,7 @@ const SimplePie3D = ({
                   <Stop offset="100%" stopColor={slice.color} stopOpacity={slice.isSelected ? 0.7 : 0.5} />
                 </LinearGradient>
                 
-                {/* Gradient for bottom part */}
+                {/* Gradiente para a parte inferior */}
                 <LinearGradient
                   id={`gradient-bottom-${index}`}
                   x1="0%"
@@ -775,7 +805,7 @@ const SimplePie3D = ({
                   <Stop offset="100%" stopColor={slice.color} stopOpacity={slice.isSelected ? 0.4 : 0.25} />
                 </LinearGradient>
                 
-                {/* New gradient for selected slices with glow effect */}
+                {/* Novo gradiente para fatias selecionadas com efeito brilhante */}
                 {slice.isSelected && (
                   <LinearGradient
                     id={`gradient-glow-${index}`}
@@ -789,7 +819,7 @@ const SimplePie3D = ({
                   </LinearGradient>
                 )}
                 
-                {/* Dark background for selected slice */}
+                {/* Fundo escuro para a fatia selecionada */}
                 {slice.isSelected && (
                   <LinearGradient
                     id={`gradient-background-${index}`}
@@ -806,26 +836,26 @@ const SimplePie3D = ({
             ))}
           </Defs>
           
-          {/* EDIT HERE: Shadow position and size */}
+          {/* EDITAR AQUI: Posição e tamanho da sombra */}
           <Circle
-            cx={centerX}
-            cy={centerY + pieDepth + 5}
+            cx={center.x}
+            cy={center.y + pieDepth + 5}
             r={radius + 5} 
             fill="url(#shadow-gradient)"
           />
           
-          {/* Render background for selected slices */}
-          {sliceData.map((slice, index) => {
+          {/* Renderizar background para fatias selecionadas */}
+          {slices.map((slice, index) => {
             if (!slice.isSelected) return null;
             
-            // Restore original radial offset
+            // Restaurar o deslocamento radial original
             const offsetX = Math.cos(slice.midAngle) * 14;
             const offsetY = Math.sin(slice.midAngle) * 14;
             
             return (
               <Path
                 key={`background-${index}`}
-                d={createSlicePath(slice.startAngle, slice.endAngle, 0, radius * 1.08)}
+                d={createArcPath(slice.startAngle, slice.endAngle, 0, radius * 1.08)}
                 fill={`url(#gradient-background-${index})`}
                 x={offsetX}
                 y={offsetY}
@@ -834,9 +864,9 @@ const SimplePie3D = ({
             );
           })}
           
-          {/* Render slices with optimized order for 3D */}
-          {/* First render all bases (background) */}
-          {sliceData.map((actualSlice, index) => {
+          {/* Renderizar as fatias com ordem otimizada para 3D */}
+          {/* Primeiro renderizar todas as bases (fundo) */}
+          {slices.map((actualSlice, index) => {
             const offsetX = actualSlice.isSelected ? Math.cos(actualSlice.midAngle) * 14 : 0;
             const offsetY = actualSlice.isSelected ? Math.sin(actualSlice.midAngle) * 14 : 0;
             const sliceDepth = actualSlice.isSelected ? pieDepth + 6 : pieDepth;
@@ -850,7 +880,7 @@ const SimplePie3D = ({
               >
                 {/* Face inferior da fatia */}
                 <Path
-                  d={createSlicePath(actualSlice.startAngle, actualSlice.endAngle, 0, radius)}
+                  d={createArcPath(actualSlice.startAngle, actualSlice.endAngle, 0, radius)}
                   fill={`url(#gradient-bottom-${index})`}
                   transform={`translate(0, ${sliceDepth})`}
                 />
@@ -859,7 +889,7 @@ const SimplePie3D = ({
           })}
           
           {/* Depois renderizar as laterais */}
-          {sliceData.map((actualSlice, index) => {
+          {slices.map((actualSlice, index) => {
             const offsetX = actualSlice.isSelected ? Math.cos(actualSlice.midAngle) * 14 : 0;
             const offsetY = actualSlice.isSelected ? Math.sin(actualSlice.midAngle) * 14 : 0;
             const sliceDepth = actualSlice.isSelected ? pieDepth + 6 : pieDepth;
@@ -886,7 +916,7 @@ const SimplePie3D = ({
           })}
           
           {/* Por último renderizar as faces superiores */}
-          {sliceData.map((actualSlice, index) => {
+          {slices.map((actualSlice, index) => {
             const offsetX = actualSlice.isSelected ? Math.cos(actualSlice.midAngle) * 14 : 0;
             const offsetY = actualSlice.isSelected ? Math.sin(actualSlice.midAngle) * 14 : 0;
             const sliceScale = actualSlice.isSelected ? 1.05 : 1;
@@ -909,7 +939,7 @@ const SimplePie3D = ({
                 {/* Efeito de brilho/contorno para a fatia selecionada */}
                 {actualSlice.isSelected && (
                   <Path
-                    d={createSlicePath(actualSlice.startAngle, actualSlice.endAngle, 0, radius * 1.02)}
+                    d={createArcPath(actualSlice.startAngle, actualSlice.endAngle, 0, radius * 1.02)}
                     fill="none"
                     stroke={actualSlice.color}
                     strokeWidth={2}
@@ -919,7 +949,7 @@ const SimplePie3D = ({
                 
                 {/* Face superior da fatia (topo) */}
                 <Path
-                  d={createSlicePath(actualSlice.startAngle, actualSlice.endAngle, 0, radius)}
+                  d={createArcPath(actualSlice.startAngle, actualSlice.endAngle, 0, radius)}
                   fill={fillGradient}
                   {...(Platform.OS === 'web' ? { onClick: handleClick } : { onPress: handleClick })}
                 />
@@ -928,7 +958,7 @@ const SimplePie3D = ({
           })}
           
           {/* Renderizar as linhas de conexão e rótulos */}
-          {sliceData.map((slice, index) => {
+          {slices.map((slice, index) => {
             // Ajustar tamanho da fonte baseado na porcentagem 
             const isSmallSlice = slice.percentage < 0.05;
             
@@ -938,8 +968,8 @@ const SimplePie3D = ({
             
             const labelX = slice.labelX + offsetX;
             const labelY = slice.labelY + offsetY;
-            const lineStartX = centerX + Math.cos(slice.midAngle) * (radius * 0.95) + offsetX;
-            const lineStartY = centerY + Math.sin(slice.midAngle) * (radius * 0.95) + offsetY;
+            const lineStartX = center.x + Math.cos(slice.midAngle) * (radius * 0.95) + offsetX;
+            const lineStartY = center.y + Math.sin(slice.midAngle) * (radius * 0.95) + offsetY;
             
             // Cor do texto baseada na seleção 
             const textColor = slice.isSelected ? slice.color : '#333';
@@ -981,7 +1011,7 @@ const SimplePie3D = ({
       
       {/* Legenda compacta */}
       <View style={[styles.pieChartLegend, {marginTop: -5}]}>
-        {sliceData.map((slice, index) => (
+        {slices.map((slice, index) => (
           <Pressable
             key={`legend-${index}`}
             style={({pressed}) => [
@@ -1017,12 +1047,12 @@ const SimplePie3D = ({
   );
 };
 
-// SimpleLineChart component to replace UltraModernLineChart
+// Componente SimpleLineChart para substituir o UltraModernLineChart
 const SimpleLineChart = ({ data, labels, width, height, style }) => {
   const [isLoaded, setIsLoaded] = useState(false);
   const animationProgress = useSharedValue(0);
   
-  // Values for chart calculations
+  // Valores para cálculos do gráfico
   const chartHeight = height * 0.75;
   const paddingHorizontal = 30;
   const paddingTop = 20;
@@ -1030,11 +1060,11 @@ const SimpleLineChart = ({ data, labels, width, height, style }) => {
   const xAxisWidth = width - (paddingHorizontal * 2);
   const yAxisHeight = chartHeight - paddingTop - paddingBottom;
   
-  // AnimatedPath for line animation
+  // AnimatedPath para animação das linhas
   const AnimatedPath = Animated.createAnimatedComponent(Path);
   
   useEffect(() => {
-    // Start animation after a small delay
+    // Iniciar animação após um pequeno atraso
     const timeout = setTimeout(() => {
       setIsLoaded(true);
       animationProgress.value = withTiming(1, { 
@@ -1046,7 +1076,7 @@ const SimpleLineChart = ({ data, labels, width, height, style }) => {
     return () => clearTimeout(timeout);
   }, [data, labels]);
   
-  // Validate data
+  // Validar dados
   if (!data || data.length === 0 || !labels || labels.length === 0) {
     return (
       <View style={{
@@ -1060,12 +1090,12 @@ const SimpleLineChart = ({ data, labels, width, height, style }) => {
     );
   }
   
-  // Calculate maximum values for scale
+  // Calcular valores máximos para escala
   const maxValue = Math.max(...data, 1);
   const minValue = Math.min(...data, 0);
   const valueRange = Math.max(maxValue - minValue, 1);
   
-  // Normalize data for chart
+  // Normalizar dados para o gráfico
   const points = data.map((value, index) => {
     const x = paddingHorizontal + (index / (data.length - 1)) * xAxisWidth;
     const normalizedValue = (value - minValue) / valueRange;
@@ -1073,7 +1103,7 @@ const SimpleLineChart = ({ data, labels, width, height, style }) => {
     return { x, y, value };
   });
   
-  // Create path for line
+  // Criar path para a linha
   const createPathD = (points, progress) => {
     if (points.length === 0) return '';
     if (points.length === 1) return `M ${points[0].x},${points[0].y} L ${points[0].x},${points[0].y}`;
@@ -1083,18 +1113,18 @@ const SimpleLineChart = ({ data, labels, width, height, style }) => {
       const currentPoint = points[i];
       const nextPoint = points[i + 1];
       
-      // Limit by animation progress
+      // Limitar pelo progresso da animação
       const visiblePointCount = Math.floor(progress * points.length);
       if (i >= visiblePointCount) break;
       
-      // If it's the last visible point in animation, interpolate
+      // Se for o último ponto visível na animação, interpolar
       if (i === visiblePointCount - 1 && visiblePointCount < points.length) {
         const partialProgress = (progress * points.length) % 1;
         const interpolatedX = currentPoint.x + (nextPoint.x - currentPoint.x) * partialProgress;
         const interpolatedY = currentPoint.y + (nextPoint.y - currentPoint.y) * partialProgress;
         path += ` L ${interpolatedX},${interpolatedY}`;
       } else {
-        // Smooth curve between points
+        // Curva suave entre pontos
         const controlPointX1 = (currentPoint.x + nextPoint.x) / 2;
         const controlPointX2 = (currentPoint.x + nextPoint.x) / 2;
         path += ` C ${controlPointX1},${currentPoint.y} ${controlPointX2},${nextPoint.y} ${nextPoint.x},${nextPoint.y}`;
@@ -1104,7 +1134,7 @@ const SimpleLineChart = ({ data, labels, width, height, style }) => {
     return path;
   };
   
-  // Create path for area below line
+  // Criar path para a área abaixo da linha
   const createAreaD = (points, progress) => {
     if (points.length === 0) return '';
     
@@ -1115,11 +1145,11 @@ const SimpleLineChart = ({ data, labels, width, height, style }) => {
       const currentPoint = points[i];
       const nextPoint = points[i + 1];
       
-      // Limit by animation progress
+      // Limitar pelo progresso da animação
       const visiblePointCount = Math.floor(progress * points.length);
       if (i >= visiblePointCount) break;
       
-      // If it's the last visible point in animation, interpolate
+      // Se for o último ponto visível na animação, interpolar
       if (i === visiblePointCount - 1 && visiblePointCount < points.length) {
         const partialProgress = (progress * points.length) % 1;
         const interpolatedX = currentPoint.x + (nextPoint.x - currentPoint.x) * partialProgress;
@@ -1127,13 +1157,13 @@ const SimpleLineChart = ({ data, labels, width, height, style }) => {
         path += ` L ${interpolatedX},${interpolatedY}`;
         path += ` L ${interpolatedX},${baselineY} Z`;
       } else if (i === points.length - 2) {
-        // Last complete segment
+        // Último segmento completo
         const controlPointX1 = (currentPoint.x + nextPoint.x) / 2;
         const controlPointX2 = (currentPoint.x + nextPoint.x) / 2;
         path += ` C ${controlPointX1},${currentPoint.y} ${controlPointX2},${nextPoint.y} ${nextPoint.x},${nextPoint.y}`;
         path += ` L ${nextPoint.x},${baselineY} Z`;
       } else {
-        // Intermediate segments
+        // Segmentos intermediários
         const controlPointX1 = (currentPoint.x + nextPoint.x) / 2;
         const controlPointX2 = (currentPoint.x + nextPoint.x) / 2;
         path += ` C ${controlPointX1},${currentPoint.y} ${controlPointX2},${nextPoint.y} ${nextPoint.x},${nextPoint.y}`;
@@ -1143,7 +1173,7 @@ const SimpleLineChart = ({ data, labels, width, height, style }) => {
     return path;
   };
   
-  // Animated props for line path
+  // Props animados para o path da linha
   const animatedLineProps = useAnimatedProps(() => ({
     d: createPathD(points, animationProgress.value),
     opacity: interpolate(
@@ -1153,7 +1183,7 @@ const SimpleLineChart = ({ data, labels, width, height, style }) => {
     ),
   }));
   
-  // Animated props for filled area
+  // Props animados para a área preenchida
   const animatedAreaProps = useAnimatedProps(() => ({
     d: createAreaD(points, animationProgress.value),
     opacity: interpolate(
@@ -1163,7 +1193,7 @@ const SimpleLineChart = ({ data, labels, width, height, style }) => {
     ),
   }));
   
-  // Animated style for container
+  // Estilo animado para o contêiner
   const containerStyle = useAnimatedStyle(() => ({
     opacity: interpolate(
       animationProgress.value,
@@ -1181,7 +1211,7 @@ const SimpleLineChart = ({ data, labels, width, height, style }) => {
     ],
   }));
   
-  // Render grid lines
+  // Renderizar linhas de grade
   const renderGridLines = () => {
     const gridLineCount = 5;
     return Array.from({ length: gridLineCount }).map((_, index) => {
@@ -1214,13 +1244,13 @@ const SimpleLineChart = ({ data, labels, width, height, style }) => {
     });
   };
   
-  // Render data points
+  // Renderizar pontos de dados
   const renderDataPoints = () => {
     if (!isLoaded) return null;
     
     return points.map((point, index) => (
       <G key={`point-${index}`}>
-        {/* Exterior point */}
+        {/* Ponto exterior */}
         <Circle
           cx={point.x}
           cy={point.y}
@@ -1231,7 +1261,7 @@ const SimpleLineChart = ({ data, labels, width, height, style }) => {
           opacity={0.9}
         />
         
-        {/* Interior point */}
+        {/* Ponto interior */}
         <Circle
           cx={point.x}
           cy={point.y}
@@ -1239,7 +1269,7 @@ const SimpleLineChart = ({ data, labels, width, height, style }) => {
           fill="#FF9800"
         />
         
-        {/* Simple tooltip */}
+        {/* Tooltip simples */}
         <G opacity={0.8}>
           <SvgText
             x={point.x}
@@ -1255,10 +1285,10 @@ const SimpleLineChart = ({ data, labels, width, height, style }) => {
     ));
   };
   
-  // Render X labels
+  // Renderizar labels do eixo X
   const renderXLabels = () => {
     return points.map((point, index) => {
-      // Show only some labels to avoid overlap
+      // Mostrar apenas algumas labels para evitar sobreposição
       if (data.length > 6 && index % Math.ceil(data.length / 6) !== 0 && index !== data.length - 1) {
         return null;
       }
@@ -1296,7 +1326,7 @@ const SimpleLineChart = ({ data, labels, width, height, style }) => {
           </View>
         ) : (
           <Svg width={width} height={chartHeight}>
-            {/* Definitions of gradients */}
+            {/* Definições de gradientes */}
             <Defs>
               <LinearGradient id="lineGradient" x1="0" y1="0" x2="0" y2="1">
                 <Stop offset="0%" stopColor="#FF9800" stopOpacity="1" />
@@ -1309,17 +1339,17 @@ const SimpleLineChart = ({ data, labels, width, height, style }) => {
               </LinearGradient>
             </Defs>
             
-            {/* Grid lines */}
+            {/* Linhas de grade */}
             {renderGridLines()}
             
-            {/* Area under the line */}
+            {/* Área preenchida sob a linha */}
             <AnimatedPath
               animatedProps={animatedAreaProps}
               fill="url(#areaGradient)"
               strokeWidth="0"
             />
             
-            {/* Main line */}
+            {/* Linha principal */}
             <AnimatedPath
               animatedProps={animatedLineProps}
               stroke="url(#lineGradient)"
@@ -1329,10 +1359,10 @@ const SimpleLineChart = ({ data, labels, width, height, style }) => {
               fill="none"
             />
             
-            {/* Data points */}
+            {/* Pontos de dados */}
             {renderDataPoints()}
             
-            {/* X axis labels */}
+            {/* Labels do eixo X */}
             {renderXLabels()}
           </Svg>
         )}

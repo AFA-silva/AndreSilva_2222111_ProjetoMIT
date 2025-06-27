@@ -4,7 +4,7 @@ export const isEmailValid = (email) => {
 };
 
 export const isPhoneValid = (phone) => {
-  // Simple phone validation: must have exactly 9 digits
+  // Simples validação de telefone: deve ter exatamente 9 dígitos
   const phoneRegex = /^[0-9]{9}$/;
   return phoneRegex.test(phone);
 };

@@ -2,14 +2,14 @@ import React, { useState, useCallback } from 'react';
 import Alert, { ConfirmModal } from './Alerts';
 
 export const useAlert = () => {
-  // State for simple notification (at the top)
+  // Estado para notificação simples (no topo)
   const [alertState, setAlertState] = useState({
     visible: false,
     message: '',
     type: 'info'
   });
 
-  // State for confirmation modal
+  // Estado para modal de confirmação
   const [modalState, setModalState] = useState({
     visible: false,
     title: '',
@@ -18,7 +18,7 @@ export const useAlert = () => {
     type: 'info'
   });
 
-  // Functions for simple notification (at the top)
+  // Funções para notificação simples (no topo)
   const showNotification = useCallback((message, type = 'info', duration = 3000) => {
     setAlertState({
       visible: true,
@@ -26,7 +26,7 @@ export const useAlert = () => {
       type
     });
 
-    // Auto-hide after duration
+    // Auto-hide após duration
     if (duration > 0) {
       setTimeout(() => {
         setAlertState(prev => ({ ...prev, visible: false }));
@@ -38,7 +38,7 @@ export const useAlert = () => {
     setAlertState(prev => ({ ...prev, visible: false }));
   }, []);
 
-  // Functions for confirmation modal
+  // Funções para modal de confirmação
   const showModal = useCallback(({ title, message, buttons, type = 'info' }) => {
     setModalState({
       visible: true,
@@ -53,7 +53,7 @@ export const useAlert = () => {
     setModalState(prev => ({ ...prev, visible: false }));
   }, []);
 
-  // Convenience functions for notifications
+  // Funções de conveniência para notificações
   const showSuccess = useCallback((message, duration = 3000) => {
     showNotification(message, 'success', duration);
   }, [showNotification]);
@@ -70,7 +70,7 @@ export const useAlert = () => {
     showNotification(message, 'info', duration);
   }, [showNotification]);
 
-  // Convenience functions for modals
+  // Funções de conveniência para modais
   const showConfirm = useCallback((title, message, onConfirm, onCancel) => {
     showModal({
       title,
@@ -106,7 +106,7 @@ export const useAlert = () => {
     });
   }, [showModal]);
 
-  // Components to render
+  // Componentes para renderizar
   const NotificationComponent = useCallback(() => (
     alertState.visible ? (
       <Alert
@@ -129,7 +129,7 @@ export const useAlert = () => {
   ), [modalState, hideModal]);
 
   return {
-    // Simple notifications (at the top)
+    // Notificações simples (no topo)
     showNotification,
     showSuccess,
     showError, 
@@ -137,14 +137,14 @@ export const useAlert = () => {
     showInfo,
     hideNotification,
     
-    // Confirmation modals
+    // Modais de confirmação
     showModal,
     showConfirm,
     showDeleteConfirm,
     showAlert,
     hideModal,
     
-    // Components
+    // Componentes
     NotificationComponent,
     ModalComponent,
     

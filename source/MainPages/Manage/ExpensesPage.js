@@ -34,7 +34,7 @@ const ExpensesPage = ({ navigation }) => {
     amount: '',
     category_id: '',
     frequency_id: '',
-    priority: 3, // Default to medium priority
+    priority: 3, // Default to média priority
   });
   const [originalCurrency, setOriginalCurrency] = useState('EUR'); // Moeda original do sistema
   const [chartRenderKey, setChartRenderKey] = useState(Date.now());
@@ -53,7 +53,7 @@ const ExpensesPage = ({ navigation }) => {
   // Add loading state
   const [isLoading, setIsLoading] = useState(true);
 
-  // States for category/frequency modals
+  // Estados para modais de categoria/frequência
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showFrequencyModal, setShowFrequencyModal] = useState(false);
   const [categoryModalMode, setCategoryModalMode] = useState('add'); // 'add' or 'edit'
@@ -63,7 +63,7 @@ const ExpensesPage = ({ navigation }) => {
   const [categoryFormData, setCategoryFormData] = useState({ name: '' });
   const [frequencyFormData, setFrequencyFormData] = useState({ name: '', days: '' });
   
-  // States for deletion modals
+  // Estados para modais de exclusão
   const [showDeleteCategoryModal, setShowDeleteCategoryModal] = useState(false);
   const [showDeleteFrequencyModal, setShowDeleteFrequencyModal] = useState(false);
   const [categoryToDelete, setCategoryToDelete] = useState(null);
@@ -215,7 +215,7 @@ const ExpensesPage = ({ navigation }) => {
       setOriginalCurrency(data.actual_currency);
       return data.actual_currency;
     } catch (error) {
-      console.error('[ExpensesPage] Error loading user currency:', error);
+      console.error('[ExpensesPage] Erro ao carregar moeda do usuário:', error);
       throw new Error('Cannot determine user currency');
     }
   };
@@ -228,16 +228,16 @@ const ExpensesPage = ({ navigation }) => {
         return;
       }
       setUserId(user.id);
-      await loadUserCurrency(); // Load user currency
+      await loadUserCurrency(); // Carregar a moeda do usuário
       fetchExpenses(user.id);
       fetchCategoriesAndFrequencies(user.id);
     };
     fetchUserData();
     
-    // Add listener for currency changes
+    // Adicionar listener para mudanças de moeda
     addCurrencyChangeListener(handleCurrencyChange);
     
-    // Clean up listener when unmounting
+    // Limpar listener ao desmontar
     return () => {
       removeCurrencyChangeListener(handleCurrencyChange);
     };
@@ -252,7 +252,7 @@ const ExpensesPage = ({ navigation }) => {
     }, [userId])
   );
 
-  // Function to convert values to current currency
+  // Função para converter os valores para a moeda atual
   const convertExpensesToCurrentCurrency = async (data, origCurrency) => {
     try {
       if (!data || data.length === 0) {
@@ -260,56 +260,56 @@ const ExpensesPage = ({ navigation }) => {
       }
       
       const sourceCurrency = origCurrency || originalCurrency || 'EUR';
-      console.log(`[ExpensesPage] Converting ${data.length} expenses from ${sourceCurrency}`);
+      console.log(`[ExpensesPage] Convertendo ${data.length} despesas de ${sourceCurrency}`);
       
-      // No longer saves to AsyncStorage
-      console.log(`[ExpensesPage] Using currency ${sourceCurrency} for conversion`);
+      // Não salva mais no AsyncStorage
+      console.log(`[ExpensesPage] Usando moeda ${sourceCurrency} para conversão`);
       
       const convertedExpenses = await Promise.all(data.map(async (expense, index) => {
         try {
-          console.log(`[Expense ${index+1}] Converting ${expense.amount} ${sourceCurrency}`);
+          console.log(`[Expense ${index+1}] Convertendo ${expense.amount} ${sourceCurrency}`);
           const convertedAmount = await convertValueToCurrentCurrency(expense.amount, sourceCurrency);
-          console.log(`[Expense ${index+1}] Result: ${convertedAmount}`);
+          console.log(`[Expense ${index+1}] Resultado: ${convertedAmount}`);
           
           return {
             ...expense,
             amount: convertedAmount
           };
         } catch (error) {
-          console.error('[ExpensesPage] Error converting individual value:', error);
+          console.error('[ExpensesPage] Erro ao converter valor individual:', error);
           return expense; // Manter o valor original em caso de erro
         }
       }));
       
-      console.log('[ExpensesPage] Expenses converted successfully');
+      console.log('[ExpensesPage] Despesas convertidas com sucesso');
       setExpenses(convertedExpenses);
     } catch (error) {
-      console.error('[ExpensesPage] Error converting values:', error);
+      console.error('[ExpensesPage] Erro ao converter valores:', error);
       setExpenses(data); // Em caso de erro, usar os valores originais
     }
   };
 
-  // Listener for currency changes
+  // Ouvinte para mudanças na moeda
   const handleCurrencyChange = async (newCurrency) => {
     try {
-      console.log('Currency changed to:', newCurrency?.code);
+      console.log('Moeda alterada para:', newCurrency?.code);
       
-      // Check if we should convert values
+      // Verificar se devemos converter os valores
       const shouldConvert = shouldConvertCurrencyValues();
-      console.log('Convert values?', shouldConvert);
+      console.log('Converter valores?', shouldConvert);
       
       if (shouldConvert) {
-        // Convert values using original currency
+        // Converter valores usando a moeda original
         await convertExpensesToCurrentCurrency(originalExpenses, originalCurrency);
       } else {
-        // Only update currency symbol, without converting values
+        // Apenas atualizar o símbolo da moeda, sem converter os valores
         setExpenses([...originalExpenses]);
       }
       
-      // Force chart re-render
+      // Forçar re-renderização do gráfico
       setChartRenderKey(Date.now());
     } catch (error) {
-      console.error('Error handling currency change:', error);
+      console.error('Erro ao lidar com mudança de moeda:', error);
     }
   };
 
@@ -328,16 +328,16 @@ const ExpensesPage = ({ navigation }) => {
 
       if (error) throw error;
       
-      // Store original values
+      // Armazenar valores originais
       setOriginalExpenses(data || []);
       
-      // Get user currency to use in conversion
+      // Obter a moeda do usuário para usar na conversão
       const origCurrency = await loadUserCurrency();
       
-      // Convert to current currency
+      // Converter para a moeda atual
       await convertExpensesToCurrentCurrency(data || [], origCurrency);
       
-      // Clear filter when new data is loaded
+      // Limpar o filtro quando novos dados são carregados
       setFilteredExpenses([]);
       setSelectedCategoryId(null);
     } catch (error) {
@@ -456,7 +456,7 @@ const ExpensesPage = ({ navigation }) => {
 
       fetchExpenses(userId);
       
-      // Clear filter when a new expense is added
+      // Limpar o filtro quando uma nova despesa é adicionada
       setFilteredExpenses([]);
       setSelectedCategoryId(null);
     } catch (error) {
@@ -488,7 +488,7 @@ const ExpensesPage = ({ navigation }) => {
       setShowAlert(true);
       fetchExpenses(userId);
       
-      // Clear filter when an expense is deleted
+      // Limpar o filtro quando uma despesa é excluída
       setFilteredExpenses([]);
       setSelectedCategoryId(null);
     } catch (error) {
@@ -540,7 +540,7 @@ const ExpensesPage = ({ navigation }) => {
   };
 
   const renderExpenseCard = (item, index) => {
-    // Render only expense cards, not buttons
+    // Renderiza apenas cards de despesa, não botões
     const isHighlighted = selectedCategoryId === item.category_id;
 
     return (

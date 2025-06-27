@@ -204,20 +204,20 @@ export const convertCurrencyForUserData = async (fromCurrency, toCurrency) => {
   try {
     // Check if user is authenticated
     const { data: { session } } = await supabase.auth.getSession();
-    if (!session || !session.user) return { success: false, error: 'User not authenticated' };
+    if (!session || !session.user) return { success: false, error: 'Usuário não autenticado' };
 
     const userId = session.user.id;
 
     // If currencies are the same, no conversion needed
     if (fromCurrency === toCurrency) {
       // Removed console.log - not essential
-      return { success: true, message: 'Same currencies, conversion not necessary' };
+      return { success: true, message: 'Moedas iguais, conversão não necessária' };
     }
 
     // Get conversion rate
     const rate = await getConversionRate(fromCurrency, toCurrency);
     if (!rate) {
-      return { success: false, error: 'Could not get conversion rate' };
+      return { success: false, error: 'Não foi possível obter taxa de conversão' };
     }
 
     // Convert incomes
@@ -234,7 +234,7 @@ export const convertCurrencyForUserData = async (fromCurrency, toCurrency) => {
 
     return { 
       success: true, 
-      message: `Conversion completed: ${incomesResult.converted} incomes, ${expensesResult.converted} expenses` 
+      message: `Conversão concluída: ${incomesResult.converted} receitas, ${expensesResult.converted} despesas` 
     };
   } catch (error) {
     console.error('Error in convertCurrencyForUserData:', error);
@@ -242,7 +242,7 @@ export const convertCurrencyForUserData = async (fromCurrency, toCurrency) => {
   }
 };
 
-// Function to convert incomes
+// Função para converter receitas
 async function convertIncomes(userId, fromCurrency, toCurrency, rate) {
   try {
     const { data: incomes, error } = await supabase
@@ -296,7 +296,7 @@ async function convertIncomes(userId, fromCurrency, toCurrency, rate) {
   }
 }
 
-// Function to convert expenses
+// Função para converter despesas
 async function convertExpenses(userId, fromCurrency, toCurrency, rate) {
   try {
     const { data: expenses, error } = await supabase

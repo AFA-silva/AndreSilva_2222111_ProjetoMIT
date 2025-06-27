@@ -427,16 +427,16 @@ const CurrencyMarketPage = ({ navigation }) => {
   });
   const [userPreferredCurrency, setUserPreferredCurrency] = useState(null);
   const [currencyLimit, setCurrencyLimit] = useState(10); // Novo estado para controlar o limite de moedas
-  const [isLoadingMore, setIsLoadingMore] = useState(false); // State to control additional loading
+  const [isLoadingMore, setIsLoadingMore] = useState(false); // Estado para controlar carregamento adicional
   const [isConverterLoading, setIsConverterLoading] = useState(false); // New state for converter loading
   const [isCurrencyListLoading, setIsCurrencyListLoading] = useState(false); // New state for currency list loading
   
-  // New states for currency confirmation modal
+  // Novos estados para o modal de confirmação de moeda
   const [confirmModalVisible, setConfirmModalVisible] = useState(false);
   const [convertValues, setConvertValues] = useState(true);
   const [pendingCurrencyChange, setPendingCurrencyChange] = useState(null);
   
-  // New state for user saved currencies
+  // Novo estado para moedas salvas pelo usuário
   const [savedCurrencies, setSavedCurrencies] = useState([]);
   const [saveModalVisible, setSaveModalVisible] = useState(false);
   
@@ -449,25 +449,25 @@ const CurrencyMarketPage = ({ navigation }) => {
     buttons: []
   });
   
-  // Refs for animations
+  // Refs para animações
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const converterScaleAnim = useRef(new Animated.Value(0.95)).current;
   const spinAnim = useRef(new Animated.Value(0)).current;
   const successAnim = useRef(new Animated.Value(0)).current;
 
-  // Popular currencies with their symbols - we'll transform them into saved currencies
-  const defaultPopularCurrencies = [];  // Removing default popular currencies
+  // Moedas populares com seus símbolos - transformaremos em moedas salvas
+  const defaultPopularCurrencies = [];  // Removendo as moedas populares padrão
 
-  // State for saved currencies (initially popular)
+  // Estado para as moedas salvas (inicialmente populares)
   const [popularCurrencies, setPopularCurrencies] = useState(defaultPopularCurrencies);
 
-  // Load user preferred currency when mounting
+  // Carregar a moeda preferida do usuário ao montar
   useEffect(() => {
     let isMounted = true;
     
     const loadUserPreferences = async () => {
       try {
-        // Try to load user currency only from Supabase
+        // Tentar carregar a moeda do usuário apenas do Supabase
         let userCurrency = null;
         
         try {
@@ -489,7 +489,7 @@ const CurrencyMarketPage = ({ navigation }) => {
               userCurrency = 'USD';
                               console.log('No currency preference found, using default:', userCurrency);
               
-              // Create record with default value
+              // Criar registro com valor padrão
               if (user && isMounted) {
                 const { error: insertError } = await supabase
                   .from('user_currency_preferences')
@@ -504,26 +504,26 @@ const CurrencyMarketPage = ({ navigation }) => {
               }
             }
           } else {
-            // If user is not logged in, use USD default
+            // Se usuário não estiver logado, usar USD padrão
             userCurrency = 'USD';
           }
         } catch (dbError) {
           console.error('Error loading currency from database:', dbError);
-          // Fallback to default value
+          // Fallback para valor padrão
           userCurrency = 'USD';
         }
         
-        // Set base currency with user preference
+        // Definir a moeda base com a preferência do usuário
         if (userCurrency && isMounted) {
           setBaseCurrency(userCurrency);
           setUserPreferredCurrency(userCurrency);
-          // Save for comparison when leaving the page
+          // Guardar para comparação quando sair da página
           initialUserCurrency.current = userCurrency;
           // Mark as initialized to allow data loading
           setIsInitialized(true);
         }
 
-        // Initialize saved currencies from AsyncStorage
+        // Inicializar moedas salvas do AsyncStorage
         if (isMounted) {
           try {
             const savedCurrenciesData = await AsyncStorage.getItem('user_saved_currencies');
@@ -534,7 +534,7 @@ const CurrencyMarketPage = ({ navigation }) => {
               setSavedCurrencies([]);
             }
           } catch (storageError) {
-            console.error('Error loading saved currencies from AsyncStorage:', storageError);
+            console.error('Erro ao carregar moedas salvas do AsyncStorage:', storageError);
             setSavedCurrencies([]);
           }
         }
@@ -556,10 +556,10 @@ const CurrencyMarketPage = ({ navigation }) => {
     };
   }, []);
   
-  // Reference to store user's initial currency for comparison
+  // Referência para armazenar a moeda inicial do usuário para comparação
   const initialUserCurrency = useRef(null);
   
-  // Function to verify and save currency change when leaving the page
+  // Função para verificar e salvar mudança de moeda ao sair da página
   const verifyAndSaveCurrencyChange = async () => {
     try {
       // If current currency is different from initial, update in database
@@ -567,7 +567,7 @@ const CurrencyMarketPage = ({ navigation }) => {
           userPreferredCurrency && 
           initialUserCurrency.current !== userPreferredCurrency) {
         
-        console.log(`Currency changed: ${initialUserCurrency.current} → ${userPreferredCurrency}`);
+        console.log(`Moeda alterada: ${initialUserCurrency.current} → ${userPreferredCurrency}`);
         
         // Use centralized function to update currency in database
         const success = await updateUserCurrencyPreference(userPreferredCurrency);
@@ -579,11 +579,11 @@ const CurrencyMarketPage = ({ navigation }) => {
         }
       }
     } catch (error) {
-      console.error('Error checking currency change:', error);
+      console.error('Erro ao verificar mudança de moeda:', error);
     }
   };
 
-  // Load exchange rates and supported currencies
+  // Carregar taxas de câmbio e moedas suportadas
   useEffect(() => {
     // Only load data if baseCurrency is set and component is initialized
     if (!baseCurrency || !isInitialized) return;
@@ -607,21 +607,21 @@ const CurrencyMarketPage = ({ navigation }) => {
     };
   }, [baseCurrency, isInitialized]);
 
-  // Update popular currencies when currency list is loaded
+  // Atualizar moedas populares quando a lista de moedas for carregada
   useEffect(() => {
     if (currencies.length > 0) {
       updatePopularCurrencies();
     }
   }, [currencies, userPreferredCurrency]);
 
-  // Update conversion result when values change
+  // Atualizar resultado da conversão quando valores mudam
   useEffect(() => {
     if (!loading && rates) {
       updateConversion();
     }
   }, [amount, baseCurrency, targetCurrency, rates]);
 
-  // Start animations when loading is completed
+  // Iniciar animações quando o carregamento for concluído
   useEffect(() => {
     if (!loading) {
       startEntryAnimations();

@@ -1,21 +1,21 @@
-import React, { useState, useEffect, useRef } from 'react'; // Import React components
-import { View, Text, TextInput, TouchableOpacity, Platform, Keyboard, Image } from 'react-native'; // Import React Native components
+import React, { useState, useEffect, useRef } from 'react'; // Import de componentes do React
+import { View, Text, TextInput, TouchableOpacity, Platform, Keyboard, Image } from 'react-native'; // Import de componentes do react native
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
-import styles from '../Styles/AccountPageStyles/LoginPageStyle'; // Import style for the login page
-import { supabase } from '../../Supabase'; // Import Database
-import Alert from '../Utility/Alerts'; // Import custom Alerts
-import { updateUser, getSession } from '../Utility/MainQueries'; // Import queries to update user and get session
-import { loadSavedCurrency } from '../Utility/FetchCountries'; // Import to load currency
-import authService from '../Utility/AuthService'; // Import AuthService
+import styles from '../Styles/AccountPageStyles/LoginPageStyle'; // Import do estilo para a página de login
+import { supabase } from '../../Supabase'; // Import da Database
+import Alert from '../Utility/Alerts'; // Import dos Alertas customs
+import { updateUser, getSession } from '../Utility/MainQueries'; // Import das queries para atualizar usuário e obter a sessão
+import { loadSavedCurrency } from '../Utility/FetchCountries'; // Import para carregar a moeda
+import authService from '../Utility/AuthService'; // Import do AuthService
 
 const LoginPage = ({ navigation }) => {
-  // Create variables for alerts.
+  // Cria as variáveis para os alertas.
   const [alertMessage, setAlertMessage] = useState('');
   const [alertType, setAlertType] = useState('');
   const [showAlert, setShowAlert] = useState(false);
 
-  // Create variables for login (email and password)
+  // Cria as variáveis para o login (email e password)
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   
@@ -25,7 +25,7 @@ const LoginPage = ({ navigation }) => {
   // Remember me functionality
   const [rememberMe, setRememberMe] = useState(false); // Remember me checkbox state
   
-  // Refs for inputs
+  // Refs para os inputs
   const emailInputRef = useRef(null);
   const passwordInputRef = useRef(null);
   const containerRef = useRef(null);
@@ -48,7 +48,7 @@ const LoginPage = ({ navigation }) => {
     loadSavedCredentials();
   }, []);
 
-  // Helper to remove focus from any element on the screen
+  // Helper para remover o foco de qualquer elemento na tela
   const clearFocus = () => {
     if (Platform.OS === 'web') {
       // Dismiss keyboard only, don't try to manipulate focus directly
@@ -58,20 +58,20 @@ const LoginPage = ({ navigation }) => {
     }
   };
 
-  // Fix aria-hidden problem, remove direct focus manipulation
+  // Corrige o problema de aria-hidden remova manipulação direta de foco
   useFocusEffect(
     React.useCallback(() => {
-      // Only hide the virtual keyboard if necessary
+      // Apenas esconde o teclado virtual se necessário
       Keyboard.dismiss();
       
-      // Clear focus when the screen loses focus
+      // Limpa o foco quando a tela perde foco
       return () => {
         Keyboard.dismiss();
       };
     }, [])
   );
   
-  // Clear focus when the screen is no longer focused
+  // Limpar foco quando a tela não estiver mais focada
   useEffect(() => {
     const unsubscribeBeforeRemove = navigation.addListener('beforeRemove', () => {
       Keyboard.dismiss();
@@ -82,7 +82,7 @@ const LoginPage = ({ navigation }) => {
     };
   }, [navigation]);
 
-  // Function to show the alert
+  // Função para mostrar o alerta
   const showAlertMessage = (message, type) => {
     setAlertMessage(message);
     setAlertType(type);
@@ -90,11 +90,11 @@ const LoginPage = ({ navigation }) => {
     setTimeout(() => setShowAlert(false), 3000);
   };
 
-  // Function to attempt login
+  // Função para tentar fazer o login
   const handleLogin = async () => {
     try {
-      // Show credentials in the console
-      console.log('Attempting login with:', email, password);
+      // Mostra na consola as credenciais
+      console.log('A Tentar login com:', email, password);
 
       // Use AuthService to handle login
       const result = await authService.signIn(email, password, rememberMe);
@@ -107,7 +107,7 @@ const LoginPage = ({ navigation }) => {
       console.log('User authenticated:', result.user);
       showAlertMessage(`Welcome, ${result.user.email}!`, 'success');
 
-      // Get the session to access the user ID
+      // Obtém a sessão para acessar o ID do usuário
       const session = await getSession();
       const userId = session?.user?.id;
 
@@ -130,36 +130,36 @@ const LoginPage = ({ navigation }) => {
         }
       }
 
-      // Initialize currencies before navigating to the main screen
+      // Inicializar as moedas antes de navegar para a tela principal
       try {
         console.log('Loading currency preferences...');
         await loadSavedCurrency();
       } catch (currencyError) {
         console.error('Error loading currency preferences:', currencyError);
-        // Continue even with currency error
+        // Continue mesmo com erro de moeda
       }
 
-      // Wait 1.5 seconds before going to MainPage
+      // Espera de 1.5 segundos antes de ir para a MainPage
       setTimeout(() => {
         navigation.navigate('MainPages');
       }, 1500);
 
     } catch (exception) {
-      // If the try block fails, catch the error and display a message
+      // Se o bloco try falhar, captura o erro e exibe uma mensagem
       console.error('Exception when logging in:', exception);
       showAlertMessage('An error occurred. Please try again later.', 'error');
     }
   };
 
-  // Login Page front-end
+  // Front-end da Login Page
   return (
     <View style={styles.container} ref={containerRef} accessibilityViewIsModal={true}>
-      {/* Render the alert only when visible */}
+      {/* Renderizar o alerta apenas quando visível */}
       {showAlert && (
         <Alert message={alertMessage} type={alertType} onClose={() => setShowAlert(false)} />
       )}
 
-      {/* Application logo */}
+      {/* Logo da aplicação */}
       <Image 
         source={require('../../assets/logo.png')} 
         style={styles.logo} 

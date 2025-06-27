@@ -3,7 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, Modal, StyleSheet, FlatList } 
 import { Ionicons } from '@expo/vector-icons';
 import { fetchExchangeRates, getCurrentCurrency, formatCurrency, formatCurrencyWithCode, shouldConvertCurrencyValues } from './FetchCountries';
 
-// Cache exchange rates to avoid multiple API calls
+// Armazenar em cache as taxas de câmbio para evitar múltiplas chamadas à API
 let exchangeRatesCache = {
   rates: {},
   lastUpdated: null,
@@ -22,7 +22,7 @@ const getFixedRate = (fromCurrency, toCurrency) => {
   return fixedRates[fromCurrency]?.[toCurrency] || null;
 };
 
-// Function to automatically convert values based on current currency
+// Função para converter valores automaticamente com base na moeda atual
 export const convertCurrency = async (value, fromCurrency, toCurrency, shouldConvert = true) => {
   try {
     // Check if conversion is enabled
@@ -108,19 +108,19 @@ export const CurrencyConverterField = ({ value, onValueChange, style = {} }) => 
   const [availableCurrencies, setAvailableCurrencies] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
 
-      // Load rates and initialize
+  // Carregar taxas e inicializar
   useEffect(() => {
     const init = async () => {
       try {
         setIsLoading(true);
         
-        // Get current currency
+        // Obter a moeda atual
         const currentCurrency = getCurrentCurrency();
         
-        // Fetch exchange rates
+        // Buscar taxas de câmbio
         const rates = await fetchExchangeRates(currentCurrency.code);
         
-        // Prepare list of available currencies
+        // Preparar lista de moedas disponíveis
         const currencies = Object.keys(rates).map(code => ({
           code,
           rate: rates[code]
@@ -128,7 +128,7 @@ export const CurrencyConverterField = ({ value, onValueChange, style = {} }) => 
         
         setAvailableCurrencies(currencies);
         
-        // If no currency selected, use EUR as default
+        // Se não houver moeda selecionada, usar EUR como padrão
         if (!targetCurrency) {
           setTargetCurrency('EUR');
         }
@@ -165,7 +165,7 @@ export const CurrencyConverterField = ({ value, onValueChange, style = {} }) => 
         const formatted = await formatCurrencyWithCode(result, targetCurrency);
         setConvertedAmount(formatted);
         
-        // Update value in parent component
+        // Atualizar valor no componente pai
         if (onValueChange) {
           onValueChange(inputValue);
         }
@@ -222,7 +222,7 @@ export const CurrencyConverterField = ({ value, onValueChange, style = {} }) => 
         </View>
       ) : null}
       
-      {/* Currency selection modal */}
+      {/* Modal de seleção de moeda */}
       <Modal
         visible={isModalVisible}
         transparent={true}

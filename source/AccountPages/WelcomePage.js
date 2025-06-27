@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, Image, TouchableOpacity } from 'react-native';
-import styles from '../Styles/AccountPageStyles/WelcomePageStyle'; // Import styles
+import styles from '../Styles/AccountPageStyles/WelcomePageStyle'; // Importar os estilos
 
 const WelcomePage = ({ navigation }) => {
 
