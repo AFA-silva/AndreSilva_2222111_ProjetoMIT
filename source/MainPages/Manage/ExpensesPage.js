@@ -554,11 +554,11 @@ const ExpensesPage = ({ navigation }) => {
         {/* Header Row */}
         <View style={beautifulStyles.cardHeader}>
           <View style={beautifulStyles.cardHeaderLeft}>
-            <View style={beautifulStyles.expenseIcon}>
-              <Ionicons name="trending-down" size={18} color="#F44336" />
+            <View style={[beautifulStyles.expenseIcon, { backgroundColor: '#E3F2FD' }]}>
+              <Ionicons name="trending-down" size={18} color="#2196F3" />
             </View>
             <View>
-              <Text style={beautifulStyles.expenseTitle}>{item.name}</Text>
+              <Text style={[beautifulStyles.expenseTitle, { color: '#000000' }]}>{item.name}</Text>
               <Text style={beautifulStyles.expenseAmount}>
                 {formatCurrency(item.amount)}
               </Text>
@@ -588,13 +588,11 @@ const ExpensesPage = ({ navigation }) => {
 
         {/* Tags and Priority Row */}
         <View style={beautifulStyles.tagsRow}>
-          <View style={[beautifulStyles.priorityIndicator, getPriorityColor(item.priority)]} />
           {item.categories && (
             <View style={[
               beautifulStyles.categoryTag,
               isHighlighted && beautifulStyles.highlightedTag
             ]}>
-              <Ionicons name="folder" size={12} color={isHighlighted ? "#FFFFFF" : "#C62828"} />
               <Text style={[
                 beautifulStyles.tagText,
                 isHighlighted && beautifulStyles.highlightedTagText
@@ -1200,29 +1198,35 @@ const ExpensesPage = ({ navigation }) => {
           <TouchableOpacity
             style={beautifulStyles.addButton}
             onPress={handleAddExpense}
-            activeOpacity={0.7}
+            activeOpacity={0.8}
           >
-            <View style={beautifulStyles.addButtonIcon}>
-              <Ionicons name="add" size={24} color="#FFFFFF" />
-            </View>
-            <View>
-              <Text style={beautifulStyles.addButtonText}>Add New Expense</Text>
-              <Text style={beautifulStyles.addButtonSubtext}>Track your expenses</Text>
+            <View style={beautifulStyles.addButtonContent}>
+              <View style={beautifulStyles.addButtonIcon}>
+                <Ionicons name="add" size={24} color="#F44336" />
+              </View>
+              <View style={beautifulStyles.addButtonTextContainer}>
+                <Text style={beautifulStyles.addButtonText}>Add New Expense</Text>
+                <Text style={beautifulStyles.addButtonSubtext}>Track your expenses</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#F44336" />
             </View>
           </TouchableOpacity>
 
           {/* Manage Button */}
           <TouchableOpacity
-            style={[beautifulStyles.addButton, { backgroundColor: '#FF9800' }]}
+            style={beautifulStyles.manageButton}
             onPress={() => setManageModalVisible(true)}
-            activeOpacity={0.7}
+            activeOpacity={0.8}
           >
-            <View style={[beautifulStyles.addButtonIcon, { backgroundColor: 'rgba(0,0,0,0.1)' }]}>
-              <Ionicons name="settings" size={24} color="#FFFFFF" />
-            </View>
-            <View>
-              <Text style={beautifulStyles.addButtonText}>Manage Extra</Text>
-              <Text style={beautifulStyles.addButtonSubtext}>Add or edit categories & frequencies</Text>
+            <View style={beautifulStyles.manageButtonContent}>
+              <View style={beautifulStyles.manageButtonIcon}>
+                <Ionicons name="settings" size={24} color="#F44336" />
+              </View>
+              <View style={beautifulStyles.manageButtonTextContainer}>
+                <Text style={beautifulStyles.manageButtonText}>Manage Extra</Text>
+                <Text style={beautifulStyles.manageButtonSubtext}>Add or edit categories & frequencies</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#F44336" />
             </View>
           </TouchableOpacity>
           
@@ -1283,7 +1287,7 @@ const ExpensesPage = ({ navigation }) => {
               <Text style={{
                 fontSize: 18,
                 fontWeight: '700',
-                color: '#F44336',
+                color: '#000000',
                 marginBottom: 16,
                 textAlign: 'center',
               }}>
@@ -1293,13 +1297,13 @@ const ExpensesPage = ({ navigation }) => {
               <Text style={{
                 fontSize: 14,
                 fontWeight: '600',
-                color: '#C62828',
+                color: '#000000',
                 marginBottom: 4,
               }}>Expense Name</Text>
               <TextInput
                 style={{
                   borderWidth: 1,
-                  borderColor: '#FFCDD2',
+                  borderColor: '#F44336',
                   borderRadius: 8,
                   padding: 12,
                   marginBottom: 12,
@@ -1317,19 +1321,19 @@ const ExpensesPage = ({ navigation }) => {
               <Text style={{
                 fontSize: 14,
                 fontWeight: '600',
-                color: '#C62828',
+                color: '#000000',
                 marginBottom: 4,
               }}>Amount</Text>
               <TextInput
                 style={{
                   borderWidth: 1,
-                  borderColor: '#FFCDD2',
+                  borderColor: '#F44336',
                   borderRadius: 8,
                   padding: 12,
                   marginBottom: 12,
                   backgroundColor: '#FFFFFF',
                   fontSize: 16,
-                  color: '#C62828',
+                  color: '#000000',
                   minHeight: 44,
                 }}
                 placeholder="Enter amount"
@@ -1342,12 +1346,12 @@ const ExpensesPage = ({ navigation }) => {
               <Text style={{
                 fontSize: 14,
                 fontWeight: '600',
-                color: '#C62828',
+                color: '#000000',
                 marginBottom: 4,
               }}>Category</Text>
               <View style={{
                 borderWidth: 1,
-                borderColor: '#FFCDD2',
+                borderColor: '#F44336',
                 borderRadius: 8,
                 marginBottom: 12,
                 backgroundColor: '#FFFFFF',
@@ -1371,12 +1375,12 @@ const ExpensesPage = ({ navigation }) => {
               <Text style={{
                 fontSize: 14,
                 fontWeight: '600',
-                color: '#C62828',
+                color: '#000000',
                 marginBottom: 4,
               }}>Frequency</Text>
               <View style={{
                 borderWidth: 1,
-                borderColor: '#FFCDD2',
+                borderColor: '#F44336',
                 borderRadius: 8,
                 marginBottom: 12,
                 backgroundColor: '#FFFFFF',
@@ -1400,12 +1404,12 @@ const ExpensesPage = ({ navigation }) => {
               <Text style={{
                 fontSize: 14,
                 fontWeight: '600',
-                color: '#C62828',
+                color: '#000000',
                 marginBottom: 4,
               }}>Priority</Text>
               <View style={{
                 borderWidth: 1,
-                borderColor: '#FFCDD2',
+                borderColor: '#F44336',
                 borderRadius: 8,
                 marginBottom: 16,
                 backgroundColor: '#FFFFFF',
@@ -1431,7 +1435,7 @@ const ExpensesPage = ({ navigation }) => {
                 <TouchableOpacity
                   style={{
                     flex: 1,
-                    backgroundColor: '#E0E0E0',
+                    backgroundColor: '#F44336',
                     padding: 16,
                     borderRadius: 8,
                     alignItems: 'center',
@@ -1442,7 +1446,7 @@ const ExpensesPage = ({ navigation }) => {
                   activeOpacity={0.7}
                 >
                   <Text style={{
-                    color: '#616161',
+                    color: '#FFFFFF',
                     fontWeight: '600',
                     fontSize: 16,
                   }}>Cancel</Text>
@@ -1450,7 +1454,7 @@ const ExpensesPage = ({ navigation }) => {
                 <TouchableOpacity
                   style={{
                     flex: 1,
-                    backgroundColor: '#F44336',
+                    backgroundColor: '#4CAF50',
                     padding: 16,
                     borderRadius: 8,
                     alignItems: 'center',
@@ -1512,13 +1516,13 @@ const ExpensesPage = ({ navigation }) => {
               <Text style={{
                 fontSize: 20,
                 fontWeight: '700',
-                color: '#F44336',
+                color: '#000000',
                 letterSpacing: 0.5,
               }}>Delete Expense</Text>
             </View>
             <Text style={{
               fontSize: 16,
-              color: '#C62828',
+              color: '#000000',
               textAlign: 'center',
               marginBottom: 8,
               letterSpacing: 0.3,
@@ -1527,7 +1531,7 @@ const ExpensesPage = ({ navigation }) => {
             </Text>
             <Text style={{
               fontSize: 14,
-              color: '#E57373',
+              color: '#E65100',
               textAlign: 'center',
               marginBottom: 20,
               letterSpacing: 0.2,
@@ -1564,7 +1568,7 @@ const ExpensesPage = ({ navigation }) => {
               <TouchableOpacity
                 style={{
                   flex: 1,
-                  backgroundColor: '#FFCDD2',
+                  backgroundColor: '#4CAF50',
                   padding: 16,
                   borderRadius: 8,
                   alignItems: 'center',
@@ -1575,9 +1579,9 @@ const ExpensesPage = ({ navigation }) => {
                 onPress={() => setDeleteModalVisible(false)}
                 activeOpacity={0.7}
               >
-                <Ionicons name="close" size={20} color="#C62828" style={{ marginRight: 8 }} />
+                <Ionicons name="close" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
                 <Text style={{
-                  color: '#C62828',
+                  color: '#FFFFFF',
                   fontWeight: '600',
                   fontSize: 16,
                   letterSpacing: 0.5,
@@ -1620,14 +1624,35 @@ const ExpensesPage = ({ navigation }) => {
             activeOpacity={1}
             onPress={(e) => e.stopPropagation()}
           >
-            <Text style={{
-              fontSize: 18,
-              fontWeight: '700',
-              color: '#F44336',
+            <View style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
               marginBottom: 16,
-              textAlign: 'center',
-              letterSpacing: 0.5,
-            }}>Manage Extra</Text>
+            }}>
+              <Text style={{
+                fontSize: 18,
+                fontWeight: '700',
+                color: '#000000',
+                flex: 1,
+                textAlign: 'center',
+                letterSpacing: 0.5,
+              }}>Manage Extra</Text>
+              <TouchableOpacity
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 16,
+                  backgroundColor: '#F5F5F5',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                }}
+                onPress={() => setManageModalVisible(false)}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="close" size={18} color="#666666" />
+              </TouchableOpacity>
+            </View>
             
             {/* Tab Selection */}
             <View style={{
@@ -1702,7 +1727,7 @@ const ExpensesPage = ({ navigation }) => {
             </View>
             
             <ScrollView 
-              style={{ maxHeight: 300, flex: 1 }} 
+              style={{ flex: 1 }} 
               showsVerticalScrollIndicator={true}
               keyboardShouldPersistTaps="handled"
               nestedScrollEnabled={true}
@@ -1713,13 +1738,13 @@ const ExpensesPage = ({ navigation }) => {
                   <Text style={{
                     fontSize: 16,
                     fontWeight: '600',
-                    color: '#C62828',
+                    color: '#000000',
                     marginBottom: 12,
                     letterSpacing: 0.3,
                   }}>Expense Categories</Text>
                   
                   <ScrollView 
-                    style={{ maxHeight: 200, flex: 1 }}
+                    style={{ flex: 1 }}
                     showsVerticalScrollIndicator={true}
                     nestedScrollEnabled={true}
                   >
@@ -1790,29 +1815,6 @@ const ExpensesPage = ({ navigation }) => {
                       </View>
                     ))}
                   </ScrollView>
-                  
-                  <TouchableOpacity 
-                    style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      backgroundColor: '#F44336',
-                      paddingVertical: 10,
-                      paddingHorizontal: 16,
-                      borderRadius: 8,
-                      marginTop: 8,
-                    }}
-                    onPress={handleAddCategory}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons name="add" size={16} color="#FFFFFF" />
-                    <Text style={{
-                      color: '#FFFFFF',
-                      fontWeight: '600',
-                      fontSize: 14,
-                      marginLeft: 6,
-                    }}>Add Category</Text>
-                  </TouchableOpacity>
                 </View>
               )}
 
@@ -1822,13 +1824,13 @@ const ExpensesPage = ({ navigation }) => {
                   <Text style={{
                     fontSize: 16,
                     fontWeight: '600',
-                    color: '#C62828',
+                    color: '#000000',
                     marginBottom: 12,
                     letterSpacing: 0.3,
                   }}>Frequencies</Text>
                   
                   <ScrollView 
-                    style={{ maxHeight: 200, flex: 1 }}
+                    style={{ flex: 1 }}
                     showsVerticalScrollIndicator={true}
                     nestedScrollEnabled={true}
                   >
@@ -1899,56 +1901,61 @@ const ExpensesPage = ({ navigation }) => {
                       </View>
                     ))}
                   </ScrollView>
-                  
-                  <TouchableOpacity 
-                    style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      backgroundColor: '#F44336',
-                      paddingVertical: 10,
-                      paddingHorizontal: 16,
-                      borderRadius: 8,
-                      marginTop: 8,
-                    }}
-                    onPress={handleAddFrequency}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons name="add" size={16} color="#FFFFFF" />
-                    <Text style={{
-                      color: '#FFFFFF',
-                      fontWeight: '600',
-                      fontSize: 14,
-                      marginLeft: 6,
-                    }}>Add Frequency</Text>
-                  </TouchableOpacity>
                 </View>
               )}
             </ScrollView>
             
+            {/* Add Button at Bottom */}
             <View style={{
-              flexDirection: 'row',
-              justifyContent: 'center',
-              marginTop: 16,
+              paddingTop: 16,
+              borderTopWidth: 1,
+              borderTopColor: '#F0F0F0',
             }}>
-              <TouchableOpacity
-                style={{
-                  backgroundColor: '#F44336',
-                  paddingVertical: 12,
-                  paddingHorizontal: 24,
-                  borderRadius: 8,
-                  minHeight: 44,
-                  justifyContent: 'center',
-                }}
-                onPress={() => setManageModalVisible(false)}
-                activeOpacity={0.7}
-              >
-                <Text style={{
-                  color: '#FFFFFF',
-                  fontWeight: '600',
-                  fontSize: 14,
-                }}>Close</Text>
-              </TouchableOpacity>
+              {activeManageTab === 'categories' && (
+                <TouchableOpacity 
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: '#F44336',
+                    paddingVertical: 12,
+                    paddingHorizontal: 16,
+                    borderRadius: 10,
+                  }}
+                  onPress={handleAddCategory}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="add" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+                  <Text style={{
+                    color: '#FFFFFF',
+                    fontWeight: '600',
+                    fontSize: 14,
+                  }}>Add New Category</Text>
+                </TouchableOpacity>
+              )}
+              
+              {activeManageTab === 'frequencies' && (
+                <TouchableOpacity 
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: '#F44336',
+                    paddingVertical: 12,
+                    paddingHorizontal: 16,
+                    borderRadius: 10,
+                  }}
+                  onPress={handleAddFrequency}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="add" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+                  <Text style={{
+                    color: '#FFFFFF',
+                    fontWeight: '600',
+                    fontSize: 14,
+                  }}>Add New Frequency</Text>
+                </TouchableOpacity>
+              )}
             </View>
           </TouchableOpacity>
         </TouchableOpacity>
@@ -2003,13 +2010,13 @@ const ExpensesPage = ({ navigation }) => {
             <Text style={{
               fontSize: 14,
               fontWeight: '600',
-              color: '#C62828',
+              color: '#000000',
               marginBottom: 4,
             }}>Category Name</Text>
             <TextInput
               style={{
                 borderWidth: 1,
-                borderColor: '#FFCDD2',
+                borderColor: '#F44336',
                 borderRadius: 8,
                 padding: 12,
                 marginBottom: 16,
@@ -2122,13 +2129,13 @@ const ExpensesPage = ({ navigation }) => {
             <Text style={{
               fontSize: 14,
               fontWeight: '600',
-              color: '#C62828',
+              color: '#000000',
               marginBottom: 4,
             }}>Frequency Name</Text>
             <TextInput
               style={{
                 borderWidth: 1,
-                borderColor: '#FFCDD2',
+                borderColor: '#F44336',
                 borderRadius: 8,
                 padding: 12,
                 marginBottom: 12,
@@ -2147,13 +2154,13 @@ const ExpensesPage = ({ navigation }) => {
             <Text style={{
               fontSize: 14,
               fontWeight: '600',
-              color: '#C62828',
+              color: '#000000',
               marginBottom: 4,
             }}>Days</Text>
             <TextInput
               style={{
                 borderWidth: 1,
-                borderColor: '#FFCDD2',
+                borderColor: '#F44336',
                 borderRadius: 8,
                 padding: 12,
                 marginBottom: 16,
@@ -2257,13 +2264,13 @@ const ExpensesPage = ({ navigation }) => {
               <Text style={{
                 fontSize: 20,
                 fontWeight: '700',
-                color: '#F44336',
+                color: '#000000',
                 letterSpacing: 0.5,
               }}>Delete Category</Text>
             </View>
             <Text style={{
               fontSize: 16,
-              color: '#C62828',
+              color: '#000000',
               textAlign: 'center',
               marginBottom: 8,
               letterSpacing: 0.3,
@@ -2272,7 +2279,7 @@ const ExpensesPage = ({ navigation }) => {
             </Text>
             <Text style={{
               fontSize: 14,
-              color: '#E57373',
+              color: '#E65100',
               textAlign: 'center',
               marginBottom: 20,
               letterSpacing: 0.2,
@@ -2312,7 +2319,7 @@ const ExpensesPage = ({ navigation }) => {
               <TouchableOpacity
                 style={{
                   flex: 1,
-                  backgroundColor: '#FFCDD2',
+                  backgroundColor: '#4CAF50',
                   padding: 16,
                   borderRadius: 8,
                   alignItems: 'center',
@@ -2323,9 +2330,9 @@ const ExpensesPage = ({ navigation }) => {
                 onPress={() => setShowDeleteCategoryModal(false)}
                 activeOpacity={0.7}
               >
-                <Ionicons name="close" size={20} color="#C62828" style={{ marginRight: 8 }} />
+                <Ionicons name="close" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
                 <Text style={{
-                  color: '#C62828',
+                  color: '#FFFFFF',
                   fontWeight: '600',
                   fontSize: 16,
                   letterSpacing: 0.5,
@@ -2376,13 +2383,13 @@ const ExpensesPage = ({ navigation }) => {
               <Text style={{
                 fontSize: 20,
                 fontWeight: '700',
-                color: '#F44336',
+                color: '#000000',
                 letterSpacing: 0.5,
               }}>Delete Frequency</Text>
             </View>
             <Text style={{
               fontSize: 16,
-              color: '#C62828',
+              color: '#000000',
               textAlign: 'center',
               marginBottom: 8,
               letterSpacing: 0.3,
@@ -2391,7 +2398,7 @@ const ExpensesPage = ({ navigation }) => {
             </Text>
             <Text style={{
               fontSize: 14,
-              color: '#E57373',
+              color: '#E65100',
               textAlign: 'center',
               marginBottom: 20,
               letterSpacing: 0.2,
@@ -2431,7 +2438,7 @@ const ExpensesPage = ({ navigation }) => {
               <TouchableOpacity
                 style={{
                   flex: 1,
-                  backgroundColor: '#FFCDD2',
+                  backgroundColor: '#4CAF50',
                   padding: 16,
                   borderRadius: 8,
                   alignItems: 'center',
@@ -2442,9 +2449,9 @@ const ExpensesPage = ({ navigation }) => {
                 onPress={() => setShowDeleteFrequencyModal(false)}
                 activeOpacity={0.7}
               >
-                <Ionicons name="close" size={20} color="#C62828" style={{ marginRight: 8 }} />
+                <Ionicons name="close" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
                 <Text style={{
-                  color: '#C62828',
+                  color: '#FFFFFF',
                   fontWeight: '600',
                   fontSize: 16,
                   letterSpacing: 0.5,
@@ -2516,13 +2523,13 @@ const beautifulStyles = {
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 12,
-    backgroundColor: '#FFEBEE',
+    backgroundColor: '#FFFFFF',
     marginBottom: 8,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#C62828',
+    color: '#000000',
   },
   sectionSubtitle: {
     fontSize: 12,
@@ -2557,34 +2564,86 @@ const beautifulStyles = {
     lineHeight: 20,
   },
   addButton: {
-    backgroundColor: '#F44336',
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    padding: 20,
     marginHorizontal: 16,
     marginBottom: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(244, 67, 54, 0.3)',
     shadowColor: '#F44336',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
     elevation: 4,
   },
+  addButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 20,
+  },
   addButtonIcon: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    width: 48,
+    height: 48,
     borderRadius: 12,
-    padding: 8,
+    backgroundColor: 'rgba(244, 67, 54, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
     marginRight: 16,
+  },
+  addButtonTextContainer: {
+    flex: 1,
   },
   addButtonText: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginBottom: 2,
+    fontWeight: '700',
+    color: '#2D3748',
+    letterSpacing: 0.2,
   },
   addButtonSubtext: {
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.8)',
+    fontSize: 14,
+    color: '#718096',
+    marginTop: 2,
+  },
+  manageButton: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    marginHorizontal: 16,
+    marginBottom: 12,
+    borderWidth: 2,
+    borderColor: 'rgba(244, 67, 54, 0.3)',
+    shadowColor: '#F44336',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  manageButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 20,
+  },
+  manageButtonIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: 'rgba(244, 67, 54, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  manageButtonTextContainer: {
+    flex: 1,
+  },
+  manageButtonText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#2D3748',
+    letterSpacing: 0.2,
+  },
+  manageButtonSubtext: {
+    fontSize: 14,
+    color: '#718096',
+    marginTop: 2,
   },
   expenseCard: {
     backgroundColor: '#FFFFFF',
