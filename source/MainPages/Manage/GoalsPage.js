@@ -259,13 +259,13 @@ const GoalDetailsModal = ({ goal, visible, onClose, onEdit, onDelete, status, fi
             )}
 
             {/* Scenario Analysis Section - Always Show */}
-            <View style={styles.scenariosContainer}>
+              <View style={styles.scenariosContainer}>
               <View style={styles.scenariosHeader}>
                 <Ionicons name="analytics" size={20} color="#00B894" />
                 <Text style={styles.sectionTitle}>Scenario Analysis</Text>
               </View>
               
-              <View style={styles.scenariosContent}>
+                  <View style={styles.scenariosContent}>
                 {/* Show scenarios if available, otherwise show basic info */}
                 {hasScenarios ? (
                   <>
@@ -382,26 +382,18 @@ const GoalDetailsModal = ({ goal, visible, onClose, onEdit, onDelete, status, fi
                        const today = new Date();
                        const isExpired = deadlineDate < today;
                        
-                       let scenariosToShow;
-                       if (isExpired) {
-                         // Add a special "extend deadline" scenario for expired goals
-                         const extendDeadlineScenario = {
-                           type: "possible",
-                           title: "Extend Goal Deadline",
-                           description: "Adjust your deadline to give yourself more time",
-                           subDescription: `Continue with current ${goal.goal_saving_minimum}% savings rate`,
-                           possible: true,
-                           sortKey: 0 // Highest priority for expired goals
-                         };
-                         
-                         // For expired goals, show extend deadline first, then possible scenarios, then closest impossible ones
-                         const possibleScenarios = sortedScenarios.filter(s => s.possible);
-                         const impossibleScenarios = sortedScenarios.filter(s => !s.possible);
-                         scenariosToShow = [extendDeadlineScenario, ...possibleScenarios, ...impossibleScenarios].slice(0, 3);
-                       } else {
-                         // For non-expired goals, show up to 3 closest scenarios
-                         scenariosToShow = sortedScenarios.slice(0, 3);
-                       }
+                       // Use only the specific actionable scenarios - no generic fallbacks
+                       
+                                                let scenariosToShow;
+                         if (isExpired) {
+                           // For expired goals, prioritize actionable scenarios
+                           const possibleScenarios = sortedScenarios.filter(s => s.possible);
+                           const impossibleScenarios = sortedScenarios.filter(s => !s.possible);
+                           scenariosToShow = [...possibleScenarios, ...impossibleScenarios];
+                         } else {
+                           // For non-expired goals, show all actionable scenarios
+                           scenariosToShow = sortedScenarios;
+                         }
                        
                        return scenariosToShow.map((scenario, index) => (
                         <ScenarioCard
@@ -410,7 +402,7 @@ const GoalDetailsModal = ({ goal, visible, onClose, onEdit, onDelete, status, fi
                           title={scenario.title}
                           description={scenario.description}
                           subDescription={scenario.subDescription}
-                          expenseDetails={scenario.expenseDetails}
+                            expenseDetails={scenario.expenseDetails}
                           possible={scenario.possible}
                         />
                       ));
@@ -427,28 +419,12 @@ const GoalDetailsModal = ({ goal, visible, onClose, onEdit, onDelete, status, fi
                       possible={true}
                     />
                     
-                    {/* Show basic alternative scenarios */}
+                    {/* Show message when no specific scenarios are available */}
                     <ScenarioCard
                       type="possible"
-                      title="Increase Savings Rate"
-                      description="Consider increasing your savings percentage"
-                      subDescription="Adjust your monthly savings allocation"
-                      possible={true}
-                    />
-                    
-                    <ScenarioCard
-                      type="possible"
-                      title="Reduce Expenses"
-                      description="Look for expenses to cut or optimize"
-                      subDescription="Free up more money for your goal"
-                      possible={true}
-                    />
-                    
-                    <ScenarioCard
-                      type="possible"
-                      title="Extend Deadline"
-                      description="Consider adjusting your goal timeline"
-                      subDescription="Give yourself more time to reach the target"
+                      title="Scenario Analysis Unavailable"
+                      description="Add income and expense data to see specific actionable scenarios"
+                      subDescription="Detailed analysis requires your financial data to calculate precise recommendations"
                       possible={true}
                     />
                   </>
@@ -562,7 +538,7 @@ const ScenarioCard = ({
       
       <View style={styles.scenarioHeader}>
         <View style={[styles.scenarioIcon, getIconStyle()]}>
-          <Ionicons 
+    <Ionicons 
             name={getIcon()} 
             size={12} 
             color="#FFFFFF" 
@@ -602,8 +578,8 @@ const ScenarioCard = ({
           )}
         </View>
       )}
-    </View>
-  );
+  </View>
+);
 };
 
 const GoalsPage = ({ navigation }) => {
@@ -1309,8 +1285,8 @@ const GoalsPage = ({ navigation }) => {
                   >
                     <Text 
                       style={[
-                        styles.savingsTypeButtonText,
-                        formData.inputType === 'percentage' && styles.savingsTypeButtonTextActive
+                      styles.savingsTypeButtonText,
+                      formData.inputType === 'percentage' && styles.savingsTypeButtonTextActive
                       ]}
                       numberOfLines={1}
                       adjustsFontSizeToFit={true}
@@ -1325,8 +1301,8 @@ const GoalsPage = ({ navigation }) => {
                   >
                     <Text 
                       style={[
-                        styles.savingsTypeButtonText,
-                        formData.inputType === 'fixed' && styles.savingsTypeButtonTextActive
+                      styles.savingsTypeButtonText,
+                      formData.inputType === 'fixed' && styles.savingsTypeButtonTextActive
                       ]}
                       numberOfLines={1}
                       adjustsFontSizeToFit={true}
@@ -1359,11 +1335,11 @@ const GoalsPage = ({ navigation }) => {
                       // Handle valid numbers
                       const value = parseFloat(clean);
                       if (!isNaN(value)) {
-                        setFormData({
-                          ...formData,
-                          fixedValue: clean,
+                      setFormData({
+                        ...formData,
+                        fixedValue: clean,
                           goal_saving_minimum: financialMetrics.availableMoney > 0 ? ((value / financialMetrics.availableMoney) * 100) : 0,
-                        });
+                      });
                       }
                     }}
                   />
@@ -1405,13 +1381,13 @@ const GoalsPage = ({ navigation }) => {
                       // Handle valid numbers
                       const percent = parseFloat(clean);
                       if (!isNaN(percent)) {
-                        setFormData({
-                          ...formData,
-                          goal_saving_minimum: percent,
-                          fixedValue: financialMetrics.availableMoney > 0
+                      setFormData({
+                        ...formData,
+                        goal_saving_minimum: percent,
+                        fixedValue: financialMetrics.availableMoney > 0
                             ? ((percent / 100) * financialMetrics.availableMoney).toFixed(2)
-                            : '',
-                        });
+                          : '',
+                      });
                       }
                     }}
                   />
