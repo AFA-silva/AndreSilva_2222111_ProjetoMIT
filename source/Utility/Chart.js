@@ -357,7 +357,11 @@ const renderCustomBarChart = ({
 }) => {
   const barCount = data.length;
   const maxValue = Math.max(...data, 1);
-  const barWidth = Math.max((width - 80) / (barCount * 1.5), 30);
+  // Fixed bar width - consistent regardless of number of categories
+  const maxBarWidth = 45; // Maximum width for bars
+  const minBarWidth = 30; // Minimum width for bars
+  const calculatedWidth = (width - 80) / (barCount * 1.5);
+  const barWidth = Math.min(Math.max(calculatedWidth, minBarWidth), maxBarWidth);
   const chartHeight = height - 50;
   
   const barColors = [
@@ -395,7 +399,10 @@ const renderCustomBarChart = ({
         >
           {data.map((value, i) => {
             const barHeight = (value / maxValue) * (chartHeight - 40);
-            const x = 50 + i * (barWidth * 1.5);
+            // Calculate spacing to center bars when there are fewer categories
+            const totalBarsWidth = barCount * barWidth + (barCount - 1) * (barWidth * 0.5);
+            const startX = (width - totalBarsWidth) / 2;
+            const x = startX + i * (barWidth * 1.5);
             const y = chartHeight - barHeight;
             const isSelected = selectedCategory && selectedCategory.index === i;
             
@@ -438,7 +445,10 @@ const renderCustomBarChart = ({
 
           {data.map((value, i) => {
             const barHeight = (value / maxValue) * (chartHeight - 40);
-            const x = 50 + i * (barWidth * 1.5);
+            // Calculate spacing to center bars when there are fewer categories
+            const totalBarsWidth = barCount * barWidth + (barCount - 1) * (barWidth * 0.5);
+            const startX = (width - totalBarsWidth) / 2;
+            const x = startX + i * (barWidth * 1.5);
             const y = chartHeight - barHeight;
             const isSelected = selectedCategory && selectedCategory.index === i;
             
