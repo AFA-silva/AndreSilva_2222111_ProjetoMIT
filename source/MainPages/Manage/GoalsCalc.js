@@ -1,11 +1,11 @@
 import { formatCurrency as formatCurrencyUtil } from '../../Utility/FetchCountries';
 
-  // Função para formatar moeda
+  // Function to format currency
   export const formatCurrency = (value) => {
     return formatCurrencyUtil(value);
   };
 
-  // Função para calcular progresso da meta
+  // Function to calculate goal progress
   export const calculateGoalProgress = (goal, type = 'time', availableMoney = 0) => {
     const creationDate = new Date(goal.created_at);
     const deadlineDate = new Date(goal.deadline);
@@ -20,19 +20,19 @@ import { formatCurrency as formatCurrencyUtil } from '../../Utility/FetchCountri
       if (daysPassed < 0) return 0;
       return Math.min(progress, 99.99);
     } else if (type === 'financial') {
-      // Cálculo financeiro simplificado, baseado em economia diária
+      // Simplified financial calculation, based on daily savings
       const daysPassed = Math.max(0, Math.floor((today - creationDate) / (1000 * 60 * 60 * 24)));
       
-      // Contribuição mensal com base na percentagem
+      // Monthly contribution based on percentage
       const monthlyContribution = (goal.goal_saving_minimum / 100) * availableMoney;
       
-      // Contribuição diária (simplesmente dividindo por 30 dias)
+      // Daily contribution (simply dividing by 30 days)
       const dailyContribution = monthlyContribution / 30;
       
-      // Total acumulado até hoje
+      // Total accumulated to date
       const accumulatedSavings = dailyContribution * daysPassed;
       
-      // Progresso financeiro (percentagem do objetivo já poupada)
+      // Financial progress (percentage of goal already saved)
       const financialProgress = (accumulatedSavings / goal.amount) * 100;
       
       return Math.min(Math.max(0, financialProgress), 100);
@@ -40,30 +40,25 @@ import { formatCurrency as formatCurrencyUtil } from '../../Utility/FetchCountri
     return 0;
   };
 
-  // Função para calcular o status da meta
+  // Function to calculate goal status
   export const calculateGoalStatus = async (goal, supabase) => {
     try {
       const today = new Date();
       const deadlineDate = new Date(goal.deadline);
       const daysToDeadline = Math.ceil((deadlineDate - today) / (1000 * 60 * 60 * 24));
       
-      // Status 4 apenas no dia da meta (exatamente hoje)
+      // Status 4 only on goal day (exactly today)
       if (daysToDeadline === 0) {
         return {
           status: 4,
-          message: 'Hoje é o dia da meta! Verifique se já atingiu o valor necessário.'
+          message: 'Today is the goal deadline! Check if you\'ve reached the required amount.'
         };
       }
       
-      // Metas expiradas devem ser tratadas como impossíveis (status 3)
-      if (daysToDeadline < 0) {
-        return {
-          status: 3,
-          message: 'Esta meta já expirou e não foi alcançada. Altere a data de entrega para continuar.'
-        };
-      }
+      // For expired goals, we still want to show scenarios but mark as expired
+      let isExpired = daysToDeadline < 0;
 
-      // Obter dados financeiros para simulação de cenários
+      // Get financial data for scenario simulation
       const { data: userGoals, error: goalsError } = await supabase
         .from('goals')
         .select('goal_saving_minimum')
@@ -90,7 +85,7 @@ import { formatCurrency as formatCurrencyUtil } from '../../Utility/FetchCountri
         
       if (expensesError) throw expensesError;
 
-      // Calcular renda e despesas
+      // Calculate income and expenses
       const totalIncome = incomeData.reduce((sum, income) => {
         const days = income.frequencies?.days || 30;
         return sum + (income.amount * 30) / days;
@@ -103,57 +98,67 @@ import { formatCurrency as formatCurrencyUtil } from '../../Utility/FetchCountri
       
       const availableMoney = totalIncome - totalExpenses;
       
-      // Simular cenários
+      // Simulate scenarios (use positive days for calculation, even if expired)
+      const effectiveDays = Math.max(1, daysToDeadline); // Minimum 1 day for calculation
       const scenarios = await simulateGoalScenarios(
         goal, 
         expensesData, 
         availableMoney, 
-        daysToDeadline
+        effectiveDays
       );
       
-      // Determinar status com base nos cenários
+      // If expired, always return status 3 but include scenarios
+      if (isExpired) {
+        return {
+          status: 3,
+          message: 'This goal has already expired. Review scenarios below to adjust your approach.',
+          scenarios
+        };
+      }
+      
+      // Determine status based on scenarios for non-expired goals
       if (scenarios.baseScenario.possible) {
         return {
-          status: 1, // Verde - Alcançável
-          message: 'Esta meta é alcançável com a poupança atual.',
+          status: 1, // Green - Achievable
+          message: 'This goal is achievable with current savings.',
           scenarios
         };
       } else if (scenarios.recommendedScenario) {
-        // Usar a mensagem detalhada do cenário recomendado
+        // Use detailed message from recommended scenario
         let statusMsg = '';
         
         if (scenarios.recommendedScenario.type === 'percentage') {
-          statusMsg = `Meta possível aumentando para ${scenarios.recommendedScenario.newPercentage.toFixed(2)}% da poupança.`;
+          statusMsg = `Goal possible by increasing to ${scenarios.recommendedScenario.newPercentage.toFixed(2)}% of savings.`;
         } 
         else if (scenarios.recommendedScenario.type === 'expense') {
           const expenseNames = scenarios.recommendedScenario.expenseDetails 
             ? scenarios.recommendedScenario.expenseDetails.map(e => e.name).join(", ")
             : '';
-          statusMsg = `Meta possível removendo despesas: ${expenseNames}.`;
+          statusMsg = `Goal possible by removing expenses: ${expenseNames}.`;
         }
         else if (scenarios.recommendedScenario.type === 'multiPriority') {
           const prioritiesText = scenarios.recommendedScenario.priorities.join(', ');
           const expenseNames = scenarios.recommendedScenario.expenseDetails
             ? scenarios.recommendedScenario.expenseDetails.slice(0, 3).map(e => e.name).join(", ")
             : '';
-          statusMsg = `Meta possível removendo despesas de prioridade ${prioritiesText}${expenseNames ? ` (${expenseNames}${scenarios.recommendedScenario.expenseDetails.length > 3 ? '...' : ''})` : ''}.`;
+          statusMsg = `Goal possible by removing priority ${prioritiesText} expenses${expenseNames ? ` (${expenseNames}${scenarios.recommendedScenario.expenseDetails.length > 3 ? '...' : ''})` : ''}.`;
         }
         else if (scenarios.recommendedScenario.type === 'combined') {
           const expenseNames = scenarios.recommendedScenario.expenseDetails
             ? scenarios.recommendedScenario.expenseDetails.slice(0, 2).map(e => e.name).join(", ")
             : '';
-          statusMsg = `Meta possível com ${scenarios.recommendedScenario.newPercentage.toFixed(2)}% e removendo despesas${expenseNames ? ` (${expenseNames}${scenarios.recommendedScenario.expenseDetails.length > 2 ? '...' : ''})` : ''}.`;
+          statusMsg = `Goal possible with ${scenarios.recommendedScenario.newPercentage.toFixed(2)}% and removing expenses${expenseNames ? ` (${expenseNames}${scenarios.recommendedScenario.expenseDetails.length > 2 ? '...' : ''})` : ''}.`;
         }
         
         return {
-          status: 2, // Amarelo - Possível com ajustes
+          status: 2, // Yellow - Possible with adjustments
           message: statusMsg,
           scenarios
         };
       } else if (scenarios.percentageScenario.possible) {
         return {
-          status: 2, // Amarelo - Possível com ajustes
-          message: `Meta possível aumentando para ${scenarios.percentageScenario.newPercentage.toFixed(2)}% da poupança.`,
+          status: 2, // Yellow - Possible with adjustments
+          message: `Goal possible by increasing to ${scenarios.percentageScenario.newPercentage.toFixed(2)}% of savings.`,
           scenarios
         };
       } else if (scenarios.expenseScenarios.some(s => s.possible)) {
@@ -162,8 +167,8 @@ import { formatCurrency as formatCurrencyUtil } from '../../Utility/FetchCountri
           ? bestScenario.expenseDetails.map(e => e.name).join(", ")
           : '';
         return {
-          status: 2, // Amarelo - Possível com ajustes
-          message: `Meta possível removendo despesas: ${expenseNames}.`,
+          status: 2, // Yellow - Possible with adjustments
+          message: `Goal possible by removing expenses: ${expenseNames}.`,
           scenarios
         };
       } else if (scenarios.combinedScenarios.some(s => s.possible)) {
@@ -172,44 +177,44 @@ import { formatCurrency as formatCurrencyUtil } from '../../Utility/FetchCountri
           ? bestCombined.expenseDetails.slice(0, 2).map(e => e.name).join(", ")
           : '';
         return {
-          status: 2, // Amarelo - Possível com ajustes
-          message: `Meta possível com ${bestCombined.newPercentage.toFixed(2)}% e removendo despesas${expenseNames ? ` (${expenseNames}${bestCombined.expenseDetails.length > 2 ? '...' : ''})` : ''}.`,
+          status: 2, // Yellow - Possible with adjustments
+          message: `Goal possible with ${bestCombined.newPercentage.toFixed(2)}% and removing expenses${expenseNames ? ` (${expenseNames}${bestCombined.expenseDetails.length > 2 ? '...' : ''})` : ''}.`,
           scenarios
         };
       } else {
         return {
-          status: 3, // Vermelho - Não alcançável
-          message: 'Esta meta não é alcançável mesmo com ajustes na poupança e despesas.',
+          status: 3, // Red - Not achievable
+          message: 'This goal is not achievable even with adjustments to savings and expenses.',
           scenarios
         };
       }
     } catch (error) {
       console.error('Error calculating goal status:', error);
       return {
-        status: 3, // Vermelho - Erro
-        message: 'Erro ao calcular o status da meta.'
+        status: 3, // Red - Error
+        message: 'Error calculating goal status.'
       };
     }
   };
 
-  // Nova função para simular cenários de metas
+  // New function to simulate goal scenarios
   export const simulateGoalScenarios = async (goal, expenses, availableMoney, daysToDeadline) => {
     try {
-      // Organizar despesas por prioridade (assumindo que existe um campo 'priority')
-      // Se não existir, você pode modificar essa lógica
+      // Organize expenses by priority (assuming a 'priority' field exists)
+      // If it doesn't exist, you can modify this logic
       const expensesByPriority = {};
-      for (let i = 1; i <= 3; i++) { // Apenas considerar prioridades 1-3
-        // Filtra despesas por prioridade (1-3)
+      for (let i = 1; i <= 3; i++) { // Only consider priorities 1-3
+        // Filter expenses by priority (1-3)
         expensesByPriority[i] = expenses.filter(e => e.priority === i || (!e.priority && i === 3));
       }
       
-      // Dados básicos
+      // Basic data
       const monthsToDeadline = daysToDeadline / 30;
       const currentSaving = (goal.goal_saving_minimum / 100) * availableMoney;
       const totalCurrentSaving = currentSaving * monthsToDeadline;
       const goalAmount = goal.amount || 0;
       
-      // Cenário 1: Verificar se é possível com a configuração atual
+      // Scenario 1: Check if possible with current configuration
       const baseScenario = {
         type: 'current',
         possible: totalCurrentSaving >= goalAmount,
@@ -220,7 +225,7 @@ import { formatCurrency as formatCurrencyUtil } from '../../Utility/FetchCountri
         currentPercentage: goal.goal_saving_minimum
       };
       
-      // Cenário 2: Ajuste apenas de porcentagem
+      // Scenario 2: Percentage adjustment only
       let neededSavingPerMonth = goalAmount / monthsToDeadline;
       let neededPercentage = (neededSavingPerMonth / availableMoney) * 100;
       
@@ -233,28 +238,28 @@ import { formatCurrency as formatCurrencyUtil } from '../../Utility/FetchCountri
         totalChange: goalAmount - totalCurrentSaving
       };
       
-      // Cenário 3: Remoção de despesas por prioridade
+      // Scenario 3: Expense removal by priority
       const expenseScenarios = [];
       let cumulativeSavings = 0;
       
       for (let priority = 1; priority <= 3; priority++) { // Apenas considerar prioridades 1-3
         const priorityExpenses = expensesByPriority[priority] || [];
         
-        // Só considere se houver despesas nesta prioridade
+        // Only consider if there are expenses in this priority
         if (priorityExpenses.length === 0) continue;
         
-        // Calcular quanto seria economizado removendo essas despesas
+        // Calculate how much would be saved by removing these expenses
         const monthlySavings = priorityExpenses.reduce((sum, expense) => {
           const days = expense.frequencies?.days || 30;
           return sum + (expense.amount * 30 / days);
         }, 0);
         
-        // Se não há economia mensal significativa, pule
+        // If there's no significant monthly savings, skip
         if (monthlySavings <= 0) continue;
         
-        // Capturar os nomes e valores das despesas para exibição
+        // Capture expense names and values for display
         const expenseDetails = priorityExpenses.map(expense => ({
-          name: expense.name || expense.description || `Despesa ${expense.id}`,
+          name: expense.name || expense.description || `Expense ${expense.id}`,
           amount: expense.amount,
           frequency: expense.frequencies?.days || 30
         }));
@@ -263,7 +268,7 @@ import { formatCurrency as formatCurrencyUtil } from '../../Utility/FetchCountri
         const currentMonthlyWithNewAvailable = (goal.goal_saving_minimum / 100) * newAvailableMoney;
         const newTotalSaved = currentMonthlyWithNewAvailable * monthsToDeadline;
         
-        // Verificar se este cenário sozinho é realmente suficiente para atingir a meta
+        // Check if this scenario alone is really sufficient to reach the goal
         const scenarioPossible = newTotalSaved >= goalAmount;
         
         expenseScenarios.push({
@@ -274,22 +279,22 @@ import { formatCurrency as formatCurrencyUtil } from '../../Utility/FetchCountri
           newMonthlySaving: currentMonthlyWithNewAvailable,
           newTotalSaved,
           possible: scenarioPossible,
-          expenseDetails // Adicionando detalhes das despesas
+          expenseDetails // Adding expense details
         });
       }
       
-      // Cenário 4: Combinação de ajuste de porcentagem e remoção de despesas
+      // Scenario 4: Combination of percentage adjustment and expense removal
       const combinedScenarios = [];
       
-      for (let priority = 1; priority <= 3; priority++) { // Apenas considerar prioridades 1-3
-        // Encontrar o cenário de remoção de despesas para esta prioridade
+      for (let priority = 1; priority <= 3; priority++) { // Only consider priorities 1-3
+        // Find the expense removal scenario for this priority
         const expenseScenario = expenseScenarios.find(s => s.priority === priority);
         
         if (expenseScenario && expenseScenario.newAvailableMoney > 0) {
           const newNeededPerMonth = goalAmount / monthsToDeadline;
           const newNeededPercentage = (newNeededPerMonth / expenseScenario.newAvailableMoney) * 100;
           
-          // Verificar se a combinação é realmente viável
+          // Check if the combination is really viable
           const combinedPossible = newNeededPercentage <= 100 && newNeededPercentage > 0;
           
           combinedScenarios.push({
@@ -304,7 +309,7 @@ import { formatCurrency as formatCurrencyUtil } from '../../Utility/FetchCountri
         }
       }
       
-      // Verificar cenário adicional: remover despesas em múltiplas prioridades
+      // Check additional scenario: remove expenses in multiple priorities
       const multiPriorityScenarios = [];
       const validPriorityCombinations = [];
       
@@ -353,7 +358,7 @@ import { formatCurrency as formatCurrencyUtil } from '../../Utility/FetchCountri
             totalSavings += monthlySaving;
             
             combinedExpenseDetails.push({
-              name: expense.name || expense.description || `Despesa ${expense.id}`,
+              name: expense.name || expense.description || `Expense ${expense.id}`,
               amount: expense.amount,
               priority,
               frequency: expense.frequencies?.days || 30
@@ -393,15 +398,15 @@ import { formatCurrency as formatCurrencyUtil } from '../../Utility/FetchCountri
           type: 'percentage',
           newPercentage: percentageScenario.newPercentage,
           possible: true,
-          message: `Ajustar poupança para ${percentageScenario.newPercentage.toFixed(2)}% é suficiente.`
+          message: `Adjust savings to ${percentageScenario.newPercentage.toFixed(2)}% to reach your goal.`
         };
       }
-      // Se ajuste de porcentagem não for possível, verificar despesas de baixa prioridade
+      // If percentage adjustment isn't possible, check low priority expenses
       else if (expenseScenarios.some(s => s.priority === 1 && s.possible)) {
         const scenario = expenseScenarios.find(s => s.priority === 1 && s.possible);
         const expenseNamesText = scenario.expenseDetails && scenario.expenseDetails.length > 0
           ? scenario.expenseDetails.map(e => e.name).join(", ")
-          : `${scenario.removedExpenses} despesa(s)`;
+          : `${scenario.removedExpenses} expense(s)`;
           
         mostEfficientScenario = {
           type: 'expense',
@@ -409,15 +414,15 @@ import { formatCurrency as formatCurrencyUtil } from '../../Utility/FetchCountri
           possible: true,
           monthlySavings: scenario.monthlySavings,
           expenseDetails: scenario.expenseDetails,
-          message: `Remover despesas de prioridade ${scenario.priority} (${expenseNamesText}) é suficiente.`
+          message: `Remove priority ${scenario.priority} expenses (${expenseNamesText}) to reach your goal.`
         };
       }
-      // Verificar despesas de prioridade 2
+      // Check priority 2 expenses
       else if (expenseScenarios.some(s => s.priority === 2 && s.possible)) {
         const scenario = expenseScenarios.find(s => s.priority === 2 && s.possible);
         const expenseNamesText = scenario.expenseDetails && scenario.expenseDetails.length > 0
           ? scenario.expenseDetails.map(e => e.name).join(", ")
-          : `${scenario.removedExpenses} despesa(s)`;
+          : `${scenario.removedExpenses} expense(s)`;
           
         mostEfficientScenario = {
           type: 'expense',
@@ -425,15 +430,15 @@ import { formatCurrency as formatCurrencyUtil } from '../../Utility/FetchCountri
           possible: true,
           monthlySavings: scenario.monthlySavings,
           expenseDetails: scenario.expenseDetails,
-          message: `Remover despesas de prioridade ${scenario.priority} (${expenseNamesText}) é suficiente.`
+          message: `Remove priority ${scenario.priority} expenses (${expenseNamesText}) to reach your goal.`
         };
       }
-      // Verificar despesas de prioridade 3
+      // Check priority 3 expenses
       else if (expenseScenarios.some(s => s.priority === 3 && s.possible)) {
         const scenario = expenseScenarios.find(s => s.priority === 3 && s.possible);
         const expenseNamesText = scenario.expenseDetails && scenario.expenseDetails.length > 0
           ? scenario.expenseDetails.map(e => e.name).join(", ")
-          : `${scenario.removedExpenses} despesa(s)`;
+          : `${scenario.removedExpenses} expense(s)`;
           
         mostEfficientScenario = {
           type: 'expense',
@@ -441,12 +446,12 @@ import { formatCurrency as formatCurrencyUtil } from '../../Utility/FetchCountri
           possible: true,
           monthlySavings: scenario.monthlySavings,
           expenseDetails: scenario.expenseDetails,
-          message: `Remover despesas de prioridade ${scenario.priority} (${expenseNamesText}) é suficiente.`
+          message: `Remove priority ${scenario.priority} expenses (${expenseNamesText}) to reach your goal.`
         };
       }
-      // Verificar cenários de múltiplas prioridades
+      // Check multiple priority scenarios
       else if (multiPriorityScenarios.some(s => s.possible)) {
-        // Ordenar por soma das prioridades (menor é melhor)
+        // Sort by priority sum (lower is better)
         const possibleMulti = multiPriorityScenarios.filter(s => s.possible)
           .sort((a, b) => {
             const sumA = a.priorities.reduce((sum, p) => sum + p, 0);
@@ -463,13 +468,13 @@ import { formatCurrency as formatCurrencyUtil } from '../../Utility/FetchCountri
             possible: true,
             monthlySavings: bestMulti.monthlySavings,
             expenseDetails: bestMulti.expenseDetails,
-            message: `Remover despesas de prioridades ${bestMulti.priorities.join(', ')} é suficiente.`
+            message: `Remove priority ${bestMulti.priorities.join(', ')} expenses to reach your goal.`
           };
         }
       }
-      // Verificar cenários combinados
+      // Check combined scenarios
       else if (combinedScenarios.some(s => s.possible)) {
-        // Ordenar por prioridade (menor é melhor)
+        // Sort by priority (lower is better)
         const possibleCombined = combinedScenarios.filter(s => s.possible)
           .sort((a, b) => a.priority - b.priority);
           
@@ -477,7 +482,7 @@ import { formatCurrency as formatCurrencyUtil } from '../../Utility/FetchCountri
           const bestCombined = possibleCombined[0];
           const expenseNamesText = bestCombined.expenseDetails && bestCombined.expenseDetails.length > 0
             ? bestCombined.expenseDetails.map(e => e.name).join(", ")
-            : `${bestCombined.removedExpenses} despesa(s)`;
+            : `${bestCombined.removedExpenses} expense(s)`;
             
           mostEfficientScenario = {
             type: 'combined',
@@ -486,22 +491,22 @@ import { formatCurrency as formatCurrencyUtil } from '../../Utility/FetchCountri
             possible: true,
             monthlySavings: bestCombined.monthlySavings,
             expenseDetails: bestCombined.expenseDetails,
-            message: `Ajustar para ${bestCombined.newPercentage.toFixed(2)}% e remover despesas de prioridade ${bestCombined.priority} (${expenseNamesText}).`
+            message: `Adjust to ${bestCombined.newPercentage.toFixed(2)}% and remove priority ${bestCombined.priority} expenses (${expenseNamesText}).`
           };
         }
       }
-      // Em último caso, cenário atual (se possível)
+      // Last case, current scenario (if possible)
       else if (baseScenario.possible) {
         mostEfficientScenario = {
           type: 'current',
           possible: true,
           monthlyAmount: baseScenario.monthlyAmount,
           totalSaved: baseScenario.totalSaved,
-          message: `A configuração atual já é suficiente (${goal.goal_saving_minimum}%).`
+          message: `Current configuration is already sufficient (${goal.goal_saving_minimum}%).`
         };
       }
       
-      // Cenário recomendado
+      // Recommended scenario
       const recommendedScenario = mostEfficientScenario ? [mostEfficientScenario] : [];
       
       return {
@@ -532,30 +537,30 @@ import { formatCurrency as formatCurrencyUtil } from '../../Utility/FetchCountri
     }
   };
 
-  // Função para calcular valores alocados
+  // Function to calculate allocation values
   export const calculateAllocationValue = (goals, availableMoney, currentGoalId = null, newPercentage = 0) => {
     if (!goals || !Array.isArray(goals)) {
       return {
         totalPercentage: 0,
         totalFixedValue: 0,
         isValid: true,
-        message: 'Nenhuma meta encontrada'
+        message: 'No goals found'
       };
     }
 
-    // Validação do novo valor
+    // Validate new value
     const roundedNewPercentage = newPercentage ? parseFloat(Number(newPercentage).toFixed(2)) : 0;
     if (roundedNewPercentage < 0 || roundedNewPercentage > 100) {
       return {
         totalPercentage: 0,
         totalFixedValue: 0,
         isValid: false,
-        message: 'Porcentagem inválida. Deve estar entre 0 e 100.'
+        message: 'Invalid percentage. Must be between 0 and 100.'
       };
     }
 
     const allocation = goals.reduce((acc, goal) => {
-      // Ignora a meta atual se estiver editando
+      // Ignore current goal if editing
       if (currentGoalId && String(goal.id) === String(currentGoalId)) {
         return acc;
       }
@@ -569,15 +574,15 @@ import { formatCurrency as formatCurrencyUtil } from '../../Utility/FetchCountri
       };
     }, { totalPercentage: 0, totalFixedValue: 0 });
 
-    // Arredonda para 2 casas decimais
+    // Round to 2 decimal places
     allocation.totalPercentage = Number(allocation.totalPercentage.toFixed(2));
     allocation.totalFixedValue = Number(allocation.totalFixedValue.toFixed(2));
 
-    // Cálculo do novo total incluindo a nova porcentagem
+    // Calculate new total including new percentage
     const newTotalPercentage = allocation.totalPercentage + roundedNewPercentage;
     const newTotalFixedValue = (newTotalPercentage / 100) * availableMoney;
 
-    // Validações
+    // Validations
     const isValid = newTotalPercentage <= 100;
     const remainingPercentage = 100 - allocation.totalPercentage;
     const remainingFixedValue = availableMoney - allocation.totalFixedValue;
@@ -590,8 +595,8 @@ import { formatCurrency as formatCurrencyUtil } from '../../Utility/FetchCountri
       remainingPercentage,
       remainingFixedValue,
       message: isValid 
-        ? `Alocação atual: ${allocation.totalPercentage}% (${formatCurrency(allocation.totalFixedValue)})`
-        : `Alocação excede 100% (${newTotalPercentage}%)`,
+        ? `Current allocation: ${allocation.totalPercentage}% (${formatCurrency(allocation.totalFixedValue)})`
+        : `Allocation exceeds 100% (${newTotalPercentage}%)`,
       validation: {
         isValid,
         currentPercentage: allocation.totalPercentage,
