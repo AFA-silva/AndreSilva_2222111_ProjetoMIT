@@ -863,26 +863,67 @@ const SimplePie3D = ({
             );
           })}
           
-          {/* Renderizar as fatias em ordem normal para evitar sobreposição incorreta */}
+          {/* Renderizar as fatias com ordem otimizada para 3D */}
+          {/* Primeiro renderizar todas as bases (fundo) */}
           {slices.map((actualSlice, index) => {
-            
-            // Restaurar o deslocamento radial para o comportamento original
             const offsetX = actualSlice.isSelected ? Math.cos(actualSlice.midAngle) * 14 : 0;
             const offsetY = actualSlice.isSelected ? Math.sin(actualSlice.midAngle) * 14 : 0;
-            
-            // Profundidade extra quando selecionado e escala para destacar
             const sliceDepth = actualSlice.isSelected ? pieDepth + 6 : pieDepth;
-            const sliceScale = actualSlice.isSelected ? 1.05 : 1;
+            const sliceOpacity = actualSlice.isSelected ? 1 : (selectedSlice !== null ? 0.85 : 0.95);
             
-            // Usar gradientes diferentes dependendo do estado
+            return (
+              <G 
+                key={`slice-bottom-${index}`}
+                transform={`translate(${offsetX}, ${offsetY})`}
+                opacity={sliceOpacity}
+              >
+                {/* Face inferior da fatia */}
+                <Path
+                  d={createArcPath(actualSlice.startAngle, actualSlice.endAngle, 0, radius)}
+                  fill={`url(#gradient-bottom-${index})`}
+                  transform={`translate(0, ${sliceDepth})`}
+                />
+              </G>
+            );
+          })}
+          
+          {/* Depois renderizar as laterais */}
+          {slices.map((actualSlice, index) => {
+            const offsetX = actualSlice.isSelected ? Math.cos(actualSlice.midAngle) * 14 : 0;
+            const offsetY = actualSlice.isSelected ? Math.sin(actualSlice.midAngle) * 14 : 0;
+            const sliceDepth = actualSlice.isSelected ? pieDepth + 6 : pieDepth;
+            const sliceOpacity = actualSlice.isSelected ? 1 : (selectedSlice !== null ? 0.85 : 0.95);
+            
+            // Só renderizar lateral se não for círculo completo
+            if (Math.abs(actualSlice.endAngle - actualSlice.startAngle) >= Math.PI * 2 - 0.001) {
+              return null;
+            }
+            
+            return (
+              <G 
+                key={`slice-side-${index}`}
+                transform={`translate(${offsetX}, ${offsetY})`}
+                opacity={sliceOpacity}
+              >
+                {/* Lateral da fatia (profundidade) */}
+                <Path
+                  d={createSidePath(actualSlice.startAngle, actualSlice.endAngle, radius, sliceDepth)}
+                  fill={`url(#gradient-side-${index})`}
+                />
+              </G>
+            );
+          })}
+          
+          {/* Por último renderizar as faces superiores */}
+          {slices.map((actualSlice, index) => {
+            const offsetX = actualSlice.isSelected ? Math.cos(actualSlice.midAngle) * 14 : 0;
+            const offsetY = actualSlice.isSelected ? Math.sin(actualSlice.midAngle) * 14 : 0;
+            const sliceScale = actualSlice.isSelected ? 1.05 : 1;
             const fillGradient = actualSlice.isSelected 
               ? `url(#gradient-glow-${index})` 
               : `url(#gradient-top-${index})`;
-            
-            // Opacidade para destacar a seleção - reduzir menos as fatias não selecionadas
             const sliceOpacity = actualSlice.isSelected ? 1 : (selectedSlice !== null ? 0.85 : 0.95);
             
-            // Função para lidar com o clique para web e mobile
             const handleClick = () => {
               handleSlicePress(index);
               handleSliceHover(index);
@@ -890,14 +931,11 @@ const SimplePie3D = ({
             
             return (
               <G 
-                key={`slice-3d-${index}`}
-                x={offsetX}
-                y={offsetY}
+                key={`slice-top-${index}`}
+                transform={`translate(${offsetX}, ${offsetY}) scale(${sliceScale})`}
                 opacity={sliceOpacity}
-                scale={sliceScale}
               >
-                {/* Remover as sombras específicas que adicionamos */}
-                {/* Adicionar um efeito de brilho/contorno para a fatia selecionada */}
+                {/* Efeito de brilho/contorno para a fatia selecionada */}
                 {actualSlice.isSelected && (
                   <Path
                     d={createArcPath(actualSlice.startAngle, actualSlice.endAngle, 0, radius * 1.02)}
@@ -905,21 +943,6 @@ const SimplePie3D = ({
                     stroke={actualSlice.color}
                     strokeWidth={2}
                     strokeOpacity={0.7}
-                  />
-                )}
-                
-                {/* Face inferior da fatia */}
-                <Path
-                  d={createArcPath(actualSlice.startAngle, actualSlice.endAngle, 0, radius)}
-                  fill={`url(#gradient-bottom-${index})`}
-                  transform={`translate(0, ${sliceDepth})`}
-                />
-                
-                {/* Lateral da fatia (profundidade) - apenas para fatias que não são círculo completo */}
-                {Math.abs(actualSlice.endAngle - actualSlice.startAngle) < Math.PI * 2 - 0.001 && (
-                  <Path
-                    d={createSidePath(actualSlice.startAngle, actualSlice.endAngle, radius, sliceDepth)}
-                    fill={`url(#gradient-side-${index})`}
                   />
                 )}
                 
@@ -965,42 +988,19 @@ const SimplePie3D = ({
                   strokeDasharray={slice.isSelected ? "" : "2,1"}
                 />
                 
-                {/* Fundo do rótulo para todos */}
-                <Rect
-                  x={slice.textAnchor === 'start' ? labelX - 3 : labelX - 28}
-                  y={labelY - (isSmallSlice ? 10 : 12)}
-                  width={isSmallSlice ? 25 : 32}
-                  height={isSmallSlice ? 19 : 22}
-                  fill={slice.isSelected ? "#FFFDF0" : "#FFFFFF"}
-                  opacity={0.95}
-                  rx={4}
-                  ry={4}
-                  stroke={slice.isSelected ? slice.color : "transparent"}
-                  strokeWidth={slice.isSelected ? 1 : 0.5}
-                />
-                
-                {/* Texto da porcentagem */}
+                {/* Texto da porcentagem - sem fundo */}
                 <SvgText
                   x={labelX}
-                  y={labelY - (isSmallSlice ? 2 : 4)}
+                  y={labelY}
                   fill={textColor}
                   fontSize={isSmallSlice ? "8" : (slice.isSelected ? "12" : "10")}
                   fontWeight={slice.isSelected ? "bold" : "normal"}
                   textAnchor={slice.textAnchor}
+                  stroke="#FFFFFF"
+                  strokeWidth="0.5"
+                  paintOrder="stroke"
                 >
                   {`${Math.round(slice.percentage * 100)}%`}
-                </SvgText>
-                
-                {/* Nome da categoria */}
-                <SvgText
-                  x={labelX}
-                  y={labelY + (isSmallSlice ? 7 : 8)}
-                  fill={slice.isSelected ? slice.color : "#666"}
-                  fontSize={isSmallSlice ? "6" : "8"}
-                  fontWeight={slice.isSelected ? "bold" : "normal"}
-                  textAnchor={slice.textAnchor}
-                >
-                  {slice.name}
                 </SvgText>
               </G>
             );
