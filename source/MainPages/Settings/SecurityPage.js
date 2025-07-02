@@ -663,41 +663,41 @@ const SecurityPage = () => {
     console.log('🔐 Starting password change process...');
     
     if (isChangingPassword) {
-      console.log('⏳ Password change already in progress, ignoring...');
+      console.log('Password change already in progress, ignoring...');
       return;
     }
     
     if (!userSession) {
-      console.log('❌ No user session found');
+      console.log('No user session found');
       showAlert('No active session. Please log in again.', 'error');
       return;
     }
     
     if (oldPassword.length < 6) {
-      console.log('❌ Old password too short');
+      console.log('Old password too short');
       showAlert('Old password must be at least 6 characters long.', 'error');
       return;
     }
     
     if (newPassword.length < 6) {
-      console.log('❌ New password too short');
+      console.log('New password too short');
       showAlert('New password must be at least 6 characters long.', 'error');
       return;
     }
     
     if (newPassword !== confirmNewPassword) {
-      console.log('❌ Passwords do not match');
+      console.log('Passwords do not match');
       showAlert('New password and confirmation do not match.', 'error');
       return;
     }
     
     setIsChangingPassword(true);
-    console.log('⏳ Setting loading state...');
+    console.log('Setting loading state...');
     
     try {
-      console.log('🔄 Updating password in database...');
-      console.log('📧 User email:', userSession.user.email);
-      console.log('🆔 User ID:', userSession.user.id);
+      console.log('Updating password in database...');
+      console.log('User email:', userSession.user.email);
+      console.log('User ID:', userSession.user.id);
       
       // Update password directly in the users table
       const dbResult = await supabase
@@ -705,25 +705,25 @@ const SecurityPage = () => {
         .update({ password: newPassword })
         .eq('id', userSession.user.id);
         
-      console.log('📤 Database result received:', dbResult);
-      console.log('📤 Database data:', dbResult.data);
-      console.log('📤 Database error:', dbResult.error);
+      console.log('Database result received:', dbResult);
+      console.log('Database data:', dbResult.data);
+      console.log('Database error:', dbResult.error);
         
       if (dbResult.error) {
-        console.error('❌ Database update error:', dbResult.error);
+        console.error('Database update error:', dbResult.error);
         showAlert(`Failed to update password in database: ${dbResult.error.message}`, 'error');
         setIsChangingPassword(false);
         return;
       }
       
-      console.log('✅ Database password updated successfully');
+      console.log('Database password updated successfully');
       
       // Success - show alert and close modal
-      console.log('🎉 Password change completed successfully');
+      console.log('Password change completed successfully');
       showAlert('Password updated successfully', 'success');
       
       // Clear all password fields and visibility states
-      console.log('🧹 Clearing form fields...');
+      console.log('Clearing form fields...');
       setOldPassword('');
       setNewPassword('');
       setConfirmNewPassword('');
@@ -732,16 +732,16 @@ const SecurityPage = () => {
       setShowConfirmNewPassword(false);
       
       // Close the modal
-      console.log('🚪 Closing modal...');
+      console.log('Closing modal...');
       setPasswordModalVisible(false);
       
     } catch (error) {
-      console.error('❌ Unexpected error in handlePasswordChange:', error);
-      console.error('❌ Error details:', error.message);
-      console.error('❌ Error stack:', error.stack);
+      console.error('Unexpected error in handlePasswordChange:', error);
+      console.error('Error details:', error.message);
+      console.error('Error stack:', error.stack);
       showAlert('An unexpected error occurred. Please try again.', 'error');
     } finally {
-      console.log('🏁 Clearing loading state...');
+      console.log('Clearing loading state...');
       setIsChangingPassword(false);
     }
   };

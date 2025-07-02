@@ -101,12 +101,12 @@ const ProfilePage = ({ navigation }) => {
     },
     
     formatForDB: (dateString) => {
-      if (!dateString || dateString.trim() === '') return '';
+      if (!dateString || dateString.trim() === '') return null;
       
       const regex = /^(\d{2})\/(\d{2})\/(\d{4})$/;
       const matches = dateString.match(regex);
       
-      if (!matches) return '';
+      if (!matches) return null;
       
       const day = matches[1];
       const month = matches[2];
@@ -544,8 +544,8 @@ const ProfilePage = ({ navigation }) => {
       return false;
     }
     
-    // Birthdate validation
-    if (formData.birthdate && !dateUtils.isValidFormat(formData.birthdate)) {
+    // Birthdate validation - only validate if field is not empty
+    if (formData.birthdate && formData.birthdate.trim() !== '' && !dateUtils.isValidFormat(formData.birthdate)) {
       setAlertMessage('Date of birth must be in DD/MM/YYYY format');
       setAlertType('error');
       setShowAlert(true);
@@ -561,7 +561,16 @@ const ProfilePage = ({ navigation }) => {
     setIsSaving(true);
     
     try {
+      console.log('Starting profile save process...');
+      console.log('Form data:', { 
+        name: formData.name,
+        phone: formData.phone,
+        region: formData.region,
+        birthdate: formData.birthdate
+      });
+      
       // Update users table
+      console.log('Updating users table...');
       const { error: userError } = await supabase
         .from('users')
         .update({
@@ -572,30 +581,47 @@ const ProfilePage = ({ navigation }) => {
         .eq('id', userId);
       
       if (userError) throw userError;
+      console.log('Users table updated successfully');
+      
+      // Prepare birthdate for database
+      const formattedBirthdate = dateUtils.formatForDB(formData.birthdate);
+      console.log('Formatted birthdate for DB:', formattedBirthdate);
       
       // Update user_profile table
+      console.log('Updating user_profile table...');
       const { error: profileError } = await supabase
         .from('user_profile')
         .update({
-          birthdate: dateUtils.formatForDB(formData.birthdate),
+          birthdate: formattedBirthdate,
           image: profileImage
         })
         .eq('user_id', userId);
       
       if (profileError) throw profileError;
+      console.log('User_profile table updated successfully');
       
       setAlertMessage('Profile updated successfully!');
       setAlertType('success');
       setShowAlert(true);
       setIsEditing(false);
       
+      console.log('Profile save completed successfully!');
+      
     } catch (error) {
       console.error('Error saving profile:', error);
+      console.error('Error details:', {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint
+      });
+      
       setAlertMessage(`Error: ${error.message || 'Failed to save changes'}`);
       setAlertType('error');
       setShowAlert(true);
     } finally {
       setIsSaving(false);
+      console.log('Profile save process finished');
     }
   };
 

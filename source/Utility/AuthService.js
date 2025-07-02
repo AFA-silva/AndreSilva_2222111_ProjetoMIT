@@ -139,7 +139,8 @@ class AuthService {
           // Add additional validation to ensure session is actually valid
           const { data: { user }, error } = await supabase.auth.getUser();
           if (error || !user) {
-            console.error('Session validation failed - user not found:', error);
+            // Silently handle session validation errors to avoid showing confusing error messages
+            console.log('Session validation: clearing invalid session');
             await this.signOut();
             return false;
           }

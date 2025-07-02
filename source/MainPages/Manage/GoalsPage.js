@@ -117,6 +117,8 @@ const FullPageSkeleton = () => (
 
 // Goal Details Modal Component
 const GoalDetailsModal = ({ goal, visible, onClose, onEdit, onDelete, status, financialMetrics }) => {
+  const [scenariosExpanded, setScenariosExpanded] = useState(true);
+  
   if (!goal) return null;
   
   const progress = calculateGoalProgress(goal, 'time');
@@ -165,6 +167,32 @@ const GoalDetailsModal = ({ goal, visible, onClose, onEdit, onDelete, status, fi
 
   // Check if scenarios are available
   const hasScenarios = displayStatus && displayStatus.scenarios;
+  
+  // Calculate completion estimate with current savings
+  const calculateCompletionEstimate = () => {
+    const monthlyContribution = (goal.goal_saving_minimum / 100) * availableMoney;
+    if (monthlyContribution <= 0) return null;
+    
+    const remaining = goal.amount - accumulated;
+    if (remaining <= 0) return { completed: true, message: "Goal already achieved!" };
+    
+    const monthsNeeded = Math.ceil(remaining / monthlyContribution);
+    const completionDate = new Date();
+    completionDate.setMonth(completionDate.getMonth() + monthsNeeded);
+    
+    return {
+      completed: false,
+      monthsNeeded,
+      completionDate: completionDate.toLocaleDateString('en-GB', { 
+        day: '2-digit', 
+        month: '2-digit', 
+        year: 'numeric' 
+      }),
+      monthlyAmount: monthlyContribution
+    };
+  };
+  
+  const completionEstimate = calculateCompletionEstimate();
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
@@ -244,6 +272,31 @@ const GoalDetailsModal = ({ goal, visible, onClose, onEdit, onDelete, status, fi
               </View>
             </View>
 
+            {/* Completion Estimate */}
+            {completionEstimate && (
+              <View style={styles.detailsGrid}>
+                <View style={styles.detailsRow}>
+                  <View style={styles.detailsItem}>
+                    <Text style={styles.detailsLabel}>Completion Estimate</Text>
+                    {completionEstimate.completed ? (
+                      <Text style={[styles.detailsValue, { color: '#00B894' }]}>
+                        {completionEstimate.message}
+                      </Text>
+                    ) : (
+                      <>
+                        <Text style={styles.detailsValue}>
+                          {completionEstimate.completionDate}
+                        </Text>
+                        <Text style={styles.detailsSubtext}>
+                          In {completionEstimate.monthsNeeded} months with {formatCurrency(completionEstimate.monthlyAmount)}/month
+                        </Text>
+                      </>
+                    )}
+                  </View>
+                </View>
+              </View>
+            )}
+
             {displayStatus && displayStatus.message && (
               <View style={[styles.statusContainer, { backgroundColor }]}>
                 <View style={styles.statusHeader}>
@@ -260,12 +313,22 @@ const GoalDetailsModal = ({ goal, visible, onClose, onEdit, onDelete, status, fi
 
             {/* Scenario Analysis Section - Always Show */}
               <View style={styles.scenariosContainer}>
-              <View style={styles.scenariosHeader}>
+              <TouchableOpacity 
+                style={styles.scenariosHeader}
+                onPress={() => setScenariosExpanded(!scenariosExpanded)}
+                activeOpacity={0.7}
+              >
                 <Ionicons name="analytics" size={20} color="#00B894" />
                 <Text style={styles.sectionTitle}>Scenario Analysis</Text>
-              </View>
+                <Ionicons 
+                  name={scenariosExpanded ? "chevron-up" : "chevron-down"} 
+                  size={20} 
+                  color="#00B894" 
+                />
+              </TouchableOpacity>
               
-                  <View style={styles.scenariosContent}>
+              {scenariosExpanded && (
+                <View style={styles.scenariosContent}>
                 {/* Show scenarios if available, otherwise show basic info */}
                 {hasScenarios ? (
                   <>
@@ -429,7 +492,8 @@ const GoalDetailsModal = ({ goal, visible, onClose, onEdit, onDelete, status, fi
                     />
                   </>
                 )}
-              </View>
+                </View>
+              )}
             </View>
 
             <View style={styles.detailsActions}>
@@ -1510,10 +1574,7 @@ const GoalsPage = ({ navigation }) => {
     }
   }, [showAlert]);
 
-  // Show skeleton loading only for initial load when page is first opened
-  if (initialLoading) {
-    return <FullPageSkeleton />;
-  }
+  // Note: Skeleton loading removed as requested
 
   return (
     <View style={styles.container}>
