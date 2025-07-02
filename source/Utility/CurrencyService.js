@@ -262,20 +262,13 @@ async function convertIncomes(userId, fromCurrency, toCurrency, rate) {
     let convertedCount = 0;
     for (const income of incomes) {
       try {
-        // Check if this income was already converted from the same currency
-        if (income.last_currency === fromCurrency) {
-          // Removed console.log - not essential
-          continue;
-        }
-
         const originalAmount = parseFloat(income.amount);
         const convertedAmount = originalAmount * rate;
 
         const { error: updateError } = await supabase
           .from('income')
           .update({ 
-            amount: convertedAmount.toFixed(2),
-            last_currency: fromCurrency
+            amount: convertedAmount.toFixed(2)
           })
           .eq('id', income.id);
 
@@ -316,20 +309,13 @@ async function convertExpenses(userId, fromCurrency, toCurrency, rate) {
     let convertedCount = 0;
     for (const expense of expenses) {
       try {
-        // Check if this expense was already converted from the same currency
-        if (expense.last_currency === fromCurrency) {
-          // Removed console.log - not essential
-          continue;
-        }
-
         const originalAmount = parseFloat(expense.amount);
         const convertedAmount = originalAmount * rate;
 
         const { error: updateError } = await supabase
           .from('expenses')
           .update({ 
-            amount: convertedAmount.toFixed(2),
-            last_currency: fromCurrency
+            amount: convertedAmount.toFixed(2)
           })
           .eq('id', expense.id);
 

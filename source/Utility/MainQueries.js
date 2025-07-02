@@ -450,8 +450,7 @@ export const updateIncomesWithConvertedValues = async (userId, conversionRates, 
         const { error: updateError } = await supabase
           .from('income')
           .update({ 
-            amount: convertedAmount.toFixed(2),
-            last_currency: fromCurrency
+            amount: convertedAmount.toFixed(2)
           })
           .eq('id', income.id);
           
@@ -509,8 +508,7 @@ export const updateExpensesWithConvertedValues = async (userId, conversionRates,
         const { error: updateError } = await supabase
           .from('expenses')
           .update({ 
-            amount: convertedAmount.toFixed(2),
-            last_currency: fromCurrency
+            amount: convertedAmount.toFixed(2)
           })
           .eq('id', expense.id);
           
@@ -568,8 +566,7 @@ export const updateGoalsWithConvertedValues = async (userId, conversionRates, fr
         const { error: updateError } = await supabase
           .from('goals')
           .update({ 
-            amount: convertedAmount.toFixed(2),
-            last_currency: fromCurrency
+            amount: convertedAmount.toFixed(2)
           })
           .eq('id', goal.id);
           
